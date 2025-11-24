@@ -2,6 +2,7 @@
 //!
 //! Provides ready-to-use visualization types with builder APIs.
 
+mod boxplot;
 mod confusion_matrix;
 mod heatmap;
 mod histogram;
@@ -10,6 +11,7 @@ mod loss_curve;
 mod roc_pr;
 mod scatter;
 
+pub use boxplot::{BoxPlot, BoxStats, BuiltBoxPlot, BuiltViolinPlot, ViolinPlot};
 pub use confusion_matrix::{ConfusionMatrix, ConfusionMatrixMetrics, Normalization};
 pub use heatmap::{Heatmap, HeatmapPalette};
 pub use histogram::Histogram;
