@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+# Generate README.md with live output from examples
+# Run via: make readme
+set -euo pipefail
+
+DEMO_OUTPUT=$(cargo run --example readme_demo --quiet 2>&1)
+
+cat << 'HEADER'
 # trueno-viz
 
 SIMD/GPU/WASM-accelerated visualization for Data Science, Physics, and ML/DL.
@@ -25,26 +33,13 @@ TerminalEncoder::new()
 
 ```
 $ cargo run --example readme_demo --quiet
-```
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-            %%                                  %           
-              %%                             % %            
-                                            % %             
-                 %%                      %%                 
-                                        %%%                 
-                      %%%%%   %%  %% %%                     
-                           %    %                           
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-```
+HEADER
+
+echo '```'
+echo "$DEMO_OUTPUT"
+echo '```'
+
+cat << 'FOOTER'
 
 ## Features
 
@@ -74,3 +69,4 @@ cargo run --example terminal_output
 ## License
 
 MIT OR Apache-2.0
+FOOTER

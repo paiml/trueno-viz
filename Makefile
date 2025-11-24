@@ -289,6 +289,13 @@ dev: ## Start development (watch mode)
 doc: ## Generate documentation
 	$(CARGO) doc --no-deps --open
 
+.PHONY: readme
+readme: ## Regenerate README.md from template (reproducible docs)
+	@echo "Regenerating README.md..."
+	@$(CARGO) build --example readme_demo --quiet
+	@./scripts/generate-readme.sh > README.md
+	@echo "README.md updated"
+
 .PHONY: bench
 bench: ## Run benchmarks
 	$(CARGO) bench

@@ -117,9 +117,9 @@ impl ScatterPlot {
     ///
     /// Returns an error if rendering fails.
     pub fn render(&self, fb: &mut Framebuffer) -> Result<()> {
-        // Calculate plot area
-        let plot_width = self.width - 2 * self.margin;
-        let plot_height = self.height - 2 * self.margin;
+        // Calculate plot area (saturating to prevent overflow)
+        let plot_width = self.width.saturating_sub(2 * self.margin);
+        let plot_height = self.height.saturating_sub(2 * self.margin);
 
         // Create scales from data
         let x_scale = LinearScale::from_data(&self.x_data, (self.margin as f32, (self.margin + plot_width) as f32))
