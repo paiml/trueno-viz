@@ -1,0 +1,334 @@
+# PMAT Quality Pipeline for Trueno-Viz
+# Lean-Scientific Code Review Protocol Enforcement
+#
+# Toyota Way Principles:
+#   - Jidoka: Automated quality gates that stop the line
+#   - Genchi Genbutsu: Verify actual behavior, not just code
+#   - Kaizen: Track metrics for continuous improvement
+
+name: PMAT Quality Gates
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  # Quality thresholds
+  MIN_COVERAGE: 95
+  MIN_MUTATION_SCORE: 80
+  MIN_TDG_GRADE: "A-"
+
+jobs:
+  # ===========================================================================
+  # Quick Validation (runs on every push)
+  # ===========================================================================
+  quick-check:
+    name: Quick Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Format check
+        run: cargo fmt -- --check
+
+      - name: Clippy lints
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build
+        run: cargo build --all-features
+
+      - name: Fast tests
+        run: cargo test --lib
+
+  # ===========================================================================
+  # PMAT Quality Gates
+  # ===========================================================================
+  pmat-quality:
+    name: PMAT Quality Gates
+    runs-on: ubuntu-latest
+    needs: quick-check
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for churn analysis
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install PMAT
+        run: cargo install pmat
+
+      - name: PMAT Diagnostics
+        run: pmat diagnose || true
+
+      - name: O(1) Quality Gate
+        run: pmat quality-gate --fail-on-violation
+
+      - name: Technical Debt Grading
+        run: |
+          echo "## Technical Debt Grade" >> $GITHUB_STEP_SUMMARY
+          pmat analyze satd --path . --format markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Complexity Analysis
+        run: |
+          echo "## Complexity Hotspots" >> $GITHUB_STEP_SUMMARY
+          pmat analyze complexity --top-files 10 --format markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Dead Code Detection
+        run: pmat analyze dead-code --max-percentage 5.0
+
+      - name: Defect Pattern Scan
+        run: pmat analyze defects --path .
+
+  # ===========================================================================
+  # Rust Project Score (comprehensive assessment)
+  # ===========================================================================
+  rust-score:
+    name: Rust Project Score
+    runs-on: ubuntu-latest
+    needs: quick-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install PMAT
+        run: cargo install pmat
+
+      - name: Calculate Rust Project Score
+        id: score
+        run: |
+          pmat rust-project-score --full --format json --output score.json
+          SCORE=$(jq '.total_earned' score.json)
+          POSSIBLE=$(jq '.total_possible' score.json)
+          PERCENT=$(echo "scale=1; $SCORE * 100 / $POSSIBLE" | bc)
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "percent=$PERCENT" >> $GITHUB_OUTPUT
+
+      - name: Report Score
+        run: |
+          echo "## Rust Project Score" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Score: ${{ steps.score.outputs.score }}/211 (${{ steps.score.outputs.percent }}%)**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Target: 180+ points (85%+)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          pmat rust-project-score --full --format markdown >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Score Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-project-score
+          path: score.json
+
+  # ===========================================================================
+  # Test Coverage
+  # ===========================================================================
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    needs: quick-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run coverage
+        run: |
+          cargo tarpaulin --out Json --output-dir . \
+            --skip-clean \
+            --timeout 300 \
+            --ignore-tests
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(jq '.files | map(.covered / .coverable * 100) | add / length' tarpaulin-report.json)
+          echo "Coverage: $COVERAGE%"
+          echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo "**Coverage: ${COVERAGE}%**" >> $GITHUB_STEP_SUMMARY
+          echo "Minimum: ${MIN_COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+
+          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+            echo "::error::Coverage ${COVERAGE}% is below minimum ${MIN_COVERAGE}%"
+            exit 1
+          fi
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: tarpaulin-report.json
+
+  # ===========================================================================
+  # TDG Regression Check (on PRs)
+  # ===========================================================================
+  tdg-regression:
+    name: TDG Regression Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: quick-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install PMAT
+        run: cargo install pmat
+
+      - name: Check for TDG baseline
+        id: baseline
+        run: |
+          if [ -f ".pmat/tdg-baseline.json" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: TDG Regression Check
+        if: steps.baseline.outputs.exists == 'true'
+        run: |
+          pmat tdg check-regression \
+            --baseline .pmat/tdg-baseline.json \
+            --max-score-drop 5.0 \
+            --fail-on-regression
+
+      - name: Skip TDG Regression (no baseline)
+        if: steps.baseline.outputs.exists == 'false'
+        run: echo "No TDG baseline found. Skipping regression check."
+
+  # ===========================================================================
+  # Mutation Testing (nightly)
+  # ===========================================================================
+  mutation-testing:
+    name: Mutation Testing
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[mutation]')
+    needs: quick-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install PMAT
+        run: cargo install pmat
+
+      - name: Run Mutation Testing
+        run: |
+          pmat mutate --target src/ --threshold $MIN_MUTATION_SCORE --format json --output mutation.json
+
+      - name: Report Mutation Score
+        run: |
+          SCORE=$(jq '.mutation_score' mutation.json)
+          echo "## Mutation Testing" >> $GITHUB_STEP_SUMMARY
+          echo "**Mutation Score: ${SCORE}%**" >> $GITHUB_STEP_SUMMARY
+          echo "Minimum: ${MIN_MUTATION_SCORE}%" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload mutation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: mutation.json
+
+  # ===========================================================================
+  # Documentation Validation
+  # ===========================================================================
+  docs-validation:
+    name: Documentation Validation
+    runs-on: ubuntu-latest
+    needs: quick-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install PMAT
+        run: cargo install pmat
+
+      - name: Build rustdoc
+        run: cargo doc --no-deps
+
+      - name: Validate README
+        run: |
+          if [ -f "README.md" ]; then
+            pmat validate-readme --targets README.md || true
+          fi
+
+      - name: Validate CONTRIBUTING
+        run: |
+          if [ -f "CONTRIBUTING.md" ]; then
+            pmat validate-readme --targets CONTRIBUTING.md || true
+          fi
+
+  # ===========================================================================
+  # Final Status
+  # ===========================================================================
+  quality-status:
+    name: Quality Status
+    runs-on: ubuntu-latest
+    needs: [quick-check, pmat-quality, rust-score, coverage]
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          echo "## Quality Gate Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.quick-check.result }}" == "success" ]; then
+            echo "- Quick Check: PASS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Quick Check: FAIL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.pmat-quality.result }}" == "success" ]; then
+            echo "- PMAT Quality: PASS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- PMAT Quality: FAIL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.rust-score.result }}" == "success" ]; then
+            echo "- Rust Score: PASS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Rust Score: FAIL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.coverage.result }}" == "success" ]; then
+            echo "- Coverage: PASS" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Coverage: FAIL" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if any job failed
+        if: |
+          needs.quick-check.result == 'failure' ||
+          needs.pmat-quality.result == 'failure' ||
+          needs.rust-score.result == 'failure' ||
+          needs.coverage.result == 'failure'
+        run: |
+          echo "One or more quality gates failed. See summary above."
+          exit 1
