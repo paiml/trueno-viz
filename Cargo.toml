@@ -1,0 +1,120 @@
+[package]
+name = "trueno-viz"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["PAIML Team"]
+description = "SIMD/GPU/WASM-accelerated visualization library for data science and ML"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/paiml/trueno-viz"
+documentation = "https://docs.rs/trueno-viz"
+readme = "README.md"
+keywords = ["visualization", "simd", "gpu", "wasm", "data-science"]
+categories = ["visualization", "graphics", "science", "wasm"]
+
+[dependencies]
+# Core SIMD/GPU acceleration
+trueno = { version = "0.7.1", default-features = false }
+
+# PNG encoding (pure Rust, no libpng)
+png = "0.17"
+
+# Error handling
+thiserror = "1.0"
+
+# Optional: ML integration
+aprender = { version = "0.7.1", optional = true }
+
+# Optional: Graph integration
+trueno-graph = { version = "0.1.1", optional = true }
+
+# Optional: Database integration
+trueno-db = { version = "0.3.2", optional = true }
+
+# Optional: Training integration
+entrenar = { version = "0.1.0", optional = true }
+
+[dev-dependencies]
+# Testing
+proptest = "1.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Test utilities
+tempfile = "3.10"
+approx = "0.5"
+
+[features]
+default = []
+
+# SIMD acceleration is built-in to trueno by default
+# No feature flag needed
+
+# GPU compute acceleration
+gpu = ["trueno/gpu"]
+
+# Parallel processing with rayon
+parallel = ["trueno/parallel"]
+
+# ML library integration
+ml = ["dep:aprender", "dep:entrenar"]
+
+# Graph library integration
+graph = ["dep:trueno-graph"]
+
+# Database integration
+db = ["dep:trueno-db"]
+
+# Terminal output support
+terminal = []
+
+# SVG output support
+svg = []
+
+# All features enabled
+full = ["gpu", "parallel", "ml", "graph", "db", "terminal", "svg"]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+[profile.dev]
+opt-level = 1
+
+[profile.bench]
+opt-level = 3
+lto = "thin"
+
+[[bench]]
+name = "scatter_benchmark"
+harness = false
+
+[[bench]]
+name = "framebuffer_benchmark"
+harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[lints.rust]
+unsafe_code = "warn"
+missing_docs = "warn"
+
+[lints.clippy]
+# Base warning level
+all = { level = "warn", priority = -1 }
+
+# Important lints to enforce
+unwrap_used = "warn"
+expect_used = "warn"
+
+# Allow common patterns in graphics/visualization code
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_precision_loss = "allow"
+many_single_char_names = "allow"  # h, s, l, r, g, b are standard color notation
+suboptimal_flops = "allow"        # Clarity over micro-optimization initially
+lint_groups_priority = "allow"    # Cargo.toml lint config warning
