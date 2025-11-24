@@ -134,11 +134,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Implement Box and Violin plots
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 1970-01-01T00:00:00Z
-  updated: 1970-01-01T00:00:00Z
+  updated: 2025-11-24T23:43:14.620153183+00:00
   spec: null
   acceptance_criteria: []
   phases: []
@@ -182,11 +182,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Implement Terminal output (ASCII/Unicode)
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 1970-01-01T00:00:00Z
-  updated: 2025-11-24T23:23:18.059439296+00:00
+  updated: 2025-11-24T23:37:49.010051817+00:00
   spec: null
   acceptance_criteria: []
   phases: []
