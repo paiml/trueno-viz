@@ -92,19 +92,65 @@ test: ## Run all tests
 	$(CARGO) test --all-features
 
 .PHONY: test-fast
-test-fast: ## Run tests without slow integration tests
-	$(CARGO) test --lib
+test-fast: ## Run fast tests with nextest (<30s)
+	@echo "⚡ Running fast tests (target: <30s)..."
+	@if command -v cargo-nextest >/dev/null 2>&1; then \
+		RUST_TEST_THREADS=$$(nproc) cargo nextest run \
+			--all-features \
+			--status-level skip \
+			--failure-output immediate; \
+	else \
+		echo "📦 nextest not found, using cargo test..."; \
+		$(CARGO) test --all-features; \
+	fi
 
 .PHONY: test-doc
 test-doc: ## Run documentation tests
 	$(CARGO) test --doc
 
 .PHONY: test-coverage
-test-coverage: ## Run tests with coverage report
+test-coverage: ## Run tests with tarpaulin coverage
 	$(CARGO) tarpaulin --out Html --output-dir target/coverage \
 		--fail-under $(MIN_COVERAGE) \
 		--skip-clean \
 		--timeout 300
+
+.PHONY: coverage
+coverage: ## Generate HTML coverage report with llvm-cov
+	@echo "📊 Running comprehensive test coverage analysis..."
+	@echo "🔍 Checking for cargo-llvm-cov and cargo-nextest..."
+	@which cargo-llvm-cov > /dev/null 2>&1 || (echo "📦 Installing cargo-llvm-cov..." && cargo install cargo-llvm-cov --locked)
+	@which cargo-nextest > /dev/null 2>&1 || (echo "📦 Installing cargo-nextest..." && cargo install cargo-nextest --locked)
+	@echo "🧹 Cleaning old coverage data..."
+	@cargo llvm-cov clean --workspace
+	@mkdir -p target/coverage
+	@echo "⚙️  Temporarily disabling global cargo config (mold breaks coverage)..."
+	@test -f ~/.cargo/config.toml && mv ~/.cargo/config.toml ~/.cargo/config.toml.cov-backup || true
+	@echo "🧪 Running tests with instrumentation..."
+	@cargo llvm-cov --no-report nextest --no-tests=warn --all-features
+	@echo "📊 Generating coverage reports..."
+	@cargo llvm-cov report --html --output-dir target/coverage/html
+	@cargo llvm-cov report --lcov --output-path target/coverage/lcov.info
+	@echo "⚙️  Restoring global cargo config..."
+	@test -f ~/.cargo/config.toml.cov-backup && mv ~/.cargo/config.toml.cov-backup ~/.cargo/config.toml || true
+	@echo ""
+	@echo "📊 Coverage Summary:"
+	@echo "=================="
+	@cargo llvm-cov report --summary-only
+	@echo ""
+	@echo "💡 COVERAGE INSIGHTS:"
+	@echo "- HTML report: target/coverage/html/index.html"
+	@echo "- LCOV file: target/coverage/lcov.info"
+	@echo "- Open HTML: xdg-open target/coverage/html/index.html"
+	@echo ""
+
+.PHONY: coverage-summary
+coverage-summary: ## Show coverage summary (run after 'make coverage')
+	@cargo llvm-cov report --summary-only 2>/dev/null || echo "Run 'make coverage' first"
+
+.PHONY: coverage-open
+coverage-open: ## Open coverage HTML report in browser
+	@xdg-open target/coverage/html/index.html 2>/dev/null || open target/coverage/html/index.html 2>/dev/null || echo "Open target/coverage/html/index.html manually"
 
 # ============================================================================
 # Lint & Format
