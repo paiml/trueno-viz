@@ -85,7 +85,12 @@ impl Rect {
     /// Create a new rectangle.
     #[must_use]
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self { x, y, width, height }
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
     }
 
     /// Create a rectangle from two corner points.

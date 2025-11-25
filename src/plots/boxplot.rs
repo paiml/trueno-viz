@@ -53,8 +53,17 @@ impl BoxStats {
         let upper_fence = q3 + 1.5 * iqr;
 
         // Find actual min/max within fences
-        let min = sorted.iter().copied().find(|&x| x >= lower_fence).unwrap_or(sorted[0]);
-        let max = sorted.iter().rev().copied().find(|&x| x <= upper_fence).unwrap_or(sorted[n - 1]);
+        let min = sorted
+            .iter()
+            .copied()
+            .find(|&x| x >= lower_fence)
+            .unwrap_or(sorted[0]);
+        let max = sorted
+            .iter()
+            .rev()
+            .copied()
+            .find(|&x| x <= upper_fence)
+            .unwrap_or(sorted[n - 1]);
 
         // Collect outliers
         let outliers: Vec<f32> = sorted
@@ -368,13 +377,41 @@ impl BuiltBoxPlot {
             let y_max_px = map_y(stats.max);
 
             // Draw whiskers (vertical lines)
-            draw_line(fb, center_x as i32, y_min_px as i32, center_x as i32, y_q1 as i32, self.outline_color);
-            draw_line(fb, center_x as i32, y_q3 as i32, center_x as i32, y_max_px as i32, self.outline_color);
+            draw_line(
+                fb,
+                center_x as i32,
+                y_min_px as i32,
+                center_x as i32,
+                y_q1 as i32,
+                self.outline_color,
+            );
+            draw_line(
+                fb,
+                center_x as i32,
+                y_q3 as i32,
+                center_x as i32,
+                y_max_px as i32,
+                self.outline_color,
+            );
 
             // Draw whisker caps (horizontal lines)
             let cap_half = half_box / 2;
-            draw_line(fb, (center_x - cap_half) as i32, y_min_px as i32, (center_x + cap_half) as i32, y_min_px as i32, self.outline_color);
-            draw_line(fb, (center_x - cap_half) as i32, y_max_px as i32, (center_x + cap_half) as i32, y_max_px as i32, self.outline_color);
+            draw_line(
+                fb,
+                (center_x - cap_half) as i32,
+                y_min_px as i32,
+                (center_x + cap_half) as i32,
+                y_min_px as i32,
+                self.outline_color,
+            );
+            draw_line(
+                fb,
+                (center_x - cap_half) as i32,
+                y_max_px as i32,
+                (center_x + cap_half) as i32,
+                y_max_px as i32,
+                self.outline_color,
+            );
 
             // Draw box (Q1 to Q3)
             let box_left = center_x.saturating_sub(half_box);
@@ -382,24 +419,80 @@ impl BuiltBoxPlot {
             let box_bottom = y_q3.max(y_q1);
             let box_height = box_bottom.saturating_sub(box_top);
 
-            draw_rect(fb, box_left as i32, box_top as i32, actual_box_width, box_height, self.fill_color);
+            draw_rect(
+                fb,
+                box_left as i32,
+                box_top as i32,
+                actual_box_width,
+                box_height,
+                self.fill_color,
+            );
 
             // Draw box outline
-            draw_line(fb, box_left as i32, box_top as i32, (box_left + actual_box_width) as i32, box_top as i32, self.outline_color);
-            draw_line(fb, box_left as i32, box_bottom as i32, (box_left + actual_box_width) as i32, box_bottom as i32, self.outline_color);
-            draw_line(fb, box_left as i32, box_top as i32, box_left as i32, box_bottom as i32, self.outline_color);
-            draw_line(fb, (box_left + actual_box_width) as i32, box_top as i32, (box_left + actual_box_width) as i32, box_bottom as i32, self.outline_color);
+            draw_line(
+                fb,
+                box_left as i32,
+                box_top as i32,
+                (box_left + actual_box_width) as i32,
+                box_top as i32,
+                self.outline_color,
+            );
+            draw_line(
+                fb,
+                box_left as i32,
+                box_bottom as i32,
+                (box_left + actual_box_width) as i32,
+                box_bottom as i32,
+                self.outline_color,
+            );
+            draw_line(
+                fb,
+                box_left as i32,
+                box_top as i32,
+                box_left as i32,
+                box_bottom as i32,
+                self.outline_color,
+            );
+            draw_line(
+                fb,
+                (box_left + actual_box_width) as i32,
+                box_top as i32,
+                (box_left + actual_box_width) as i32,
+                box_bottom as i32,
+                self.outline_color,
+            );
 
             // Draw median line
-            draw_line(fb, box_left as i32, y_median as i32, (box_left + actual_box_width) as i32, y_median as i32, self.median_color);
+            draw_line(
+                fb,
+                box_left as i32,
+                y_median as i32,
+                (box_left + actual_box_width) as i32,
+                y_median as i32,
+                self.median_color,
+            );
 
             // Draw outliers
             if self.show_outliers {
                 for &outlier in &stats.outliers {
                     let y_out = map_y(outlier);
                     // Draw small circle for outlier (approximated with a cross)
-                    draw_line(fb, (center_x - 2) as i32, y_out as i32, (center_x + 2) as i32, y_out as i32, self.outlier_color);
-                    draw_line(fb, center_x as i32, (y_out - 2) as i32, center_x as i32, (y_out + 2) as i32, self.outlier_color);
+                    draw_line(
+                        fb,
+                        (center_x - 2) as i32,
+                        y_out as i32,
+                        (center_x + 2) as i32,
+                        y_out as i32,
+                        self.outlier_color,
+                    );
+                    draw_line(
+                        fb,
+                        center_x as i32,
+                        (y_out - 2) as i32,
+                        center_x as i32,
+                        (y_out + 2) as i32,
+                        self.outlier_color,
+                    );
                 }
             }
         }
@@ -525,11 +618,8 @@ impl ViolinPlot {
             .map(|g| compute_kde(g, self.bandwidth, 50))
             .collect();
 
-        let stats: Vec<Option<BoxStats>> = self
-            .groups
-            .iter()
-            .map(|g| BoxStats::from_data(g))
-            .collect();
+        let stats: Vec<Option<BoxStats>> =
+            self.groups.iter().map(|g| BoxStats::from_data(g)).collect();
 
         Ok(BuiltViolinPlot {
             kdes,
@@ -716,7 +806,14 @@ impl BuiltViolinPlot {
                     let w = (w1 as f32 * (1.0 - t) + w2 as f32 * t) as u32;
                     let x_left = center_x.saturating_sub(w);
                     let x_right = center_x + w;
-                    draw_line(fb, x_left as i32, py as i32, x_right as i32, py as i32, self.fill_color);
+                    draw_line(
+                        fb,
+                        x_left as i32,
+                        py as i32,
+                        x_right as i32,
+                        py as i32,
+                        self.fill_color,
+                    );
                 }
             }
 
@@ -732,9 +829,23 @@ impl BuiltViolinPlot {
                 let w2 = (d2 * max_violin_half_width as f32) as i32;
 
                 // Left edge
-                draw_line(fb, center_x as i32 - w1, py1 as i32, center_x as i32 - w2, py2 as i32, self.outline_color);
+                draw_line(
+                    fb,
+                    center_x as i32 - w1,
+                    py1 as i32,
+                    center_x as i32 - w2,
+                    py2 as i32,
+                    self.outline_color,
+                );
                 // Right edge
-                draw_line(fb, center_x as i32 + w1, py1 as i32, center_x as i32 + w2, py2 as i32, self.outline_color);
+                draw_line(
+                    fb,
+                    center_x as i32 + w1,
+                    py1 as i32,
+                    center_x as i32 + w2,
+                    py2 as i32,
+                    self.outline_color,
+                );
             }
 
             // Draw inner box plot if enabled
@@ -751,16 +862,58 @@ impl BuiltViolinPlot {
                     // Small box
                     let box_top = y_q3.min(y_q1);
                     let box_bottom = y_q3.max(y_q1);
-                    draw_rect(fb, box_left as i32, box_top as i32, box_width, box_bottom.saturating_sub(box_top), Rgba::WHITE);
+                    draw_rect(
+                        fb,
+                        box_left as i32,
+                        box_top as i32,
+                        box_width,
+                        box_bottom.saturating_sub(box_top),
+                        Rgba::WHITE,
+                    );
 
                     // Box outline
-                    draw_line(fb, box_left as i32, box_top as i32, (box_left + box_width) as i32, box_top as i32, Rgba::BLACK);
-                    draw_line(fb, box_left as i32, box_bottom as i32, (box_left + box_width) as i32, box_bottom as i32, Rgba::BLACK);
-                    draw_line(fb, box_left as i32, box_top as i32, box_left as i32, box_bottom as i32, Rgba::BLACK);
-                    draw_line(fb, (box_left + box_width) as i32, box_top as i32, (box_left + box_width) as i32, box_bottom as i32, Rgba::BLACK);
+                    draw_line(
+                        fb,
+                        box_left as i32,
+                        box_top as i32,
+                        (box_left + box_width) as i32,
+                        box_top as i32,
+                        Rgba::BLACK,
+                    );
+                    draw_line(
+                        fb,
+                        box_left as i32,
+                        box_bottom as i32,
+                        (box_left + box_width) as i32,
+                        box_bottom as i32,
+                        Rgba::BLACK,
+                    );
+                    draw_line(
+                        fb,
+                        box_left as i32,
+                        box_top as i32,
+                        box_left as i32,
+                        box_bottom as i32,
+                        Rgba::BLACK,
+                    );
+                    draw_line(
+                        fb,
+                        (box_left + box_width) as i32,
+                        box_top as i32,
+                        (box_left + box_width) as i32,
+                        box_bottom as i32,
+                        Rgba::BLACK,
+                    );
 
                     // Median
-                    draw_line(fb, box_left as i32, y_median as i32, (box_left + box_width) as i32, y_median as i32, Rgba::BLACK);
+                    draw_line(
+                        fb,
+                        box_left as i32,
+                        y_median as i32,
+                        (box_left + box_width) as i32,
+                        y_median as i32,
+                        Rgba::BLACK,
+                    );
                 }
             }
         }

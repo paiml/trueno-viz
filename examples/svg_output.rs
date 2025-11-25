@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! SVG Output Example
 //!
 //! Demonstrates creating SVG visualizations with both
@@ -20,10 +21,17 @@ fn main() {
     let vector_svg = SvgEncoder::new(400, 300)
         .background(Some(Rgba::new(245, 245, 245, 255)))
         // Title
-        .text_anchored(200.0, 30.0, "Vector SVG Chart", 18.0, Rgba::BLACK, TextAnchor::Middle)
+        .text_anchored(
+            200.0,
+            30.0,
+            "Vector SVG Chart",
+            18.0,
+            Rgba::BLACK,
+            TextAnchor::Middle,
+        )
         // Axes
         .line(50.0, 250.0, 350.0, 250.0, Rgba::BLACK, 2.0) // X-axis
-        .line(50.0, 50.0, 50.0, 250.0, Rgba::BLACK, 2.0)   // Y-axis
+        .line(50.0, 50.0, 50.0, 250.0, Rgba::BLACK, 2.0) // Y-axis
         // Data bars
         .rect(70.0, 150.0, 40.0, 100.0, Rgba::new(66, 133, 244, 200))
         .rect(130.0, 100.0, 40.0, 150.0, Rgba::new(52, 168, 83, 200))
@@ -39,7 +47,9 @@ fn main() {
         .text_anchored(40.0, 155.0, "50", 10.0, Rgba::BLACK, TextAnchor::End)
         .text_anchored(40.0, 55.0, "100", 10.0, Rgba::BLACK, TextAnchor::End);
 
-    vector_svg.write_to_file("vector_chart.svg").expect("Failed to write SVG");
+    vector_svg
+        .write_to_file("vector_chart.svg")
+        .expect("Failed to write SVG");
     println!("  Saved: vector_chart.svg");
     println!("  Size: {} bytes\n", vector_svg.render().len());
 
@@ -49,9 +59,24 @@ fn main() {
 
     let mut scatter_svg = SvgEncoder::new(400, 300)
         .background(Some(Rgba::WHITE))
-        .text_anchored(200.0, 25.0, "Scatter Plot", 16.0, Rgba::BLACK, TextAnchor::Middle)
+        .text_anchored(
+            200.0,
+            25.0,
+            "Scatter Plot",
+            16.0,
+            Rgba::BLACK,
+            TextAnchor::Middle,
+        )
         // Plot area
-        .rect_outlined(50.0, 40.0, 300.0, 220.0, Rgba::new(250, 250, 250, 255), Rgba::new(200, 200, 200, 255), 1.0);
+        .rect_outlined(
+            50.0,
+            40.0,
+            300.0,
+            220.0,
+            Rgba::new(250, 250, 250, 255),
+            Rgba::new(200, 200, 200, 255),
+            1.0,
+        );
 
     // Add scatter points
     let points = generate_scatter_data();
@@ -60,7 +85,9 @@ fn main() {
         scatter_svg = scatter_svg.circle(*x, *y, *size, color);
     }
 
-    scatter_svg.write_to_file("scatter_vector.svg").expect("Failed to write SVG");
+    scatter_svg
+        .write_to_file("scatter_vector.svg")
+        .expect("Failed to write SVG");
     println!("  Points: {}", points.len());
     println!("  Saved: scatter_vector.svg\n");
 
@@ -84,10 +111,15 @@ fn main() {
     let fb = plot.to_framebuffer().expect("Failed to render");
     let raster_svg = SvgEncoder::from_framebuffer(&fb).expect("Failed to create SVG");
 
-    raster_svg.write_to_file("scatter_raster.svg").expect("Failed to write SVG");
+    raster_svg
+        .write_to_file("scatter_raster.svg")
+        .expect("Failed to write SVG");
     println!("  Framebuffer: {}x{}", fb.width(), fb.height());
     println!("  Saved: scatter_raster.svg");
-    println!("  Size: {} bytes (includes embedded PNG)\n", raster_svg.render().len());
+    println!(
+        "  Size: {} bytes (includes embedded PNG)\n",
+        raster_svg.render().len()
+    );
 
     // Example 4: Complex path
     println!("Example 4: SVG Path");
@@ -104,7 +136,9 @@ fn main() {
         )
         .text_anchored(100.0, 195.0, "Star Path", 12.0, Rgba::BLACK, TextAnchor::Middle);
 
-    path_svg.write_to_file("star_path.svg").expect("Failed to write SVG");
+    path_svg
+        .write_to_file("star_path.svg")
+        .expect("Failed to write SVG");
     println!("  Saved: star_path.svg\n");
 
     // Summary

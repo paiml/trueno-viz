@@ -83,9 +83,7 @@ impl GraphViz for CsrGraph {
         // Add edges
         for (src, targets, weights) in self.iter_adjacency() {
             for (dst, weight) in targets.iter().zip(weights.iter()) {
-                fg = fg.add_edge(
-                    GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight),
-                );
+                fg = fg.add_edge(GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight));
             }
         }
 
@@ -94,29 +92,25 @@ impl GraphViz for CsrGraph {
     }
 
     fn to_community_graph(&self) -> Result<Framebuffer> {
-        let communities = louvain(self).map_err(|e| {
-            crate::error::Error::Rendering(format!("Louvain failed: {}", e))
-        })?;
+        let communities = louvain(self)
+            .map_err(|e| crate::error::Error::Rendering(format!("Louvain failed: {}", e)))?;
 
         graph_with_communities(self, &communities, 600, 500)
     }
 
     fn to_pagerank_graph(&self) -> Result<Framebuffer> {
-        let scores = pagerank(self, 20, 1e-6).map_err(|e| {
-            crate::error::Error::Rendering(format!("PageRank failed: {}", e))
-        })?;
+        let scores = pagerank(self, 20, 1e-6)
+            .map_err(|e| crate::error::Error::Rendering(format!("PageRank failed: {}", e)))?;
 
         graph_with_pagerank(self, &scores, 600, 500)
     }
 
     fn to_analysis_graph(&self) -> Result<Framebuffer> {
-        let communities = louvain(self).map_err(|e| {
-            crate::error::Error::Rendering(format!("Louvain failed: {}", e))
-        })?;
+        let communities = louvain(self)
+            .map_err(|e| crate::error::Error::Rendering(format!("Louvain failed: {}", e)))?;
 
-        let scores = pagerank(self, 20, 1e-6).map_err(|e| {
-            crate::error::Error::Rendering(format!("PageRank failed: {}", e))
-        })?;
+        let scores = pagerank(self, 20, 1e-6)
+            .map_err(|e| crate::error::Error::Rendering(format!("PageRank failed: {}", e)))?;
 
         graph_with_analysis(self, &communities, &scores, 600, 500)
     }
@@ -196,9 +190,7 @@ fn graph_with_communities(
     // Add edges
     for (src, targets, weights) in graph.iter_adjacency() {
         for (dst, weight) in targets.iter().zip(weights.iter()) {
-            fg = fg.add_edge(
-                GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight),
-            );
+            fg = fg.add_edge(GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight));
         }
     }
 
@@ -235,9 +227,7 @@ fn graph_with_pagerank(
     // Add edges
     for (src, targets, weights) in graph.iter_adjacency() {
         for (dst, weight) in targets.iter().zip(weights.iter()) {
-            fg = fg.add_edge(
-                GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight),
-            );
+            fg = fg.add_edge(GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight));
         }
     }
 
@@ -282,9 +272,7 @@ fn graph_with_analysis(
     // Add edges
     for (src, targets, weights) in graph.iter_adjacency() {
         for (dst, weight) in targets.iter().zip(weights.iter()) {
-            fg = fg.add_edge(
-                GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight),
-            );
+            fg = fg.add_edge(GraphEdge::new(src.0 as usize, *dst as usize).weight(*weight));
         }
     }
 
@@ -351,11 +339,7 @@ pub trait CommunityViz {
 
 impl CommunityViz for CommunityDetectionResult {
     fn size_histogram(&self) -> Result<Framebuffer> {
-        let sizes: Vec<f32> = self
-            .communities
-            .iter()
-            .map(|c| c.len() as f32)
-            .collect();
+        let sizes: Vec<f32> = self.communities.iter().map(|c| c.len() as f32).collect();
 
         let plot = Histogram::new()
             .data(&sizes)

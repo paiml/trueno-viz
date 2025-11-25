@@ -234,7 +234,15 @@ impl SvgEncoder {
 
     /// Add a line.
     #[must_use]
-    pub fn line(mut self, x1: f32, y1: f32, x2: f32, y2: f32, stroke: Rgba, stroke_width: f32) -> Self {
+    pub fn line(
+        mut self,
+        x1: f32,
+        y1: f32,
+        x2: f32,
+        y2: f32,
+        stroke: Rgba,
+        stroke_width: f32,
+    ) -> Self {
         self.elements.push(SvgElement::Line {
             x1,
             y1,
@@ -260,7 +268,13 @@ impl SvgEncoder {
 
     /// Add a filled polygon.
     #[must_use]
-    pub fn polygon(mut self, points: &[(f32, f32)], fill: Rgba, stroke: Option<Rgba>, stroke_width: f32) -> Self {
+    pub fn polygon(
+        mut self,
+        points: &[(f32, f32)],
+        fill: Rgba,
+        stroke: Option<Rgba>,
+        stroke_width: f32,
+    ) -> Self {
         self.elements.push(SvgElement::Polyline {
             points: points.to_vec(),
             stroke: stroke.unwrap_or(fill),
@@ -272,7 +286,13 @@ impl SvgEncoder {
 
     /// Add an SVG path.
     #[must_use]
-    pub fn path(mut self, d: &str, fill: Option<Rgba>, stroke: Option<Rgba>, stroke_width: f32) -> Self {
+    pub fn path(
+        mut self,
+        d: &str,
+        fill: Option<Rgba>,
+        stroke: Option<Rgba>,
+        stroke_width: f32,
+    ) -> Self {
         self.elements.push(SvgElement::Path {
             d: d.to_string(),
             fill,
@@ -394,7 +414,13 @@ fn element_to_svg(element: &SvgElement) -> String {
             stroke_width,
         } => {
             let stroke_attr = stroke
-                .map(|s| format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width))
+                .map(|s| {
+                    format!(
+                        r#" stroke="{}" stroke-width="{}""#,
+                        rgba_to_css(&s),
+                        stroke_width
+                    )
+                })
                 .unwrap_or_default();
             format!(
                 r#"<rect x="{x}" y="{y}" width="{width}" height="{height}" fill="{}"{stroke_attr}/>"#,
@@ -410,7 +436,13 @@ fn element_to_svg(element: &SvgElement) -> String {
             stroke_width,
         } => {
             let stroke_attr = stroke
-                .map(|s| format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width))
+                .map(|s| {
+                    format!(
+                        r#" stroke="{}" stroke-width="{}""#,
+                        rgba_to_css(&s),
+                        stroke_width
+                    )
+                })
                 .unwrap_or_default();
             format!(
                 r#"<circle cx="{cx}" cy="{cy}" r="{r}" fill="{}"{stroke_attr}/>"#,
@@ -444,7 +476,11 @@ fn element_to_svg(element: &SvgElement) -> String {
             let fill_attr = fill
                 .map(|f| rgba_to_css(&f))
                 .unwrap_or_else(|| "none".to_string());
-            let tag = if fill.is_some() { "polygon" } else { "polyline" };
+            let tag = if fill.is_some() {
+                "polygon"
+            } else {
+                "polyline"
+            };
             format!(
                 r#"<{tag} points="{points_str}" fill="{fill_attr}" stroke="{}" stroke-width="{stroke_width}"/>"#,
                 rgba_to_css(stroke)
@@ -460,7 +496,13 @@ fn element_to_svg(element: &SvgElement) -> String {
                 .map(|f| rgba_to_css(&f))
                 .unwrap_or_else(|| "none".to_string());
             let stroke_attr = stroke
-                .map(|s| format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width))
+                .map(|s| {
+                    format!(
+                        r#" stroke="{}" stroke-width="{}""#,
+                        rgba_to_css(&s),
+                        stroke_width
+                    )
+                })
                 .unwrap_or_default();
             format!(r#"<path d="{d}" fill="{fill_attr}"{stroke_attr}/>"#)
         }
@@ -595,7 +637,13 @@ mod tests {
     #[test]
     fn test_svg_text_escaping() {
         let svg = SvgEncoder::new(100, 100)
-            .text(10.0, 50.0, "<script>alert('xss')</script>", 12.0, Rgba::BLACK)
+            .text(
+                10.0,
+                50.0,
+                "<script>alert('xss')</script>",
+                12.0,
+                Rgba::BLACK,
+            )
             .render();
 
         assert!(!svg.contains("<script>"));
@@ -604,9 +652,7 @@ mod tests {
 
     #[test]
     fn test_svg_transparent_background() {
-        let svg = SvgEncoder::new(100, 100)
-            .background(None)
-            .render();
+        let svg = SvgEncoder::new(100, 100).background(None).render();
 
         // Should not have background rect
         let rect_count = svg.matches("<rect").count();

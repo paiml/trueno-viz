@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! trueno-graph Integration Example
 //!
 //! Demonstrates using trueno-viz visualization extensions with trueno-graph
@@ -24,7 +25,9 @@ fn main() {
 
     // Example 1: Basic force-directed layout
     println!("1. Creating force-directed graph visualization...");
-    let fb = graph.to_force_graph().expect("Failed to create force graph");
+    let fb = graph
+        .to_force_graph()
+        .expect("Failed to create force graph");
     PngEncoder::write_to_file(&fb, "trueno_force_graph.png").expect("Failed to write PNG");
     println!(
         "   Saved: trueno_force_graph.png ({}x{})\n",

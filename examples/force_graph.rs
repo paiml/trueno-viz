@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::needless_range_loop)]
 //! Force-Directed Graph Layout Example
 //!
 //! Demonstrates creating network graph visualizations using
@@ -41,7 +42,11 @@ fn main() {
     println!("------------------------");
 
     let mut star = ForceGraph::new()
-        .add_node(GraphNode::new(0).color(Rgba::new(255, 193, 7, 255)).radius(12.0)) // Center
+        .add_node(
+            GraphNode::new(0)
+                .color(Rgba::new(255, 193, 7, 255))
+                .radius(12.0),
+        ) // Center
         .dimensions(400, 400)
         .iterations(150);
 
@@ -101,9 +106,9 @@ fn main() {
 /// Create a social network-like graph with clusters.
 fn create_social_network() -> trueno_viz::plots::BuiltForceGraph {
     let colors = [
-        Rgba::new(66, 133, 244, 255),  // Blue cluster
-        Rgba::new(234, 67, 53, 255),   // Red cluster
-        Rgba::new(52, 168, 83, 255),   // Green cluster
+        Rgba::new(66, 133, 244, 255), // Blue cluster
+        Rgba::new(234, 67, 53, 255),  // Red cluster
+        Rgba::new(52, 168, 83, 255),  // Green cluster
     ];
 
     let mut graph = ForceGraph::new()
@@ -119,9 +124,10 @@ fn create_social_network() -> trueno_viz::plots::BuiltForceGraph {
 
         // Add nodes
         for i in 0..4 {
-            let node = GraphNode::new(base + i)
-                .color(color)
-                .radius(if i == 0 { 10.0 } else { 6.0 }); // Leader is bigger
+            let node =
+                GraphNode::new(base + i)
+                    .color(color)
+                    .radius(if i == 0 { 10.0 } else { 6.0 }); // Leader is bigger
             graph = graph.add_node(node);
         }
 

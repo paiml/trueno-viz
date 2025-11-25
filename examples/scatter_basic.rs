@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Basic Scatter Plot Example
 //!
 //! Demonstrates creating a simple scatter plot with trueno-viz.
@@ -48,12 +49,16 @@ fn main() {
 
     // Display summary
     println!("\n--- Summary ---");
-    println!("Data range X: [{:.2}, {:.2}]",
+    println!(
+        "Data range X: [{:.2}, {:.2}]",
         x_data.iter().cloned().fold(f32::INFINITY, f32::min),
-        x_data.iter().cloned().fold(f32::NEG_INFINITY, f32::max));
-    println!("Data range Y: [{:.2}, {:.2}]",
+        x_data.iter().cloned().fold(f32::NEG_INFINITY, f32::max)
+    );
+    println!(
+        "Data range Y: [{:.2}, {:.2}]",
         y_data.iter().cloned().fold(f32::INFINITY, f32::min),
-        y_data.iter().cloned().fold(f32::NEG_INFINITY, f32::max));
+        y_data.iter().cloned().fold(f32::NEG_INFINITY, f32::max)
+    );
     println!("\nScatter plot successfully generated!");
 }
 

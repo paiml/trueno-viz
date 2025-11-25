@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Box and Violin Plot Example
 //!
 //! Demonstrates creating box plots and violin plots for

@@ -168,7 +168,9 @@ impl ColorScale {
     /// Returns an error if colors is empty or domain is invalid.
     pub fn new(colors: Vec<Rgba>, domain: (f32, f32)) -> Result<Self> {
         if colors.is_empty() {
-            return Err(Error::ScaleDomain("Color scale requires at least one color".to_string()));
+            return Err(Error::ScaleDomain(
+                "Color scale requires at least one color".to_string(),
+            ));
         }
 
         if (domain.0 - domain.1).abs() < f32::EPSILON {
@@ -251,11 +253,7 @@ impl ColorScale {
     /// Create a greyscale color scale.
     #[must_use]
     pub fn greyscale(domain: (f32, f32)) -> Option<Self> {
-        Self::new(
-            vec![Rgba::BLACK, Rgba::WHITE],
-            domain,
-        )
-        .ok()
+        Self::new(vec![Rgba::BLACK, Rgba::WHITE], domain).ok()
     }
 
     /// Create a heat color scale (black-red-yellow-white).
@@ -340,11 +338,7 @@ mod tests {
 
     #[test]
     fn test_color_scale() {
-        let scale = ColorScale::new(
-            vec![Rgba::BLACK, Rgba::WHITE],
-            (0.0, 1.0),
-        )
-        .unwrap();
+        let scale = ColorScale::new(vec![Rgba::BLACK, Rgba::WHITE], (0.0, 1.0)).unwrap();
 
         let mid = scale.scale(0.5);
         assert!(mid.r > 100 && mid.r < 150);

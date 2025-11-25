@@ -472,25 +472,11 @@ impl BuiltGGPlot {
             }
             GeomType::Hline { yintercept } => {
                 let y_px = y_scale.scale(*yintercept);
-                draw_line_aa(
-                    fb,
-                    x_scale.range().0,
-                    y_px,
-                    x_scale.range().1,
-                    y_px,
-                    color,
-                );
+                draw_line_aa(fb, x_scale.range().0, y_px, x_scale.range().1, y_px, color);
             }
             GeomType::Vline { xintercept } => {
                 let x_px = x_scale.scale(*xintercept);
-                draw_line_aa(
-                    fb,
-                    x_px,
-                    y_scale.range().0,
-                    x_px,
-                    y_scale.range().1,
-                    color,
-                );
+                draw_line_aa(fb, x_px, y_scale.range().0, x_px, y_scale.range().1, color);
             }
             _ => {} // Other geoms not fully implemented yet
         }
@@ -691,9 +677,7 @@ mod tests {
 
     #[test]
     fn test_ggplot_error_no_layers() {
-        let result = GGPlot::new()
-            .data_xy(&[1.0], &[2.0])
-            .build();
+        let result = GGPlot::new().data_xy(&[1.0], &[2.0]).build();
 
         assert!(result.is_err());
     }

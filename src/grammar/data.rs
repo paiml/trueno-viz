@@ -96,7 +96,10 @@ impl DataFrame {
 
     /// Add a text column.
     pub fn add_column_str(&mut self, name: &str, data: &[&str]) {
-        let values: Vec<DataValue> = data.iter().map(|&s| DataValue::Text(s.to_string())).collect();
+        let values: Vec<DataValue> = data
+            .iter()
+            .map(|&s| DataValue::Text(s.to_string()))
+            .collect();
         self.n_rows = self.n_rows.max(values.len());
         self.columns.insert(name.to_string(), values);
     }
@@ -104,11 +107,9 @@ impl DataFrame {
     /// Get a column as f32 values.
     #[must_use]
     pub fn get_f32(&self, name: &str) -> Option<Vec<f32>> {
-        self.columns.get(name).map(|col| {
-            col.iter()
-                .filter_map(|v| v.as_f32())
-                .collect()
-        })
+        self.columns
+            .get(name)
+            .map(|col| col.iter().filter_map(|v| v.as_f32()).collect())
     }
 
     /// Get a column.

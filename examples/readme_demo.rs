@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Demo for README.md - outputs ASCII scatter plot to stdout.
 //! Used by `make readme` to generate reproducible documentation.
 

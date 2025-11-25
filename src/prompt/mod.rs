@@ -194,7 +194,9 @@ pub fn parse_prompt(prompt: &str) -> Result<PlotSpec> {
     let mut parts = prompt.split_whitespace().peekable();
 
     // First token is plot type
-    let plot_type = parts.next().ok_or_else(|| Error::Rendering("No plot type specified".into()))?;
+    let plot_type = parts
+        .next()
+        .ok_or_else(|| Error::Rendering("No plot type specified".into()))?;
     spec.plot_type = plot_type.to_lowercase();
 
     // Parse remaining tokens
@@ -206,9 +208,21 @@ pub fn parse_prompt(prompt: &str) -> Result<PlotSpec> {
                 "data" => spec.data = Some(parse_array(value)?),
                 "matrix" => spec.matrix = Some(parse_matrix(value)?),
                 "groups" => spec.groups = Some(parse_matrix(value)?),
-                "width" => spec.width = value.parse().map_err(|_| Error::Rendering("Invalid width".into()))?,
-                "height" => spec.height = value.parse().map_err(|_| Error::Rendering("Invalid height".into()))?,
-                "size" => spec.size = value.parse().map_err(|_| Error::Rendering("Invalid size".into()))?,
+                "width" => {
+                    spec.width = value
+                        .parse()
+                        .map_err(|_| Error::Rendering("Invalid width".into()))?
+                }
+                "height" => {
+                    spec.height = value
+                        .parse()
+                        .map_err(|_| Error::Rendering("Invalid height".into()))?
+                }
+                "size" => {
+                    spec.size = value
+                        .parse()
+                        .map_err(|_| Error::Rendering("Invalid size".into()))?
+                }
                 "color" => spec.color = parse_color(value)?,
                 "title" => {
                     // Handle quoted strings

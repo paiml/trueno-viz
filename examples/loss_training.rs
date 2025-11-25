@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! ML Training Loss Curves Example
 //!
 //! Demonstrates visualizing training progress with loss curves,
@@ -47,12 +48,16 @@ fn main() {
 
     // Step 3: Stream the data (simulating real-time training)
     println!("\nStep 3: Streaming epoch data...");
-    for (epoch, (&train_loss, &val_loss)) in train_losses.iter().zip(val_losses.iter()).enumerate() {
+    for (epoch, (&train_loss, &val_loss)) in train_losses.iter().zip(val_losses.iter()).enumerate()
+    {
         loss_curve.push_all(&[train_loss, val_loss]);
 
         // Print progress every 10 epochs
         if epoch % 10 == 0 || epoch == train_losses.len() - 1 {
-            println!("  Epoch {:>3}: train={:.4}, val={:.4}", epoch, train_loss, val_loss);
+            println!(
+                "  Epoch {:>3}: train={:.4}, val={:.4}",
+                epoch, train_loss, val_loss
+            );
         }
     }
 
@@ -61,11 +66,13 @@ fn main() {
     let summaries = loss_curve.summary();
 
     for summary in &summaries {
-        println!("  {}: min={:.4} (epoch {}), last={:.4}",
+        println!(
+            "  {}: min={:.4} (epoch {}), last={:.4}",
             summary.name,
             summary.min.unwrap_or(0.0),
             summary.best_epoch.unwrap_or(0),
-            summary.last.unwrap_or(0.0));
+            summary.last.unwrap_or(0.0)
+        );
     }
 
     // Step 5: Render and save
@@ -80,19 +87,26 @@ fn main() {
     // Final summary
     println!("\n--- Training Summary ---");
     println!("Total epochs: {}", train_losses.len());
-    println!("Best train loss: {:.4} at epoch {}",
+    println!(
+        "Best train loss: {:.4} at epoch {}",
         summaries[0].min.unwrap_or(0.0),
-        summaries[0].best_epoch.unwrap_or(0));
-    println!("Best val loss: {:.4} at epoch {}",
+        summaries[0].best_epoch.unwrap_or(0)
+    );
+    println!(
+        "Best val loss: {:.4} at epoch {}",
         summaries[1].min.unwrap_or(0.0),
-        summaries[1].best_epoch.unwrap_or(0));
+        summaries[1].best_epoch.unwrap_or(0)
+    );
 
     // Check for overfitting
     let train_final = summaries[0].last.unwrap_or(0.0);
     let val_final = summaries[1].last.unwrap_or(0.0);
     if val_final > train_final * 1.5 {
         println!("\nWarning: Possible overfitting detected!");
-        println!("  Train/Val gap: {:.2}%", (val_final / train_final - 1.0) * 100.0);
+        println!(
+            "  Train/Val gap: {:.2}%",
+            (val_final / train_final - 1.0) * 100.0
+        );
     }
 
     println!("\nLoss curves successfully generated!");

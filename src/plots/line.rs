@@ -99,9 +99,9 @@ fn perpendicular_distance(point: Point, line_start: Point, line_end: Point) -> f
     }
 
     // Calculate perpendicular distance using cross product formula
-    let numerator =
-        ((dy * point.x) - (dx * point.y) + (line_end.x * line_start.y) - (line_end.y * line_start.x))
-            .abs();
+    let numerator = ((dy * point.x) - (dx * point.y) + (line_end.x * line_start.y)
+        - (line_end.y * line_start.x))
+        .abs();
     let denominator = line_length_sq.sqrt();
 
     numerator / denominator
@@ -347,8 +347,10 @@ impl LineChart {
         let plot_height = self.height - 2 * self.margin;
 
         // Create scales
-        let x_scale =
-            LinearScale::new((x_min, x_max), (self.margin as f32, (self.margin + plot_width) as f32))?;
+        let x_scale = LinearScale::new(
+            (x_min, x_max),
+            (self.margin as f32, (self.margin + plot_width) as f32),
+        )?;
         let y_scale = LinearScale::new(
             (y_min, y_max),
             ((self.margin + plot_height) as f32, self.margin as f32),
@@ -398,7 +400,14 @@ impl LineChart {
             if series.antialiased {
                 draw_line_aa(fb, p1.x, p1.y, p2.x, p2.y, series.color);
             } else {
-                draw_line(fb, p1.x as i32, p1.y as i32, p2.x as i32, p2.y as i32, series.color);
+                draw_line(
+                    fb,
+                    p1.x as i32,
+                    p1.y as i32,
+                    p2.x as i32,
+                    p2.y as i32,
+                    series.color,
+                );
             }
         }
 
@@ -539,9 +548,7 @@ mod tests {
 
     #[test]
     fn test_line_chart_data_mismatch() {
-        let result = LineChart::new()
-            .data(&[1.0, 2.0, 3.0], &[4.0, 5.0])
-            .build();
+        let result = LineChart::new().data(&[1.0, 2.0, 3.0], &[4.0, 5.0]).build();
         assert!(result.is_err());
     }
 

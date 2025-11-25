@@ -163,7 +163,11 @@ fn parse_hex_color(hex: &str) -> Rgba {
 ///
 /// PNG image data as Uint8Array
 #[wasm_bindgen]
-pub fn scatter_plot(x: &[f32], y: &[f32], options: Option<PlotOptions>) -> Result<Vec<u8>, JsValue> {
+pub fn scatter_plot(
+    x: &[f32],
+    y: &[f32],
+    options: Option<PlotOptions>,
+) -> Result<Vec<u8>, JsValue> {
     let opts = options.unwrap_or_default();
     let color = parse_hex_color(&opts.color);
 
