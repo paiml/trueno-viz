@@ -152,6 +152,17 @@ coverage-summary: ## Show coverage summary (run after 'make coverage')
 coverage-open: ## Open coverage HTML report in browser
 	@xdg-open target/coverage/html/index.html 2>/dev/null || open target/coverage/html/index.html 2>/dev/null || echo "Open target/coverage/html/index.html manually"
 
+.PHONY: coverage-check
+coverage-check: ## Enforce 95% coverage threshold (BLOCKS on failure, excludes wasm.rs)
+	@echo "🔒 Enforcing 95% coverage threshold (wasm.rs excluded)..."
+	@which cargo-llvm-cov > /dev/null 2>&1 || (echo "📦 Installing cargo-llvm-cov..." && cargo install cargo-llvm-cov --locked)
+	@which cargo-nextest > /dev/null 2>&1 || (echo "📦 Installing cargo-nextest..." && cargo install cargo-nextest --locked)
+	@test -f ~/.cargo/config.toml && mv ~/.cargo/config.toml ~/.cargo/config.toml.cov-backup || true
+	@cargo llvm-cov clean --workspace > /dev/null 2>&1
+	@cargo llvm-cov --no-report nextest --no-tests=warn --all-features > /dev/null 2>&1
+	@test -f ~/.cargo/config.toml.cov-backup && mv ~/.cargo/config.toml.cov-backup ~/.cargo/config.toml || true
+	@./scripts/check-coverage.sh 95
+
 # ============================================================================
 # Lint & Format
 # ============================================================================
@@ -412,13 +423,28 @@ mcp-demo: ## Interactive PMAT demo (web-based)
 # ============================================================================
 
 .PHONY: hooks-install
-hooks-install: ## Install Git pre-commit hooks
-	$(PMAT) hooks install
-	@echo "Pre-commit hooks installed"
+hooks-install: ## Install Git pre-commit hooks (95% coverage enforced)
+	@echo "📦 Installing pre-commit hooks..."
+	@cp .githooks/pre-commit .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "✅ Pre-commit hook installed"
+	@echo "   Enforces: fmt, clippy, tests, 95% coverage"
+	@echo "   Bypass (emergency): git commit --no-verify"
+
+.PHONY: hooks-uninstall
+hooks-uninstall: ## Uninstall Git pre-commit hooks
+	@rm -f .git/hooks/pre-commit
+	@echo "✅ Pre-commit hook removed"
 
 .PHONY: hooks-status
 hooks-status: ## Check hook installation status
-	$(PMAT) hooks status
+	@if [ -f .git/hooks/pre-commit ]; then \
+		echo "✅ Pre-commit hook installed"; \
+		echo "   Location: .git/hooks/pre-commit"; \
+	else \
+		echo "❌ No pre-commit hook installed"; \
+		echo "   Run: make hooks-install"; \
+	fi
 
 # ============================================================================
 # Roadmap Integration
