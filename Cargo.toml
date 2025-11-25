@@ -19,6 +19,9 @@ trueno = { version = "0.7.1", default-features = false }
 # PNG encoding (pure Rust, no libpng)
 png = "0.17"
 
+# Base64 encoding for SVG embedded images
+base64 = "0.22"
+
 # Error handling
 thiserror = "1.0"
 
