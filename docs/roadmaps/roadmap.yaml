@@ -262,11 +262,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Implement Force-directed graph layout
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 1970-01-01T00:00:00Z
-  updated: 1970-01-01T00:00:00Z
+  updated: 2025-11-25T03:29:36.195365445+00:00
   spec: null
   acceptance_criteria: []
   phases: []
