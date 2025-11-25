@@ -349,10 +349,7 @@ mod tests {
     #[test]
     fn test_heatmap_data_2d() {
         let data = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
-        let heatmap = Heatmap::new()
-            .data_2d(&data)
-            .build()
-            .unwrap();
+        let heatmap = Heatmap::new().data_2d(&data).build().unwrap();
 
         assert_eq!(heatmap.row_count(), 3);
         assert_eq!(heatmap.col_count(), 2);
@@ -399,11 +396,7 @@ mod tests {
     #[test]
     fn test_heatmap_custom_color_scale() {
         let data = vec![0.0, 1.0, 2.0, 3.0];
-        let scale = ColorScale::new(
-            vec![Rgba::RED, Rgba::GREEN, Rgba::BLUE],
-            (0.0, 3.0),
-        )
-        .unwrap();
+        let scale = ColorScale::new(vec![Rgba::RED, Rgba::GREEN, Rgba::BLUE], (0.0, 3.0)).unwrap();
 
         let heatmap = Heatmap::new()
             .data(&data, 2, 2)

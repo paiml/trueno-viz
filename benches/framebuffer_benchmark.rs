@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used, missing_docs)]
 //! Benchmark for framebuffer operations.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
@@ -45,5 +46,9 @@ fn framebuffer_blend_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, framebuffer_clear_benchmark, framebuffer_blend_benchmark);
+criterion_group!(
+    benches,
+    framebuffer_clear_benchmark,
+    framebuffer_blend_benchmark
+);
 criterion_main!(benches);

@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! ROC and PR Curves Example
 //!
 //! Demonstrates creating ROC (Receiver Operating Characteristic) and
@@ -21,8 +22,16 @@ fn main() {
     let n_negative = y_true.len() - n_positive;
 
     println!("  Total samples: {}", y_true.len());
-    println!("  Positive: {} ({:.1}%)", n_positive, n_positive as f32 / y_true.len() as f32 * 100.0);
-    println!("  Negative: {} ({:.1}%)", n_negative, n_negative as f32 / y_true.len() as f32 * 100.0);
+    println!(
+        "  Positive: {} ({:.1}%)",
+        n_positive,
+        n_positive as f32 / y_true.len() as f32 * 100.0
+    );
+    println!(
+        "  Negative: {} ({:.1}%)",
+        n_negative,
+        n_negative as f32 / y_true.len() as f32 * 100.0
+    );
 
     // Step 2: Compute ROC curve
     println!("\nStep 2: Computing ROC curve...");
@@ -53,7 +62,7 @@ fn main() {
     let roc_curve = RocCurve::new()
         .data(roc_data)
         .color(Rgba::BLUE)
-        .diagonal(true)  // Show random classifier reference line
+        .diagonal(true) // Show random classifier reference line
         .dimensions(500, 500)
         .build()
         .expect("Failed to build ROC curve");
@@ -68,7 +77,7 @@ fn main() {
     let pr_curve = PrCurve::new()
         .data(pr_data)
         .color(Rgba::rgb(0, 128, 0))
-        .baseline(true)  // Show no-skill reference line
+        .baseline(true) // Show no-skill reference line
         .dimensions(500, 500)
         .build()
         .expect("Failed to build PR curve");
@@ -83,7 +92,9 @@ fn main() {
 
     // For ROC: Find point closest to (0, 1) - top-left corner
     let roc_data_ref = compute_roc(&y_true, &y_scores).unwrap();
-    let optimal_roc = roc_data_ref.points.iter()
+    let optimal_roc = roc_data_ref
+        .points
+        .iter()
         .min_by(|a, b| {
             let dist_a = a.x.powi(2) + (1.0 - a.y).powi(2);
             let dist_b = b.x.powi(2) + (1.0 - b.y).powi(2);
@@ -98,7 +109,11 @@ fn main() {
 
     // Summary
     println!("\n--- Summary ---");
-    println!("ROC AUC:             {:.4} ({})", roc_curve.auc(), auc_interpretation);
+    println!(
+        "ROC AUC:             {:.4} ({})",
+        roc_curve.auc(),
+        auc_interpretation
+    );
     println!("Average Precision:   {:.4}", pr_curve.average_precision());
     println!("Recommended threshold: {:.3}", optimal_roc.threshold);
 

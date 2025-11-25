@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Confusion Matrix ML Example
 //!
 //! Demonstrates creating a confusion matrix visualization for
@@ -24,7 +25,7 @@ fn main() {
     let cm = ConfusionMatrix::new()
         .from_predictions(&y_true, &y_pred, class_names.len())
         .labels(&class_names)
-        .normalize(Normalization::None)  // Show raw counts
+        .normalize(Normalization::None) // Show raw counts
         .dimensions(500, 500)
         .margin(60)
         .build()
@@ -38,16 +39,18 @@ fn main() {
     let metrics = cm.metrics();
 
     println!("\n--- Per-Class Metrics ---");
-    println!("{:>12} {:>10} {:>10} {:>10}", "Class", "Precision", "Recall", "F1-Score");
+    println!(
+        "{:>12} {:>10} {:>10} {:>10}",
+        "Class", "Precision", "Recall", "F1-Score"
+    );
     println!("{}", "-".repeat(45));
 
     let f1_scores = metrics.f1_scores();
     for (i, name) in class_names.iter().enumerate() {
-        println!("{:>12} {:>10.3} {:>10.3} {:>10.3}",
-            name,
-            metrics.precision[i],
-            metrics.recall[i],
-            f1_scores[i]);
+        println!(
+            "{:>12} {:>10.3} {:>10.3} {:>10.3}",
+            name, metrics.precision[i], metrics.recall[i], f1_scores[i]
+        );
     }
 
     println!("\n--- Overall Metrics ---");
@@ -59,8 +62,7 @@ fn main() {
 
     // Raw counts
     let fb = cm.to_framebuffer().expect("Failed to render");
-    PngEncoder::write_to_file(&fb, "confusion_matrix_counts.png")
-        .expect("Failed to write PNG");
+    PngEncoder::write_to_file(&fb, "confusion_matrix_counts.png").expect("Failed to write PNG");
     println!("  Saved: confusion_matrix_counts.png");
 
     // Normalized by row (shows recall per class)
@@ -120,19 +122,46 @@ fn simulate_classification() -> (Vec<usize>, Vec<usize>, Vec<&'static str>) {
     let mut y_pred = Vec::new();
 
     // Setosa samples (mostly correct)
-    for _ in 0..45 { y_true.push(0); y_pred.push(0); }  // TP
-    for _ in 0..3  { y_true.push(0); y_pred.push(1); }  // FN (predicted as Versicolor)
-    for _ in 0..2  { y_true.push(0); y_pred.push(2); }  // FN (predicted as Virginica)
+    for _ in 0..45 {
+        y_true.push(0);
+        y_pred.push(0);
+    } // TP
+    for _ in 0..3 {
+        y_true.push(0);
+        y_pred.push(1);
+    } // FN (predicted as Versicolor)
+    for _ in 0..2 {
+        y_true.push(0);
+        y_pred.push(2);
+    } // FN (predicted as Virginica)
 
     // Versicolor samples (some confusion)
-    for _ in 0..2  { y_true.push(1); y_pred.push(0); }  // FN (predicted as Setosa)
-    for _ in 0..38 { y_true.push(1); y_pred.push(1); }  // TP
-    for _ in 0..10 { y_true.push(1); y_pred.push(2); }  // FN (predicted as Virginica)
+    for _ in 0..2 {
+        y_true.push(1);
+        y_pred.push(0);
+    } // FN (predicted as Setosa)
+    for _ in 0..38 {
+        y_true.push(1);
+        y_pred.push(1);
+    } // TP
+    for _ in 0..10 {
+        y_true.push(1);
+        y_pred.push(2);
+    } // FN (predicted as Virginica)
 
     // Virginica samples (some confusion)
-    for _ in 0..1  { y_true.push(2); y_pred.push(0); }  // FN (predicted as Setosa)
-    for _ in 0..8  { y_true.push(2); y_pred.push(1); }  // FN (predicted as Versicolor)
-    for _ in 0..41 { y_true.push(2); y_pred.push(2); }  // TP
+    for _ in 0..1 {
+        y_true.push(2);
+        y_pred.push(0);
+    } // FN (predicted as Setosa)
+    for _ in 0..8 {
+        y_true.push(2);
+        y_pred.push(1);
+    } // FN (predicted as Versicolor)
+    for _ in 0..41 {
+        y_true.push(2);
+        y_pred.push(2);
+    } // TP
 
     (y_true, y_pred, class_names)
 }

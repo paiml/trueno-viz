@@ -81,7 +81,10 @@ impl Coord {
     /// Flip x and y axes.
     #[must_use]
     pub fn flip(mut self) -> Self {
-        if let Coord::Cartesian { flip: ref mut f, .. } = self {
+        if let Coord::Cartesian {
+            flip: ref mut f, ..
+        } = self
+        {
             *f = true;
         }
         self
@@ -90,7 +93,10 @@ impl Coord {
     /// Set polar start angle.
     #[must_use]
     pub fn start_angle(mut self, start: f32) -> Self {
-        if let Coord::Polar { start: ref mut s, .. } = self {
+        if let Coord::Polar {
+            start: ref mut s, ..
+        } = self
+        {
             *s = start;
         }
         self
@@ -99,7 +105,11 @@ impl Coord {
     /// Set polar direction (1 = clockwise, -1 = counter-clockwise).
     #[must_use]
     pub fn direction(mut self, dir: i8) -> Self {
-        if let Coord::Polar { direction: ref mut d, .. } = self {
+        if let Coord::Polar {
+            direction: ref mut d,
+            ..
+        } = self
+        {
             *d = if dir >= 0 { 1 } else { -1 };
         }
         self
@@ -134,7 +144,9 @@ mod tests {
 
     #[test]
     fn test_coord_polar() {
-        let c = Coord::polar().start_angle(std::f32::consts::PI).direction(-1);
+        let c = Coord::polar()
+            .start_angle(std::f32::consts::PI)
+            .direction(-1);
         match c {
             Coord::Polar { start, direction } => {
                 assert!((start - std::f32::consts::PI).abs() < 0.001);

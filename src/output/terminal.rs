@@ -118,7 +118,8 @@ impl TerminalEncoder {
         // Round up to even height for half-blocks
         let target_h = (target_h + 1) & !1;
 
-        let mut output = String::with_capacity((target_w * 4 + 1) as usize * (target_h / 2) as usize);
+        let mut output =
+            String::with_capacity((target_w * 4 + 1) as usize * (target_h / 2) as usize);
 
         let scale_x = fb.width() as f32 / target_w as f32;
         let scale_y = fb.height() as f32 / target_h as f32;
@@ -133,8 +134,7 @@ impl TerminalEncoder {
                 let _ = write!(
                     output,
                     "\x1b[38;2;{};{};{}m\x1b[48;2;{};{};{}m▀",
-                    top.0, top.1, top.2,
-                    bottom.0, bottom.1, bottom.2
+                    top.0, top.1, top.2, bottom.0, bottom.1, bottom.2
                 );
             }
             output.push_str("\x1b[0m\n");
@@ -198,14 +198,25 @@ impl TerminalEncoder {
                 + 0.7152 * (pixel.g as f32 / 255.0)
                 + 0.0722 * (pixel.b as f32 / 255.0);
 
-            if self.invert { 1.0 - luma } else { luma }
+            if self.invert {
+                1.0 - luma
+            } else {
+                luma
+            }
         } else {
             0.0
         }
     }
 
     /// Sample color at a scaled position.
-    fn sample_color(&self, fb: &Framebuffer, x: u32, y: u32, scale_x: f32, scale_y: f32) -> (u8, u8, u8) {
+    fn sample_color(
+        &self,
+        fb: &Framebuffer,
+        x: u32,
+        y: u32,
+        scale_x: f32,
+        scale_y: f32,
+    ) -> (u8, u8, u8) {
         let fx = (x as f32 * scale_x).min((fb.width() - 1) as f32);
         let fy = (y as f32 * scale_y).min((fb.height() - 1) as f32);
 
@@ -242,9 +253,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         fb.clear(Rgba::WHITE);
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::Ascii)
-            .width(5);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(5);
 
         let output = encoder.render(&fb);
 
@@ -258,9 +267,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         fb.clear(Rgba::BLACK);
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::Ascii)
-            .width(5);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(5);
 
         let output = encoder.render(&fb);
 
@@ -332,9 +339,7 @@ mod tests {
     fn test_aspect_ratio_preservation() {
         let fb = Framebuffer::new(200, 100).unwrap();
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::Ascii)
-            .width(40);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(40);
 
         let output = encoder.render(&fb);
         let lines: Vec<&str> = output.lines().collect();
@@ -358,16 +363,17 @@ mod tests {
             }
         }
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::Ascii)
-            .width(50);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(50);
 
         let output = encoder.render(&fb);
         let first_line: String = output.lines().next().unwrap().chars().collect();
 
         // Should have varied characters
         let unique_chars: std::collections::HashSet<char> = first_line.chars().collect();
-        assert!(unique_chars.len() >= 5, "Gradient should produce varied ASCII");
+        assert!(
+            unique_chars.len() >= 5,
+            "Gradient should produce varied ASCII"
+        );
     }
 
     #[test]

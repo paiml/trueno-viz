@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Terminal Output Example
 //!
 //! Demonstrates rendering visualizations directly to the terminal
@@ -31,7 +32,11 @@ fn main() {
 
     // Step 3: Render to framebuffer
     let fb = plot.to_framebuffer().expect("Failed to render");
-    println!("  Plot rendered to {}x{} framebuffer\n", fb.width(), fb.height());
+    println!(
+        "  Plot rendered to {}x{} framebuffer\n",
+        fb.width(),
+        fb.height()
+    );
 
     // Step 4: ASCII mode (widest compatibility)
     println!("Step 4: ASCII Mode (works in any terminal)");
@@ -40,7 +45,7 @@ fn main() {
     let ascii_encoder = TerminalEncoder::new()
         .mode(TerminalMode::Ascii)
         .width(40)
-        .invert(true);  // Dark background terminals benefit from invert
+        .invert(true); // Dark background terminals benefit from invert
 
     print!("{}", ascii_encoder.render(&fb));
     println!();

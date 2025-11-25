@@ -677,11 +677,7 @@ mod tests {
 
     #[test]
     fn test_loss_curve_series_by_name() {
-        let mut loss_curve = LossCurve::new()
-            .train_loss()
-            .val_loss()
-            .build()
-            .unwrap();
+        let mut loss_curve = LossCurve::new().train_loss().val_loss().build().unwrap();
 
         if let Some(train) = loss_curve.series_by_name_mut("Train Loss") {
             train.push(1.0);

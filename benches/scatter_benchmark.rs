@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used, missing_docs)]
 //! Benchmark for scatter plot rendering.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};

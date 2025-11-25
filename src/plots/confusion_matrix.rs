@@ -97,7 +97,12 @@ impl ConfusionMatrix {
     ///
     /// Both arrays should contain class indices (0 to num_classes-1).
     #[must_use]
-    pub fn from_predictions(mut self, y_true: &[usize], y_pred: &[usize], num_classes: usize) -> Self {
+    pub fn from_predictions(
+        mut self,
+        y_true: &[usize],
+        y_pred: &[usize],
+        num_classes: usize,
+    ) -> Self {
         self.num_classes = num_classes;
         self.data = vec![0; num_classes * num_classes];
 
@@ -205,7 +210,8 @@ impl ConfusionMatrix {
                     let row_sum: u32 = (0..n).map(|col| self.data[row * n + col]).sum();
                     if row_sum > 0 {
                         for col in 0..n {
-                            normalized[row * n + col] = self.data[row * n + col] as f32 / row_sum as f32;
+                            normalized[row * n + col] =
+                                self.data[row * n + col] as f32 / row_sum as f32;
                         }
                     }
                 }
@@ -216,7 +222,8 @@ impl ConfusionMatrix {
                     let col_sum: u32 = (0..n).map(|row| self.data[row * n + col]).sum();
                     if col_sum > 0 {
                         for row in 0..n {
-                            normalized[row * n + col] = self.data[row * n + col] as f32 / col_sum as f32;
+                            normalized[row * n + col] =
+                                self.data[row * n + col] as f32 / col_sum as f32;
                         }
                     }
                 }
@@ -489,10 +496,7 @@ mod tests {
     #[test]
     fn test_confusion_matrix_builder() {
         let data = vec![50, 10, 5, 45];
-        let cm = ConfusionMatrix::new()
-            .data(&data, 2)
-            .build()
-            .unwrap();
+        let cm = ConfusionMatrix::new().data(&data, 2).build().unwrap();
 
         assert_eq!(cm.num_classes(), 2);
         assert_eq!(cm.total(), 110);
@@ -627,9 +631,9 @@ mod tests {
     #[test]
     fn test_confusion_matrix_multiclass() {
         let data = vec![
-            30, 5, 2,   // Class 0: 30 correct, 5 predicted as 1, 2 predicted as 2
-            3, 28, 4,   // Class 1: 3 predicted as 0, 28 correct, 4 predicted as 2
-            1, 2, 25,   // Class 2: 1 predicted as 0, 2 predicted as 1, 25 correct
+            30, 5, 2, // Class 0: 30 correct, 5 predicted as 1, 2 predicted as 2
+            3, 28, 4, // Class 1: 3 predicted as 0, 28 correct, 4 predicted as 2
+            1, 2, 25, // Class 2: 1 predicted as 0, 2 predicted as 1, 25 correct
         ];
 
         let cm = ConfusionMatrix::new()

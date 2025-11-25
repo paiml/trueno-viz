@@ -342,8 +342,12 @@ impl ForceGraph {
                 node.y += node.vy / disp * capped_disp;
 
                 // Keep nodes within bounds
-                node.x = node.x.clamp(self.margin as f32, self.margin as f32 + area_width);
-                node.y = node.y.clamp(self.margin as f32, self.margin as f32 + area_height);
+                node.x = node
+                    .x
+                    .clamp(self.margin as f32, self.margin as f32 + area_width);
+                node.y = node
+                    .y
+                    .clamp(self.margin as f32, self.margin as f32 + area_height);
             }
 
             // Cool down
@@ -514,8 +518,8 @@ mod tests {
 
         // Positions should be within bounds
         for (x, y) in graph.positions() {
-            assert!(x >= 0.0 && x <= 300.0);
-            assert!(y >= 0.0 && y <= 300.0);
+            assert!((0.0..=300.0).contains(&x));
+            assert!((0.0..=300.0).contains(&y));
         }
     }
 

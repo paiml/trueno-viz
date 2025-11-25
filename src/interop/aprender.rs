@@ -35,12 +35,7 @@ pub trait VectorViz {
     fn to_histogram(&self) -> Result<Framebuffer>;
 
     /// Create a histogram with custom options.
-    fn to_histogram_with(
-        &self,
-        width: u32,
-        height: u32,
-        color: Rgba,
-    ) -> Result<Framebuffer>;
+    fn to_histogram_with(&self, width: u32, height: u32, color: Rgba) -> Result<Framebuffer>;
 
     /// Create a scatter plot comparing two vectors (self = predictions, other = actual).
     fn scatter_vs(&self, other: &Vector<f32>) -> Result<Framebuffer>;
@@ -66,12 +61,7 @@ impl VectorViz for Vector<f32> {
         self.to_histogram_with(600, 400, Rgba::new(70, 130, 180, 255))
     }
 
-    fn to_histogram_with(
-        &self,
-        width: u32,
-        height: u32,
-        color: Rgba,
-    ) -> Result<Framebuffer> {
+    fn to_histogram_with(&self, width: u32, height: u32, color: Rgba) -> Result<Framebuffer> {
         let plot = Histogram::new()
             .data(self.as_slice())
             .color(color)
@@ -94,7 +84,7 @@ impl VectorViz for Vector<f32> {
     ) -> Result<Framebuffer> {
         let plot = ScatterPlot::new()
             .x(other.as_slice()) // actual on x-axis
-            .y(self.as_slice())  // predicted on y-axis
+            .y(self.as_slice()) // predicted on y-axis
             .color(color)
             .size(5.0)
             .dimensions(width, height)
@@ -208,12 +198,12 @@ pub trait DataFrameViz {
 
 impl DataFrameViz for AprenderDataFrame {
     fn scatter(&self, x_col: &str, y_col: &str) -> Result<Framebuffer> {
-        let x = self.column(x_col).map_err(|e| {
-            crate::error::Error::Rendering(format!("Column '{}': {}", x_col, e))
-        })?;
-        let y = self.column(y_col).map_err(|e| {
-            crate::error::Error::Rendering(format!("Column '{}': {}", y_col, e))
-        })?;
+        let x = self
+            .column(x_col)
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", x_col, e)))?;
+        let y = self
+            .column(y_col)
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", y_col, e)))?;
 
         let plot = ScatterPlot::new()
             .x(x.as_slice())
@@ -227,9 +217,9 @@ impl DataFrameViz for AprenderDataFrame {
     }
 
     fn histogram(&self, col: &str) -> Result<Framebuffer> {
-        let data = self.column(col).map_err(|e| {
-            crate::error::Error::Rendering(format!("Column '{}': {}", col, e))
-        })?;
+        let data = self
+            .column(col)
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", col, e)))?;
 
         let plot = Histogram::new()
             .data(data.as_slice())
@@ -254,9 +244,9 @@ impl DataFrameViz for AprenderDataFrame {
     }
 
     fn line(&self, col: &str) -> Result<Framebuffer> {
-        let data = self.column(col).map_err(|e| {
-            crate::error::Error::Rendering(format!("Column '{}': {}", col, e))
-        })?;
+        let data = self
+            .column(col)
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", col, e)))?;
 
         let x: Vec<f32> = (0..data.len()).map(|i| i as f32).collect();
 

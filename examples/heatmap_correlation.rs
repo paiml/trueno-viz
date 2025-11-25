@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Heatmap Correlation Matrix Example
 //!
 //! Demonstrates creating a correlation matrix heatmap, commonly used
@@ -23,7 +24,7 @@ fn main() {
     println!("\nStep 2: Building heatmap...");
     let heatmap = Heatmap::new()
         .data_2d(&matrix)
-        .palette(HeatmapPalette::RedBlue)  // Diverging palette for correlations
+        .palette(HeatmapPalette::RedBlue) // Diverging palette for correlations
         .dimensions(600, 600)
         .margin(40)
         .borders(true)
@@ -75,11 +76,11 @@ fn create_correlation_matrix() -> (Vec<Vec<f32>>, Vec<&'static str>) {
     // Positive correlations: Height-Weight, Income-Score
     // Negative correlations: Age-Score
     let matrix = vec![
-        vec![1.00,  0.85,  0.12, 0.23,  0.15],  // Height
-        vec![0.85,  1.00,  0.18, 0.31,  0.22],  // Weight
-        vec![0.12,  0.18,  1.00, 0.45, -0.35],  // Age
-        vec![0.23,  0.31,  0.45, 1.00,  0.67],  // Income
-        vec![0.15,  0.22, -0.35, 0.67,  1.00],  // Score
+        vec![1.00, 0.85, 0.12, 0.23, 0.15],  // Height
+        vec![0.85, 1.00, 0.18, 0.31, 0.22],  // Weight
+        vec![0.12, 0.18, 1.00, 0.45, -0.35], // Age
+        vec![0.23, 0.31, 0.45, 1.00, 0.67],  // Income
+        vec![0.15, 0.22, -0.35, 0.67, 1.00], // Score
     ];
 
     (matrix, labels)

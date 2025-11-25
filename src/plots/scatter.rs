@@ -122,11 +122,17 @@ impl ScatterPlot {
         let plot_height = self.height.saturating_sub(2 * self.margin);
 
         // Create scales from data
-        let x_scale = LinearScale::from_data(&self.x_data, (self.margin as f32, (self.margin + plot_width) as f32))
-            .ok_or(Error::EmptyData)?;
+        let x_scale = LinearScale::from_data(
+            &self.x_data,
+            (self.margin as f32, (self.margin + plot_width) as f32),
+        )
+        .ok_or(Error::EmptyData)?;
 
-        let y_scale = LinearScale::from_data(&self.y_data, ((self.margin + plot_height) as f32, self.margin as f32))
-            .ok_or(Error::EmptyData)?;
+        let y_scale = LinearScale::from_data(
+            &self.y_data,
+            ((self.margin + plot_height) as f32, self.margin as f32),
+        )
+        .ok_or(Error::EmptyData)?;
 
         // Apply alpha to color
         let color = self.color.with_alpha((self.alpha * 255.0) as u8);
