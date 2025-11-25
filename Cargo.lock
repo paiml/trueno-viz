@@ -2428,6 +2428,7 @@ dependencies = [
  "base64",
  "criterion",
  "entrenar",
+ "js-sys",
  "png",
  "proptest",
  "tempfile",
@@ -2435,6 +2436,8 @@ dependencies = [
  "trueno 0.7.1",
  "trueno-db",
  "trueno-graph",
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
