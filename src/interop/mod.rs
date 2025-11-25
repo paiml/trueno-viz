@@ -10,4 +10,6 @@
 #[cfg_attr(docsrs, doc(cfg(feature = "ml")))]
 pub mod aprender;
 
-// TODO: Implement TV-018 (trueno-graph integration)
+#[cfg(feature = "graph")]
+#[cfg_attr(docsrs, doc(cfg(feature = "graph")))]
+pub mod trueno_graph;
