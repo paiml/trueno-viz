@@ -113,6 +113,10 @@ harness = false
 name = "aprender_integration"
 required-features = ["ml"]
 
+[[example]]
+name = "trueno_graph_integration"
+required-features = ["graph"]
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

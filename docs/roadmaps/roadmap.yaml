@@ -278,11 +278,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: Integration with trueno-graph
-  status: planned
+  status: completed
   priority: critical
   assigned_to: null
   created: 1970-01-01T00:00:00Z
-  updated: 1970-01-01T00:00:00Z
+  updated: 2025-11-25T04:13:37.508661913+00:00
   spec: null
   acceptance_criteria: []
   phases: []
