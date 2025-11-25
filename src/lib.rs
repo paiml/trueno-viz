@@ -103,9 +103,7 @@ pub mod accel;
 // Optional Integration Modules
 // ============================================================================
 
-/// Text prompt interface for natural language visualization.
-#[cfg(feature = "ml")]
-#[cfg_attr(docsrs, doc(cfg(feature = "ml")))]
+/// Text prompt interface for declarative visualization DSL.
 pub mod prompt;
 
 /// Ecosystem integrations (trueno-db, trueno-graph, aprender).
