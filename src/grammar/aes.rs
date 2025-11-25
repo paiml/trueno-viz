@@ -249,9 +249,7 @@ mod tests {
             .label("l")
             .alpha_value(0.5);
 
-        let other = Aes::new()
-            .y("y")
-            .size("sz");
+        let other = Aes::new().y("y").size("sz");
 
         let merged = base.merge(&other);
         assert_eq!(merged.x, Some("x".to_string()));

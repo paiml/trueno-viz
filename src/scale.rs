@@ -377,7 +377,9 @@ mod tests {
 
     #[test]
     fn test_log_scale_base_e() {
-        let scale = LogScale::with_base((1.0, std::f32::consts::E), (0.0, 1.0), std::f32::consts::E).unwrap();
+        let scale =
+            LogScale::with_base((1.0, std::f32::consts::E), (0.0, 1.0), std::f32::consts::E)
+                .unwrap();
         assert!((scale.scale(1.0) - 0.0).abs() < 0.001);
         assert!((scale.scale(std::f32::consts::E) - 1.0).abs() < 0.001);
     }

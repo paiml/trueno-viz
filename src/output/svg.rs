@@ -714,7 +714,14 @@ mod tests {
     #[test]
     fn test_svg_text_anchored_middle() {
         let svg = SvgEncoder::new(100, 100)
-            .text_anchored(50.0, 50.0, "Centered", 12.0, Rgba::BLACK, TextAnchor::Middle)
+            .text_anchored(
+                50.0,
+                50.0,
+                "Centered",
+                12.0,
+                Rgba::BLACK,
+                TextAnchor::Middle,
+            )
             .render();
 
         assert!(svg.contains("<text"));
@@ -748,8 +755,7 @@ mod tests {
 
     #[test]
     fn test_svg_write_to_file() {
-        let encoder = SvgEncoder::new(100, 100)
-            .rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
+        let encoder = SvgEncoder::new(100, 100).rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
 
         let temp_path = std::env::temp_dir().join("test_svg_write.svg");
         encoder.write_to_file(&temp_path).unwrap();
@@ -778,7 +784,12 @@ mod tests {
     #[test]
     fn test_svg_path_with_fill() {
         let svg = SvgEncoder::new(100, 100)
-            .path("M 10 10 L 90 90 L 50 50 Z", Some(Rgba::GREEN), Some(Rgba::BLACK), 1.0)
+            .path(
+                "M 10 10 L 90 90 L 50 50 Z",
+                Some(Rgba::GREEN),
+                Some(Rgba::BLACK),
+                1.0,
+            )
             .render();
 
         assert!(svg.contains("<path"));
@@ -810,8 +821,7 @@ mod tests {
 
     #[test]
     fn test_svg_debug_clone() {
-        let encoder = SvgEncoder::new(100, 100)
-            .rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
+        let encoder = SvgEncoder::new(100, 100).rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
         let encoder2 = encoder.clone();
         let _ = format!("{:?}", encoder2);
     }

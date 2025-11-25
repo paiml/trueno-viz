@@ -894,8 +894,8 @@ mod tests {
 
     #[test]
     fn test_ggplot_layer_specific_data() {
-        let layer = Layer::new(Geom::point())
-            .data(DataFrame::from_xy(&[10.0, 20.0], &[30.0, 40.0]));
+        let layer =
+            Layer::new(Geom::point()).data(DataFrame::from_xy(&[10.0, 20.0], &[30.0, 40.0]));
 
         let plot = GGPlot::new()
             .data_xy(&[1.0, 2.0], &[3.0, 4.0])

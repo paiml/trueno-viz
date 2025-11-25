@@ -342,18 +342,12 @@ mod tests {
     #[test]
     fn test_histogram_small_data() {
         // Test with 1 element
-        let hist1 = Histogram::new()
-            .data(&[5.0])
-            .build()
-            .unwrap();
+        let hist1 = Histogram::new().data(&[5.0]).build().unwrap();
         assert!(hist1.bin_count() >= 1);
         let _ = hist1.to_framebuffer().unwrap();
 
         // Test with 2 elements
-        let hist2 = Histogram::new()
-            .data(&[1.0, 2.0])
-            .build()
-            .unwrap();
+        let hist2 = Histogram::new().data(&[1.0, 2.0]).build().unwrap();
         assert!(hist2.bin_count() >= 1);
     }
 
