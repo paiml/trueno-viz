@@ -359,3 +359,24 @@ roadmap:
     - security
     - reliability
   notes: "Verified: All unwrap() calls are in #[cfg(test)] blocks. clippy::unwrap_used=deny prevents future production unwraps."
+- id: TV-023
+  github_issue: null
+  item_type: task
+  title: Add comprehensive benchmark suite
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2025-11-25T08:45:00Z
+  updated: 2025-11-25T08:45:00Z
+  spec: "Add criterion benchmarks for all major plot types and encoders"
+  acceptance_criteria:
+    - Histogram benchmark (data size scaling)
+    - Heatmap benchmark (grid size, palette comparisons)
+    - Line chart benchmark (simplification, multi-series)
+    - Encoder benchmark (PNG/SVG, compression)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+    - performance
+  notes: "6 benchmark files covering scatter, framebuffer, histogram, heatmap, line, encoder"
