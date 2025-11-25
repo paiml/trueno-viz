@@ -26,32 +26,25 @@ TerminalEncoder::new()
 ```
 $ cargo run --example readme_demo --quiet
 ```
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
-            %%                                  %           
-              %%                             % %            
-                                            % %             
-                 %%                      %%                 
-                                        %%%                 
-                      %%%%%   %%  %% %%                     
-                           %    %                           
-                                                            
-                                                            
-                                                            
-                                                            
-                                                            
+
+
+
+
+
+
+            %%                                  %
+              %%                             % %
+                                            % %
+                 %%                      %%
+                                        %%%
+                      %%%%%   %%  %% %%
+                           %    %
+
+
+
+
+
 ```
-
-## Features
-
-- **SIMD-aligned Framebuffer** - 64-byte alignment for AVX-512
-- **Plot Types**: Scatter, Line, Heatmap, Histogram, Confusion Matrix, ROC/PR, Loss curves
-- **Output Formats**: PNG, Terminal (ASCII/Unicode/ANSI 24-bit color)
-- **ML-focused**: Built-in metrics, smoothing, normalization
 
 ## Installation
 
@@ -59,6 +52,28 @@ $ cargo run --example readme_demo --quiet
 [dependencies]
 trueno-viz = "0.1"
 ```
+
+### GPU Acceleration
+
+```toml
+# Native GPU (CUDA/Vulkan/Metal)
+trueno-viz = { version = "0.1", features = ["gpu"] }
+
+# Browser GPU (WebGPU)
+trueno-viz = { version = "0.1", features = ["gpu-wasm"] }
+```
+
+## Features
+
+- **SIMD-aligned Framebuffer** - 64-byte alignment for AVX-512
+- **GPU Compute** - Native (CUDA/Vulkan/Metal) and WebGPU support
+- **Plot Types**: Scatter, Line, Heatmap, Histogram, Box, Violin, Confusion Matrix, ROC/PR, Loss curves
+- **Output Formats**: PNG, Terminal (ASCII/Unicode/ANSI 24-bit color)
+- **ML-focused**: Built-in metrics, smoothing, normalization
+
+## Live Demo
+
+See the [WASM demo](wasm-pkg/) with WebGPU physics simulation and real-time benchmarks.
 
 ## Examples
 

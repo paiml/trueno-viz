@@ -459,6 +459,58 @@ roadmap-create: ## Create initial roadmap
 	$(PMAT) roadmap create --output $(PMAT_DIR)/roadmap.toml
 
 # ============================================================================
+# WASM Build (GPU Demo)
+# ============================================================================
+
+WASM_PKG_DIR := wasm-pkg
+WASM_OUT_DIR := $(WASM_PKG_DIR)/pkg
+
+.PHONY: wasm
+wasm: wasm-build ## Build WASM package (alias)
+
+.PHONY: wasm-build
+wasm-build: ## Build WASM package with wasm-pack
+	@echo "Building WASM package..."
+	@command -v wasm-pack >/dev/null 2>&1 || { \
+		echo "Installing wasm-pack..."; \
+		cargo install wasm-pack; \
+	}
+	cd $(WASM_PKG_DIR) && wasm-pack build --target web --release
+	@echo ""
+	@echo "WASM Build Complete"
+	@echo "   Package: $(WASM_OUT_DIR)/"
+	@ls -lh $(WASM_OUT_DIR)/*.wasm 2>/dev/null || true
+
+.PHONY: wasm-build-simd
+wasm-build-simd: ## Build WASM with SIMD128 + WebGPU enabled
+	@echo "Building WASM with SIMD128 + WebGPU..."
+	cd $(WASM_PKG_DIR) && RUSTFLAGS="-C target-feature=+simd128 --cfg=web_sys_unstable_apis" wasm-pack build --target web --release --features webgpu
+	@echo "SIMD128 + WebGPU WASM built"
+
+# Serve WASM demo (override port: make wasm-serve WASM_PORT=8000)
+WASM_PORT ?= 9876
+.PHONY: wasm-serve
+wasm-serve: wasm-build-simd ## Build and serve WASM demo with SIMD (port 9876)
+	@echo "Starting demo server at http://localhost:$(WASM_PORT)/"
+	@echo "Press Ctrl+C to stop"
+	@if command -v ruchy >/dev/null 2>&1; then \
+		echo "Using ruchy (fast)"; \
+		cd $(WASM_PKG_DIR) && ruchy serve . --port $(WASM_PORT); \
+	else \
+		echo "Using Python (install ruchy for faster: cargo install ruchy)"; \
+		cd $(WASM_PKG_DIR) && python3 -m http.server $(WASM_PORT); \
+	fi
+
+.PHONY: wasm-clean
+wasm-clean: ## Clean WASM build artifacts
+	rm -rf $(WASM_OUT_DIR)
+	rm -rf $(WASM_PKG_DIR)/target
+
+.PHONY: wasm-check
+wasm-check: ## Check WASM package compiles
+	cd $(WASM_PKG_DIR) && cargo check --target wasm32-unknown-unknown
+
+# ============================================================================
 # Phony declarations for safety
 # ============================================================================
 

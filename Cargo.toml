@@ -1,6 +1,6 @@
 [package]
 name = "trueno-viz"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -14,7 +14,7 @@ categories = ["visualization", "graphics", "science", "wasm"]
 
 [dependencies]
 # Core SIMD/GPU acceleration
-trueno = { version = "0.7.1", default-features = false }
+trueno = { version = "0.7.3", default-features = false }
 
 # PNG encoding (pure Rust, no libpng)
 png = "0.17"
@@ -26,7 +26,7 @@ base64 = "0.22"
 thiserror = "1.0"
 
 # Optional: ML integration
-aprender = { version = "0.7.1", optional = true }
+aprender = { version = "0.9", optional = true }
 
 # Optional: Graph integration
 trueno-graph = { version = "0.1.1", optional = true }
@@ -57,8 +57,11 @@ default = []
 # SIMD acceleration is built-in to trueno by default
 # No feature flag needed
 
-# GPU compute acceleration
+# GPU compute acceleration (native)
 gpu = ["trueno/gpu"]
+
+# GPU compute acceleration (WebGPU/WASM)
+gpu-wasm = ["trueno/gpu-wasm", "wasm"]
 
 # Parallel processing with rayon
 parallel = ["trueno/parallel"]
