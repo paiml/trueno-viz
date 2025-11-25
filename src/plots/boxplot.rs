@@ -1327,9 +1327,7 @@ mod tests {
     #[test]
     fn test_boxplot_all_empty_groups() {
         // Groups that result in no valid stats
-        let result = BoxPlot::new()
-            .data(vec![vec![f32::NAN, f32::NAN]])
-            .build();
+        let result = BoxPlot::new().data(vec![vec![f32::NAN, f32::NAN]]).build();
         assert!(result.is_err());
     }
 

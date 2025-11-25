@@ -399,7 +399,9 @@ mod tests {
     fn test_vector_scatter_vs_with() {
         let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
         let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
-        let fb = pred.scatter_vs_with(&actual, 500, 500, Rgba::GREEN).unwrap();
+        let fb = pred
+            .scatter_vs_with(&actual, 500, 500, Rgba::GREEN)
+            .unwrap();
         assert_eq!(fb.width(), 500);
         assert_eq!(fb.height(), 500);
     }
@@ -516,8 +518,14 @@ mod tests {
     #[test]
     fn test_dataframe_boxplot() {
         let columns = vec![
-            ("a".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0])),
-            ("b".to_string(), Vector::from_slice(&[2.0, 3.0, 4.0, 5.0, 6.0])),
+            (
+                "a".to_string(),
+                Vector::from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0]),
+            ),
+            (
+                "b".to_string(),
+                Vector::from_slice(&[2.0, 3.0, 4.0, 5.0, 6.0]),
+            ),
         ];
         let df = AprenderDataFrame::new(columns).unwrap();
         let fb = df.boxplot(&["a", "b"]).unwrap();

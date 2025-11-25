@@ -170,7 +170,14 @@ mod tests {
     #[test]
     fn test_coord_default() {
         let c = Coord::default();
-        assert!(matches!(c, Coord::Cartesian { xlim: None, ylim: None, flip: false }));
+        assert!(matches!(
+            c,
+            Coord::Cartesian {
+                xlim: None,
+                ylim: None,
+                flip: false
+            }
+        ));
     }
 
     #[test]

@@ -498,14 +498,18 @@ mod tests {
 
     #[test]
     fn test_from_prompt_heatmap() {
-        let fb = from_prompt("heatmap matrix=[[1,2,3],[4,5,6],[7,8,9]] width=200 height=150").unwrap();
+        let fb =
+            from_prompt("heatmap matrix=[[1,2,3],[4,5,6],[7,8,9]] width=200 height=150").unwrap();
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
 
     #[test]
     fn test_from_prompt_boxplot() {
-        let fb = from_prompt("boxplot groups=[[1,2,3,4,5],[2,3,4,5,6],[3,4,5,6,7]] width=200 height=150").unwrap();
+        let fb = from_prompt(
+            "boxplot groups=[[1,2,3,4,5],[2,3,4,5,6],[3,4,5,6,7]] width=200 height=150",
+        )
+        .unwrap();
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
