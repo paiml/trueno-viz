@@ -109,6 +109,10 @@ harness = false
 name = "framebuffer_benchmark"
 harness = false
 
+[[example]]
+name = "aprender_integration"
+required-features = ["ml"]
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
