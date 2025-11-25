@@ -109,6 +109,11 @@ pub mod prompt;
 /// Ecosystem integrations (trueno-db, trueno-graph, aprender).
 pub mod interop;
 
+/// WebAssembly bindings for browser usage.
+#[cfg(feature = "wasm")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
+pub mod wasm;
+
 // ============================================================================
 // Error Types
 // ============================================================================

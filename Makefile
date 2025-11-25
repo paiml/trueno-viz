@@ -64,8 +64,24 @@ build-release: ## Build the project (release, optimized)
 	RUSTFLAGS="$(RUSTFLAGS)" $(CARGO) build --release
 
 .PHONY: build-wasm
-build-wasm: ## Build for WebAssembly target
-	$(CARGO) build --target wasm32-unknown-unknown --release
+build-wasm: ## Build for WebAssembly target (wasm-pack)
+	@command -v wasm-pack >/dev/null 2>&1 || { echo "Installing wasm-pack..."; cargo install wasm-pack; }
+	wasm-pack build --target web --features wasm --out-dir pkg
+	@cp pkg/README.md pkg/README.md.bak 2>/dev/null || true
+	@if [ -f pkg/package.json.template ]; then \
+		jq -s '.[0] * .[1]' pkg/package.json pkg/package.json.template > pkg/package.json.tmp && \
+		mv pkg/package.json.tmp pkg/package.json; \
+	fi
+	@mv pkg/README.md.bak pkg/README.md 2>/dev/null || true
+	@echo "WASM package built in pkg/"
+
+.PHONY: build-wasm-nodejs
+build-wasm-nodejs: ## Build WASM for Node.js
+	wasm-pack build --target nodejs --features wasm --out-dir pkg-node
+
+.PHONY: build-wasm-bundler
+build-wasm-bundler: ## Build WASM for bundlers (webpack, etc)
+	wasm-pack build --target bundler --features wasm --out-dir pkg-bundler
 
 # ============================================================================
 # Test Commands
