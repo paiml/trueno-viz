@@ -380,3 +380,32 @@ roadmap:
   labels:
     - performance
   notes: "6 benchmark files covering scatter, framebuffer, histogram, heatmap, line, encoder"
+- id: TV-024
+  github_issue: null
+  item_type: task
+  title: Real-time GPU visualization demo
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2025-11-25T09:00:00Z
+  updated: 2025-11-25T09:00:00Z
+  spec: "GPU-first showcase with WebGPU compute, WASM SIMD fallback, WebSocket streaming, Grammar of Graphics API"
+  acceptance_criteria:
+    - WebGPU compute tier with SIMD128/256 fallbacks
+    - 60fps rendering of 1M+ points
+    - WebSocket binary streaming protocol
+    - 6 demo scenes (scatter, heatmap, line, network, violin, ROC)
+    - Interactive code editor for Grammar of Graphics
+    - Performance metrics overlay
+  phases:
+    - Foundation (WebGPU/WASM, ring buffer, scatter)
+    - Grammar API (aesthetics, scales, coords, themes)
+    - Advanced Geometries (heatmap, line, graph, violin)
+    - Streaming (WebSocket, data generators, polish)
+  subtasks: []
+  estimated_effort: null
+  labels:
+    - showcase
+    - gpu
+    - webgpu
+  notes: "Specification: docs/specifications/real-time-gpu-demo-spec.md. 10 peer-reviewed citations."
