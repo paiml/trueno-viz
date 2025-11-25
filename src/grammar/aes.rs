@@ -177,4 +177,99 @@ mod tests {
         assert_eq!(merged.color_value, Some(Rgba::RED)); // From base
         assert_eq!(merged.size_value, Some(3.0)); // From override
     }
+
+    #[test]
+    fn test_aes_size() {
+        let aes = Aes::new().size("size_col");
+        assert_eq!(aes.size, Some("size_col".to_string()));
+    }
+
+    #[test]
+    fn test_aes_shape() {
+        let aes = Aes::new().shape("shape_col");
+        assert_eq!(aes.shape, Some("shape_col".to_string()));
+    }
+
+    #[test]
+    fn test_aes_alpha() {
+        let aes = Aes::new().alpha("alpha_col");
+        assert_eq!(aes.alpha, Some("alpha_col".to_string()));
+    }
+
+    #[test]
+    fn test_aes_fill() {
+        let aes = Aes::new().fill("fill_col");
+        assert_eq!(aes.fill, Some("fill_col".to_string()));
+    }
+
+    #[test]
+    fn test_aes_group() {
+        let aes = Aes::new().group("group_col");
+        assert_eq!(aes.group, Some("group_col".to_string()));
+    }
+
+    #[test]
+    fn test_aes_label() {
+        let aes = Aes::new().label("label_col");
+        assert_eq!(aes.label, Some("label_col".to_string()));
+    }
+
+    #[test]
+    fn test_aes_alpha_value() {
+        let aes = Aes::new().alpha_value(0.5);
+        assert_eq!(aes.alpha_value, Some(0.5));
+    }
+
+    #[test]
+    fn test_aes_alpha_value_clamp() {
+        // Test clamping
+        let aes1 = Aes::new().alpha_value(1.5);
+        assert_eq!(aes1.alpha_value, Some(1.0));
+
+        let aes2 = Aes::new().alpha_value(-0.5);
+        assert_eq!(aes2.alpha_value, Some(0.0));
+    }
+
+    #[test]
+    fn test_aes_default() {
+        let aes = Aes::default();
+        assert!(aes.x.is_none());
+        assert!(aes.y.is_none());
+    }
+
+    #[test]
+    fn test_aes_merge_all_fields() {
+        let base = Aes::new()
+            .x("x")
+            .color("c")
+            .shape("s")
+            .alpha("a")
+            .fill("f")
+            .group("g")
+            .label("l")
+            .alpha_value(0.5);
+
+        let other = Aes::new()
+            .y("y")
+            .size("sz");
+
+        let merged = base.merge(&other);
+        assert_eq!(merged.x, Some("x".to_string()));
+        assert_eq!(merged.y, Some("y".to_string()));
+        assert_eq!(merged.color, Some("c".to_string()));
+        assert_eq!(merged.size, Some("sz".to_string()));
+        assert_eq!(merged.shape, Some("s".to_string()));
+        assert_eq!(merged.alpha, Some("a".to_string()));
+        assert_eq!(merged.fill, Some("f".to_string()));
+        assert_eq!(merged.group, Some("g".to_string()));
+        assert_eq!(merged.label, Some("l".to_string()));
+        assert_eq!(merged.alpha_value, Some(0.5));
+    }
+
+    #[test]
+    fn test_aes_debug_clone() {
+        let aes = Aes::new().x("x").y("y");
+        let aes2 = aes.clone();
+        let _ = format!("{:?}", aes2);
+    }
 }

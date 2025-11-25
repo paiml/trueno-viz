@@ -313,4 +313,206 @@ mod tests {
         assert!(g.aes.is_some());
         assert_eq!(g.aes.unwrap().color, Some("category".to_string()));
     }
+
+    #[test]
+    fn test_geom_area() {
+        let g = Geom::area();
+        match g.geom_type {
+            GeomType::Area { alpha } => assert!((alpha - 0.3).abs() < 0.01),
+            _ => panic!("Expected area geom"),
+        }
+    }
+
+    #[test]
+    fn test_geom_area_alpha() {
+        let g = Geom::area().alpha(0.7);
+        match g.geom_type {
+            GeomType::Area { alpha } => assert!((alpha - 0.7).abs() < 0.01),
+            _ => panic!("Expected area geom"),
+        }
+    }
+
+    #[test]
+    fn test_geom_area_alpha_clamp() {
+        // Test clamping at bounds
+        let g1 = Geom::area().alpha(1.5);
+        let g2 = Geom::area().alpha(-0.5);
+        match g1.geom_type {
+            GeomType::Area { alpha } => assert!((alpha - 1.0).abs() < 0.01),
+            _ => panic!("Expected area geom"),
+        }
+        match g2.geom_type {
+            GeomType::Area { alpha } => assert!(alpha.abs() < 0.01),
+            _ => panic!("Expected area geom"),
+        }
+    }
+
+    #[test]
+    fn test_geom_bar() {
+        let g = Geom::bar();
+        match g.geom_type {
+            GeomType::Bar { width } => assert!((width - 0.8).abs() < 0.01),
+            _ => panic!("Expected bar geom"),
+        }
+        assert!(g.stat.is_some());
+    }
+
+    #[test]
+    fn test_geom_bar_width() {
+        let g = Geom::bar().width(0.5);
+        match g.geom_type {
+            GeomType::Bar { width } => assert!((width - 0.5).abs() < 0.01),
+            _ => panic!("Expected bar geom"),
+        }
+    }
+
+    #[test]
+    fn test_geom_boxplot() {
+        let g = Geom::boxplot();
+        assert!(matches!(g.geom_type, GeomType::Boxplot));
+        assert!(g.stat.is_some());
+    }
+
+    #[test]
+    fn test_geom_violin() {
+        let g = Geom::violin();
+        assert!(matches!(g.geom_type, GeomType::Violin));
+        assert!(g.stat.is_some());
+    }
+
+    #[test]
+    fn test_geom_tile() {
+        let g = Geom::tile();
+        assert!(matches!(g.geom_type, GeomType::Tile));
+        assert!(g.stat.is_none());
+    }
+
+    #[test]
+    fn test_geom_text() {
+        let g = Geom::text();
+        assert!(matches!(g.geom_type, GeomType::Text));
+    }
+
+    #[test]
+    fn test_geom_hline() {
+        let g = Geom::hline(5.0);
+        match g.geom_type {
+            GeomType::Hline { yintercept } => assert!((yintercept - 5.0).abs() < 0.01),
+            _ => panic!("Expected hline geom"),
+        }
+    }
+
+    #[test]
+    fn test_geom_vline() {
+        let g = Geom::vline(3.0);
+        match g.geom_type {
+            GeomType::Vline { xintercept } => assert!((xintercept - 3.0).abs() < 0.01),
+            _ => panic!("Expected vline geom"),
+        }
+    }
+
+    #[test]
+    fn test_geom_smooth() {
+        let g = Geom::smooth();
+        match g.geom_type {
+            GeomType::Smooth { method } => assert_eq!(method, SmoothMethod::Loess),
+            _ => panic!("Expected smooth geom"),
+        }
+        assert!(g.stat.is_some());
+    }
+
+    #[test]
+    fn test_geom_with_stat() {
+        let g = Geom::point().stat(Stat::identity());
+        assert!(g.stat.is_some());
+    }
+
+    #[test]
+    fn test_point_shapes() {
+        // Test all point shapes
+        let shapes = [
+            PointShape::Circle,
+            PointShape::Square,
+            PointShape::Triangle,
+            PointShape::Diamond,
+            PointShape::Cross,
+            PointShape::X,
+        ];
+        for shape in shapes {
+            let g = Geom::point().shape(shape);
+            match g.geom_type {
+                GeomType::Point { shape: s } => assert_eq!(s, shape),
+                _ => panic!("Expected point geom"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_point_shape_default() {
+        assert_eq!(PointShape::default(), PointShape::Circle);
+    }
+
+    #[test]
+    fn test_smooth_method_default() {
+        assert_eq!(SmoothMethod::default(), SmoothMethod::Loess);
+    }
+
+    #[test]
+    fn test_shape_on_non_point() {
+        // shape() on non-point geom should be no-op
+        let g = Geom::line().shape(PointShape::Square);
+        assert!(matches!(g.geom_type, GeomType::Line { .. }));
+    }
+
+    #[test]
+    fn test_width_on_non_line_bar() {
+        // width() on non-line/bar geom should be no-op
+        let g = Geom::point().width(5.0);
+        assert!(matches!(g.geom_type, GeomType::Point { .. }));
+    }
+
+    #[test]
+    fn test_bins_on_non_histogram() {
+        // bins() on non-histogram geom should be no-op
+        let g = Geom::point().bins(100);
+        assert!(matches!(g.geom_type, GeomType::Point { .. }));
+    }
+
+    #[test]
+    fn test_alpha_on_non_area() {
+        // alpha() on non-area geom should be no-op
+        let g = Geom::point().alpha(0.5);
+        assert!(matches!(g.geom_type, GeomType::Point { .. }));
+    }
+
+    #[test]
+    fn test_geom_debug() {
+        let geoms = vec![
+            Geom::point(),
+            Geom::line(),
+            Geom::area(),
+            Geom::bar(),
+            Geom::histogram(),
+            Geom::boxplot(),
+            Geom::violin(),
+            Geom::tile(),
+            Geom::text(),
+            Geom::hline(0.0),
+            Geom::vline(0.0),
+            Geom::smooth(),
+        ];
+        for g in geoms {
+            let _ = format!("{:?}", g);
+        }
+    }
+
+    #[test]
+    fn test_geom_clone() {
+        let g1 = Geom::histogram().bins(25);
+        let g2 = g1.clone();
+        match g2.geom_type {
+            GeomType::Histogram { bins } => assert_eq!(bins, 25),
+            _ => panic!("Clone failed"),
+        }
+    }
 }

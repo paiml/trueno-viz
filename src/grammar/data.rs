@@ -171,4 +171,110 @@ mod tests {
         let text: DataValue = "hello".into();
         assert_eq!(text.as_str(), Some("hello"));
     }
+
+    #[test]
+    fn test_dataframe_from_data() {
+        let df = DataFrame::from_data(&[1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(df.nrow(), 4);
+        assert!(df.has_column("data"));
+        let data = df.get_f32("data").unwrap();
+        assert_eq!(data, vec![1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn test_dataframe_add_column_str() {
+        let mut df = DataFrame::new();
+        df.add_column_str("names", &["Alice", "Bob", "Charlie"]);
+        assert_eq!(df.nrow(), 3);
+        assert!(df.has_column("names"));
+    }
+
+    #[test]
+    fn test_dataframe_get() {
+        let df = DataFrame::from_xy(&[1.0, 2.0], &[3.0, 4.0]);
+        let col = df.get("x").unwrap();
+        assert_eq!(col.len(), 2);
+        assert_eq!(col[0].as_f32(), Some(1.0));
+    }
+
+    #[test]
+    fn test_dataframe_get_missing() {
+        let df = DataFrame::new();
+        assert!(df.get("missing").is_none());
+        assert!(df.get_f32("missing").is_none());
+    }
+
+    #[test]
+    fn test_dataframe_columns() {
+        let df = DataFrame::from_xy(&[1.0], &[2.0]);
+        let cols = df.columns();
+        assert_eq!(cols.len(), 2);
+        assert!(cols.contains(&"x"));
+        assert!(cols.contains(&"y"));
+    }
+
+    #[test]
+    fn test_dataframe_empty() {
+        let df = DataFrame::new();
+        assert_eq!(df.nrow(), 0);
+        assert_eq!(df.ncol(), 0);
+        assert!(!df.has_column("anything"));
+    }
+
+    #[test]
+    fn test_dataframe_from_xy_unequal() {
+        // Different length arrays - should take minimum
+        let df = DataFrame::from_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0]);
+        let x = df.get_f32("x").unwrap();
+        let y = df.get_f32("y").unwrap();
+        assert_eq!(x.len(), 2);
+        assert_eq!(y.len(), 2);
+    }
+
+    #[test]
+    fn test_data_value_null() {
+        let null = DataValue::Null;
+        assert_eq!(null.as_f32(), None);
+        assert_eq!(null.as_str(), None);
+    }
+
+    #[test]
+    fn test_data_value_from_string() {
+        let text: DataValue = String::from("test").into();
+        assert_eq!(text.as_str(), Some("test"));
+    }
+
+    #[test]
+    fn test_data_value_as_f32_on_text() {
+        let text: DataValue = "hello".into();
+        assert_eq!(text.as_f32(), None);
+    }
+
+    #[test]
+    fn test_data_value_as_str_on_number() {
+        let num: DataValue = 42.0f32.into();
+        assert_eq!(num.as_str(), None);
+    }
+
+    #[test]
+    fn test_data_value_debug_clone_eq() {
+        let v1 = DataValue::Number(42.0);
+        let v2 = v1.clone();
+        assert_eq!(v1, v2);
+        let _ = format!("{:?}", v1);
+    }
+
+    #[test]
+    fn test_dataframe_debug_clone() {
+        let df = DataFrame::from_xy(&[1.0], &[2.0]);
+        let df2 = df.clone();
+        assert_eq!(df2.nrow(), 1);
+        let _ = format!("{:?}", df2);
+    }
+
+    #[test]
+    fn test_dataframe_default() {
+        let df = DataFrame::default();
+        assert_eq!(df.nrow(), 0);
+    }
 }

@@ -488,4 +488,232 @@ mod tests {
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
+
+    #[test]
+    fn test_from_prompt_histogram() {
+        let fb = from_prompt("histogram data=[1,2,2,3,3,3,4,4,5] width=200 height=150").unwrap();
+        assert_eq!(fb.width(), 200);
+        assert_eq!(fb.height(), 150);
+    }
+
+    #[test]
+    fn test_from_prompt_heatmap() {
+        let fb = from_prompt("heatmap matrix=[[1,2,3],[4,5,6],[7,8,9]] width=200 height=150").unwrap();
+        assert_eq!(fb.width(), 200);
+        assert_eq!(fb.height(), 150);
+    }
+
+    #[test]
+    fn test_from_prompt_boxplot() {
+        let fb = from_prompt("boxplot groups=[[1,2,3,4,5],[2,3,4,5,6],[3,4,5,6,7]] width=200 height=150").unwrap();
+        assert_eq!(fb.width(), 200);
+        assert_eq!(fb.height(), 150);
+    }
+
+    #[test]
+    fn test_parse_color_all_named() {
+        assert_eq!(parse_color("black").unwrap(), Rgba::BLACK);
+        assert_eq!(parse_color("white").unwrap(), Rgba::WHITE);
+        assert_eq!(parse_color("yellow").unwrap(), Rgba::new(255, 255, 0, 255));
+        assert_eq!(parse_color("cyan").unwrap(), Rgba::new(0, 255, 255, 255));
+        assert_eq!(parse_color("magenta").unwrap(), Rgba::new(255, 0, 255, 255));
+        assert_eq!(parse_color("orange").unwrap(), Rgba::new(255, 165, 0, 255));
+        assert_eq!(parse_color("purple").unwrap(), Rgba::new(128, 0, 128, 255));
+        assert_eq!(parse_color("pink").unwrap(), Rgba::new(255, 192, 203, 255));
+        assert_eq!(parse_color("gray").unwrap(), Rgba::new(128, 128, 128, 255));
+        assert_eq!(parse_color("grey").unwrap(), Rgba::new(128, 128, 128, 255));
+    }
+
+    #[test]
+    fn test_parse_color_invalid_hex() {
+        let result = parse_color("#gggggg");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_color_unknown() {
+        let result = parse_color("unknowncolor");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_array_invalid() {
+        let result = parse_array("[1,2,abc,4]");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_matrix_invalid_format() {
+        let result = parse_matrix("[1,2,3]");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_prompt_title() {
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4] title=\"My Plot\"").unwrap();
+        assert_eq!(spec.title, Some("My Plot".to_string()));
+    }
+
+    #[test]
+    fn test_parse_prompt_title_multiword() {
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4] title=\"My Multi Word Title\"").unwrap();
+        assert_eq!(spec.title, Some("My Multi Word Title".to_string()));
+    }
+
+    #[test]
+    fn test_parse_prompt_size() {
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4] size=10.0").unwrap();
+        assert!((spec.size - 10.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_prompt_invalid_width() {
+        let result = parse_prompt("scatter x=[1,2] y=[3,4] width=abc");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_prompt_invalid_height() {
+        let result = parse_prompt("scatter x=[1,2] y=[3,4] height=abc");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_prompt_invalid_size() {
+        let result = parse_prompt("scatter x=[1,2] y=[3,4] size=abc");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_prompt_unknown_option() {
+        // Unknown options should be ignored
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4] unknown=value").unwrap();
+        assert_eq!(spec.x_data.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_render_unknown_plot_type() {
+        let spec = PlotSpec {
+            plot_type: "unknownplot".to_string(),
+            ..PlotSpec::default()
+        };
+        let result = spec.render();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_render_scatter_missing_x() {
+        let spec = PlotSpec {
+            plot_type: "scatter".to_string(),
+            y_data: Some(vec![1.0, 2.0]),
+            ..PlotSpec::default()
+        };
+        let result = spec.render();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_render_scatter_missing_y() {
+        let spec = PlotSpec {
+            plot_type: "scatter".to_string(),
+            x_data: Some(vec![1.0, 2.0]),
+            ..PlotSpec::default()
+        };
+        let result = spec.render();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_render_line_missing_data() {
+        let spec = PlotSpec {
+            plot_type: "line".to_string(),
+            ..PlotSpec::default()
+        };
+        let result = spec.render();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_render_histogram_missing_data() {
+        let spec = PlotSpec {
+            plot_type: "histogram".to_string(),
+            ..PlotSpec::default()
+        };
+        let result = spec.render();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_render_heatmap_missing_matrix() {
+        let spec = PlotSpec {
+            plot_type: "heatmap".to_string(),
+            ..PlotSpec::default()
+        };
+        let result = spec.render();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_render_boxplot_missing_groups() {
+        let spec = PlotSpec {
+            plot_type: "boxplot".to_string(),
+            ..PlotSpec::default()
+        };
+        let result = spec.render();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_plotspec_default() {
+        let spec = PlotSpec::default();
+        assert!(spec.plot_type.is_empty());
+        assert!(spec.x_data.is_none());
+        assert!(spec.y_data.is_none());
+        assert!(spec.data.is_none());
+        assert!(spec.matrix.is_none());
+        assert!(spec.groups.is_none());
+        assert_eq!(spec.width, 600);
+        assert_eq!(spec.height, 400);
+        assert_eq!(spec.size, 5.0);
+        assert!(spec.title.is_none());
+    }
+
+    #[test]
+    fn test_parse_prompt_histogram_missing_data() {
+        let result = parse_prompt("histogram");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_prompt_heatmap_missing_matrix() {
+        let result = parse_prompt("heatmap");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_prompt_boxplot_missing_groups() {
+        let result = parse_prompt("boxplot");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_prompt_line_missing_y() {
+        let result = parse_prompt("line x=[1,2,3]");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_plotspec_debug_clone() {
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4]").unwrap();
+        let spec2 = spec.clone();
+        let _ = format!("{:?}", spec2);
+    }
+
+    #[test]
+    fn test_parse_matrix_multiple_rows() {
+        let mat = parse_matrix("[[1,2,3],[4,5,6],[7,8,9]]").unwrap();
+        assert_eq!(mat.len(), 3);
+        assert_eq!(mat[0].len(), 3);
+        assert_eq!(mat[2].len(), 3);
+    }
 }

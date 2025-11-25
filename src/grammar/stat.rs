@@ -113,4 +113,68 @@ mod tests {
             _ => panic!("Expected Bin2d stat"),
         }
     }
+
+    #[test]
+    fn test_stat_identity() {
+        assert!(matches!(Stat::identity(), Stat::Identity));
+    }
+
+    #[test]
+    fn test_stat_count() {
+        assert!(matches!(Stat::count(), Stat::Count));
+    }
+
+    #[test]
+    fn test_stat_density() {
+        assert!(matches!(Stat::density(), Stat::Density));
+    }
+
+    #[test]
+    fn test_stat_boxplot() {
+        assert!(matches!(Stat::boxplot(), Stat::Boxplot));
+    }
+
+    #[test]
+    fn test_stat_smooth() {
+        assert!(matches!(Stat::smooth(), Stat::Smooth));
+    }
+
+    #[test]
+    fn test_stat_sum() {
+        assert!(matches!(Stat::sum(), Stat::Sum));
+    }
+
+    #[test]
+    fn test_stat_mean() {
+        assert!(matches!(Stat::mean(), Stat::Mean));
+    }
+
+    #[test]
+    fn test_stat_debug() {
+        // Verify Debug impl works for all variants
+        let variants: Vec<Stat> = vec![
+            Stat::identity(),
+            Stat::count(),
+            Stat::bin(10),
+            Stat::density(),
+            Stat::boxplot(),
+            Stat::smooth(),
+            Stat::bin2d(5, 5),
+            Stat::sum(),
+            Stat::mean(),
+        ];
+        for v in variants {
+            let _ = format!("{:?}", v);
+        }
+    }
+
+    #[test]
+    fn test_stat_clone() {
+        let s1 = Stat::bin(42);
+        let s2 = s1.clone();
+        match s2 {
+            Stat::Bin { bins } => assert_eq!(bins, 42),
+            _ => panic!("Clone failed"),
+        }
+    }
 }

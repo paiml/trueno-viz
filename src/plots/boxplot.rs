@@ -1039,4 +1039,320 @@ mod tests {
         let kde = compute_kde(&data, None, 20);
         assert!(kde.is_empty());
     }
+
+    #[test]
+    fn test_boxplot_data_method() {
+        let groups = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
+        let plot = BoxPlot::new()
+            .data(groups)
+            .labels(&["A", "B"])
+            .build()
+            .unwrap();
+        assert_eq!(plot.num_groups(), 2);
+    }
+
+    #[test]
+    fn test_boxplot_colors() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .fill_color(Rgba::RED)
+            .outline_color(Rgba::BLACK)
+            .median_color(Rgba::BLUE)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_boxplot_margin() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .margin(10)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_boxplot_box_width() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .box_width(0.8)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_boxplot_box_width_clamp() {
+        let plot1 = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .box_width(2.0) // Should clamp to 1.0
+            .build()
+            .unwrap();
+        let _ = plot1.to_framebuffer().unwrap();
+
+        let plot2 = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .box_width(0.05) // Should clamp to 0.1
+            .build()
+            .unwrap();
+        let _ = plot2.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_boxplot_show_outliers_false() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0, 100.0], "A") // Has outlier
+            .show_outliers(false)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_boxplot_show_outliers_true() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0, 100.0], "A") // Has outlier
+            .show_outliers(true)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_built_boxplot_stats_labels() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A")
+            .build()
+            .unwrap();
+
+        assert!(plot.stats(0).is_some());
+        assert!(plot.stats(99).is_none());
+        assert_eq!(plot.labels(), &["Group A".to_string()]);
+    }
+
+    #[test]
+    fn test_violin_data_method() {
+        let groups = vec![vec![1.0, 2.0, 3.0, 4.0, 5.0]];
+        let plot = ViolinPlot::new().data(groups).build().unwrap();
+        assert_eq!(plot.num_groups(), 1);
+    }
+
+    #[test]
+    fn test_violin_fill_color() {
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .fill_color(Rgba::GREEN)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_violin_show_box_false() {
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .show_box(false)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_violin_bandwidth() {
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .bandwidth(Some(0.5))
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_violin_margin() {
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .margin(20)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_violin_labels() {
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0], "Test Label")
+            .build()
+            .unwrap();
+        assert_eq!(plot.labels(), &["Test Label".to_string()]);
+    }
+
+    #[test]
+    fn test_violin_empty_error() {
+        let result = ViolinPlot::new().build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_box_stats_nan_filtered() {
+        let data = vec![1.0, f32::NAN, 3.0, 4.0, 5.0];
+        let stats = BoxStats::from_data(&data).unwrap();
+        assert!((stats.median - 3.5).abs() < 0.5); // NaN filtered out
+    }
+
+    #[test]
+    fn test_box_stats_all_nan() {
+        let data = vec![f32::NAN, f32::NAN];
+        assert!(BoxStats::from_data(&data).is_none());
+    }
+
+    #[test]
+    fn test_kde_constant_data() {
+        let data = vec![5.0, 5.0, 5.0, 5.0, 5.0];
+        let kde = compute_kde(&data, None, 10);
+        assert_eq!(kde.len(), 1);
+        assert!((kde[0].0 - 5.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_kde_custom_bandwidth() {
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
+        let kde = compute_kde(&data, Some(0.3), 20);
+        assert!(!kde.is_empty());
+    }
+
+    #[test]
+    fn test_kde_nan_filtered() {
+        let data = vec![1.0, f32::NAN, 3.0, 4.0, 5.0];
+        let kde = compute_kde(&data, None, 20);
+        assert!(!kde.is_empty());
+    }
+
+    #[test]
+    fn test_kde_all_nan() {
+        let data = vec![f32::NAN, f32::NAN];
+        let kde = compute_kde(&data, None, 20);
+        assert!(kde.is_empty());
+    }
+
+    #[test]
+    fn test_percentile_empty() {
+        let sorted: Vec<f32> = vec![];
+        assert!((percentile(&sorted, 50.0) - 0.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_percentile_single() {
+        let sorted = vec![42.0];
+        assert!((percentile(&sorted, 50.0) - 42.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_boxplot_default() {
+        let plot = BoxPlot::default();
+        let result = plot.build();
+        assert!(result.is_err()); // No data
+    }
+
+    #[test]
+    fn test_violin_default() {
+        let plot = ViolinPlot::default();
+        let result = plot.build();
+        assert!(result.is_err()); // No data
+    }
+
+    #[test]
+    fn test_boxplot_render_tiny_margin() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .dimensions(50, 50)
+            .margin(30) // Margin larger than half dimensions
+            .build()
+            .unwrap();
+        // This should still render (plot area will be small but not zero)
+        let _ = plot.to_framebuffer();
+    }
+
+    #[test]
+    fn test_violin_render_tiny_margin() {
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .dimensions(50, 50)
+            .margin(30)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer();
+    }
+
+    #[test]
+    fn test_boxplot_debug_clone() {
+        let plot = BoxPlot::new().add_group(&[1.0, 2.0, 3.0], "A");
+        let plot2 = plot.clone();
+        let _ = format!("{:?}", plot2);
+    }
+
+    #[test]
+    fn test_violin_debug_clone() {
+        let plot = ViolinPlot::new().add_group(&[1.0, 2.0, 3.0], "A");
+        let plot2 = plot.clone();
+        let _ = format!("{:?}", plot2);
+    }
+
+    #[test]
+    fn test_box_stats_debug_clone() {
+        let stats = BoxStats::from_data(&[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let stats2 = stats.clone();
+        let _ = format!("{:?}", stats2);
+    }
+
+    #[test]
+    fn test_built_boxplot_debug() {
+        let built = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .build()
+            .unwrap();
+        let _ = format!("{:?}", built);
+    }
+
+    #[test]
+    fn test_built_violin_debug() {
+        let built = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .build()
+            .unwrap();
+        let _ = format!("{:?}", built);
+    }
+
+    #[test]
+    fn test_boxplot_all_empty_groups() {
+        // Groups that result in no valid stats
+        let result = BoxPlot::new()
+            .data(vec![vec![f32::NAN, f32::NAN]])
+            .build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_boxplot_multiple_groups_outliers() {
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0, 100.0, -100.0], "A")
+            .add_group(&[10.0, 20.0, 30.0, 40.0, 50.0], "B")
+            .show_outliers(true)
+            .dimensions(300, 200)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
+
+    #[test]
+    fn test_violin_multiple_groups() {
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .add_group(&[10.0, 20.0, 30.0, 40.0, 50.0], "B")
+            .dimensions(300, 200)
+            .build()
+            .unwrap();
+        let _ = plot.to_framebuffer().unwrap();
+    }
 }

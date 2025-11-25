@@ -155,4 +155,100 @@ mod tests {
             _ => panic!("Expected Polar"),
         }
     }
+
+    #[test]
+    fn test_coord_fixed() {
+        let c = Coord::fixed(1.5);
+        match c {
+            Coord::Fixed { ratio } => {
+                assert!((ratio - 1.5).abs() < 0.001);
+            }
+            _ => panic!("Expected Fixed"),
+        }
+    }
+
+    #[test]
+    fn test_coord_default() {
+        let c = Coord::default();
+        assert!(matches!(c, Coord::Cartesian { xlim: None, ylim: None, flip: false }));
+    }
+
+    #[test]
+    fn test_xlim_on_non_cartesian() {
+        // xlim on Polar should do nothing
+        let c = Coord::polar().xlim(0.0, 10.0);
+        assert!(matches!(c, Coord::Polar { .. }));
+    }
+
+    #[test]
+    fn test_ylim_on_non_cartesian() {
+        // ylim on Fixed should do nothing
+        let c = Coord::fixed(1.0).ylim(0.0, 10.0);
+        assert!(matches!(c, Coord::Fixed { .. }));
+    }
+
+    #[test]
+    fn test_flip_on_non_cartesian() {
+        // flip on Polar should do nothing
+        let c = Coord::polar().flip();
+        assert!(matches!(c, Coord::Polar { .. }));
+    }
+
+    #[test]
+    fn test_start_angle_on_non_polar() {
+        // start_angle on Cartesian should do nothing
+        let c = Coord::cartesian().start_angle(1.0);
+        assert!(matches!(c, Coord::Cartesian { .. }));
+    }
+
+    #[test]
+    fn test_direction_on_non_polar() {
+        // direction on Fixed should do nothing
+        let c = Coord::fixed(1.0).direction(-1);
+        assert!(matches!(c, Coord::Fixed { .. }));
+    }
+
+    #[test]
+    fn test_direction_positive() {
+        let c = Coord::polar().direction(1);
+        match c {
+            Coord::Polar { direction, .. } => {
+                assert_eq!(direction, 1);
+            }
+            _ => panic!("Expected Polar"),
+        }
+    }
+
+    #[test]
+    fn test_direction_zero() {
+        // Zero should be treated as positive (>=0)
+        let c = Coord::polar().direction(0);
+        match c {
+            Coord::Polar { direction, .. } => {
+                assert_eq!(direction, 1);
+            }
+            _ => panic!("Expected Polar"),
+        }
+    }
+
+    #[test]
+    fn test_coord_debug_clone() {
+        let c = Coord::cartesian().xlim(0.0, 10.0);
+        let c2 = c.clone();
+        let _ = format!("{:?}", c2);
+    }
+
+    #[test]
+    fn test_polar_debug_clone() {
+        let c = Coord::polar().start_angle(0.5);
+        let c2 = c.clone();
+        let _ = format!("{:?}", c2);
+    }
+
+    #[test]
+    fn test_fixed_debug_clone() {
+        let c = Coord::fixed(2.0);
+        let c2 = c.clone();
+        let _ = format!("{:?}", c2);
+    }
 }

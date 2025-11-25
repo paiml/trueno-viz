@@ -164,4 +164,133 @@ mod tests {
         let rect = Rect::new(0.0, 0.0, 10.0, 5.0);
         assert!((rect.area() - 50.0).abs() < 0.001);
     }
+
+    #[test]
+    fn test_point_origin() {
+        assert_eq!(Point::ORIGIN.x, 0.0);
+        assert_eq!(Point::ORIGIN.y, 0.0);
+    }
+
+    #[test]
+    fn test_point_new() {
+        let p = Point::new(3.5, 7.2);
+        assert!((p.x - 3.5).abs() < 0.001);
+        assert!((p.y - 7.2).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_point_default() {
+        let p = Point::default();
+        assert_eq!(p.x, 0.0);
+        assert_eq!(p.y, 0.0);
+    }
+
+    #[test]
+    fn test_point_eq() {
+        let p1 = Point::new(1.0, 2.0);
+        let p2 = Point::new(1.0, 2.0);
+        let p3 = Point::new(3.0, 4.0);
+        assert_eq!(p1, p2);
+        assert_ne!(p1, p3);
+    }
+
+    #[test]
+    fn test_point_debug_clone() {
+        let p = Point::new(1.0, 2.0);
+        let p2 = p;
+        let _ = format!("{:?}", p2);
+    }
+
+    #[test]
+    fn test_line_new() {
+        let start = Point::new(1.0, 2.0);
+        let end = Point::new(3.0, 4.0);
+        let line = Line::new(start, end);
+        assert_eq!(line.start, start);
+        assert_eq!(line.end, end);
+    }
+
+    #[test]
+    fn test_line_default() {
+        let line = Line::default();
+        assert_eq!(line.start, Point::default());
+        assert_eq!(line.end, Point::default());
+    }
+
+    #[test]
+    fn test_line_eq() {
+        let l1 = Line::from_coords(0.0, 0.0, 1.0, 1.0);
+        let l2 = Line::from_coords(0.0, 0.0, 1.0, 1.0);
+        let l3 = Line::from_coords(0.0, 0.0, 2.0, 2.0);
+        assert_eq!(l1, l2);
+        assert_ne!(l1, l3);
+    }
+
+    #[test]
+    fn test_line_debug_clone() {
+        let line = Line::from_coords(0.0, 0.0, 1.0, 1.0);
+        let line2 = line;
+        let _ = format!("{:?}", line2);
+    }
+
+    #[test]
+    fn test_rect_from_corners() {
+        let rect = Rect::from_corners(Point::new(10.0, 20.0), Point::new(50.0, 60.0));
+        assert!((rect.x - 10.0).abs() < 0.001);
+        assert!((rect.y - 20.0).abs() < 0.001);
+        assert!((rect.width - 40.0).abs() < 0.001);
+        assert!((rect.height - 40.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_rect_center() {
+        let rect = Rect::new(10.0, 20.0, 40.0, 60.0);
+        let center = rect.center();
+        assert!((center.x - 30.0).abs() < 0.001);
+        assert!((center.y - 50.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_rect_default() {
+        let rect = Rect::default();
+        assert_eq!(rect.x, 0.0);
+        assert_eq!(rect.y, 0.0);
+        assert_eq!(rect.width, 0.0);
+        assert_eq!(rect.height, 0.0);
+    }
+
+    #[test]
+    fn test_rect_eq() {
+        let r1 = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let r2 = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let r3 = Rect::new(5.0, 5.0, 10.0, 10.0);
+        assert_eq!(r1, r2);
+        assert_ne!(r1, r3);
+    }
+
+    #[test]
+    fn test_rect_debug_clone() {
+        let rect = Rect::new(1.0, 2.0, 3.0, 4.0);
+        let rect2 = rect;
+        let _ = format!("{:?}", rect2);
+    }
+
+    #[test]
+    fn test_rect_contains_boundary() {
+        let rect = Rect::new(0.0, 0.0, 10.0, 10.0);
+        // On boundaries
+        assert!(rect.contains(Point::new(0.0, 0.0))); // top-left
+        assert!(rect.contains(Point::new(10.0, 10.0))); // bottom-right
+        assert!(rect.contains(Point::new(0.0, 10.0))); // bottom-left
+        assert!(rect.contains(Point::new(10.0, 0.0))); // top-right
+    }
+
+    #[test]
+    fn test_rect_contains_outside() {
+        let rect = Rect::new(0.0, 0.0, 10.0, 10.0);
+        assert!(!rect.contains(Point::new(-1.0, 5.0))); // left
+        assert!(!rect.contains(Point::new(11.0, 5.0))); // right
+        assert!(!rect.contains(Point::new(5.0, -1.0))); // above
+        assert!(!rect.contains(Point::new(5.0, 11.0))); // below
+    }
 }

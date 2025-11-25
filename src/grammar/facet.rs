@@ -103,4 +103,49 @@ mod tests {
             _ => panic!("Expected Wrap"),
         }
     }
+
+    #[test]
+    fn test_facet_none() {
+        let f = Facet::none();
+        assert!(matches!(f, Facet::None));
+    }
+
+    #[test]
+    fn test_facet_row() {
+        let f = Facet::row("group");
+        match f {
+            Facet::Row { var } => assert_eq!(var, "group"),
+            _ => panic!("Expected Row"),
+        }
+    }
+
+    #[test]
+    fn test_facet_col() {
+        let f = Facet::col("region");
+        match f {
+            Facet::Col { var } => assert_eq!(var, "region"),
+            _ => panic!("Expected Col"),
+        }
+    }
+
+    #[test]
+    fn test_facet_default() {
+        let f = Facet::default();
+        assert!(matches!(f, Facet::None));
+    }
+
+    #[test]
+    fn test_facet_debug_clone() {
+        let facets = vec![
+            Facet::none(),
+            Facet::row("a"),
+            Facet::col("b"),
+            Facet::grid("a", "b"),
+            Facet::wrap("c", 2),
+        ];
+        for f in facets {
+            let f2 = f.clone();
+            let _ = format!("{:?}", f2);
+        }
+    }
 }
