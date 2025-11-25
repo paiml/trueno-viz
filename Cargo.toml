@@ -109,6 +109,22 @@ harness = false
 name = "framebuffer_benchmark"
 harness = false
 
+[[bench]]
+name = "histogram_benchmark"
+harness = false
+
+[[bench]]
+name = "heatmap_benchmark"
+harness = false
+
+[[bench]]
+name = "line_benchmark"
+harness = false
+
+[[bench]]
+name = "encoder_benchmark"
+harness = false
+
 [[example]]
 name = "aprender_integration"
 required-features = ["ml"]
