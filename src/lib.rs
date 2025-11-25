@@ -51,6 +51,8 @@
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
+// Allow unwrap() in tests only - banned in production code (Cloudflare incident 2025-11-18)
+#![cfg_attr(test, allow(clippy::unwrap_used))]
 // Allow common patterns in graphics/visualization code
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::cast_sign_loss)]

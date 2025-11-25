@@ -129,8 +129,10 @@ missing_docs = "warn"
 # Base warning level
 all = { level = "warn", priority = -1 }
 
-# Allow unwrap/expect - acceptable in tests/examples and panic-based error handling
-unwrap_used = "allow"
+# Ban unwrap() in production code (Cloudflare incident 2025-11-18)
+# Tests use #![cfg_attr(test, allow(clippy::unwrap_used))] in lib.rs
+unwrap_used = "deny"
+# expect() with meaningful messages is acceptable
 expect_used = "allow"
 assertions_on_constants = "allow"  # Allow assert!(true) in compile-test
 

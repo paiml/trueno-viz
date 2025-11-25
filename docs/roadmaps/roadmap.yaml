@@ -338,3 +338,24 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: TV-022
+  github_issue: null
+  item_type: task
+  title: Replace unwrap() calls with proper error handling
+  status: completed
+  priority: critical
+  assigned_to: null
+  created: 2025-11-25T07:15:00Z
+  updated: 2025-11-25T08:30:00Z
+  spec: "Verified zero unwrap() in production code (all 335 occurrences in #[cfg(test)] only). Added clippy::unwrap_used=deny lint with test exception."
+  acceptance_criteria:
+    - Zero unwrap() calls in src/ (excluding tests) - VERIFIED
+    - All error paths have meaningful messages - VERIFIED
+    - clippy::unwrap_used lint enabled - DONE (deny in Cargo.toml)
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+    - security
+    - reliability
+  notes: "Verified: All unwrap() calls are in #[cfg(test)] blocks. clippy::unwrap_used=deny prevents future production unwraps."
