@@ -4,6 +4,7 @@
 
 mod boxplot;
 mod confusion_matrix;
+mod force_graph;
 mod heatmap;
 mod histogram;
 mod line;
@@ -13,6 +14,7 @@ mod scatter;
 
 pub use boxplot::{BoxPlot, BoxStats, BuiltBoxPlot, BuiltViolinPlot, ViolinPlot};
 pub use confusion_matrix::{ConfusionMatrix, ConfusionMatrixMetrics, Normalization};
+pub use force_graph::{BuiltForceGraph, ForceGraph, GraphEdge, GraphNode};
 pub use heatmap::{Heatmap, HeatmapPalette};
 pub use histogram::Histogram;
 pub use line::{douglas_peucker, LineChart, LineSeries};
