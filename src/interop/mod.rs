@@ -6,4 +6,8 @@
 //! - aprender: ML model and result visualization
 //! - entrenar: Training metrics visualization
 
-// TODO: Implement integrations in TV-016, TV-018
+#[cfg(feature = "ml")]
+#[cfg_attr(docsrs, doc(cfg(feature = "ml")))]
+pub mod aprender;
+
+// TODO: Implement TV-018 (trueno-graph integration)
