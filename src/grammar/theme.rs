@@ -216,4 +216,89 @@ mod tests {
         assert_eq!(t.margin, 50);
         assert!(!t.show_grid);
     }
+
+    #[test]
+    fn test_theme_minimal() {
+        let t = Theme::minimal();
+        assert_eq!(t.panel_background, Rgba::WHITE);
+        assert!(t.show_grid);
+        assert!((t.grid_width - 0.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_theme_bw() {
+        let t = Theme::bw();
+        assert!(t.show_panel_border);
+        assert_eq!(t.axis_color, Rgba::BLACK);
+        assert_eq!(t.text_color, Rgba::BLACK);
+    }
+
+    #[test]
+    fn test_theme_classic() {
+        let t = Theme::classic();
+        assert!(!t.show_grid);
+        assert!(t.show_axis);
+        assert!((t.grid_width).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_theme_void() {
+        let t = Theme::void();
+        assert!(!t.show_grid);
+        assert!(!t.show_axis);
+        assert!(!t.show_panel_border);
+        assert_eq!(t.margin, 10);
+    }
+
+    #[test]
+    fn test_theme_default() {
+        let t = Theme::default();
+        // Default is grey
+        assert_eq!(t.background, Rgba::WHITE);
+        assert!(t.show_grid);
+    }
+
+    #[test]
+    fn test_theme_panel_background() {
+        let t = Theme::minimal().panel_background(Rgba::rgb(240, 240, 240));
+        assert_eq!(t.panel_background, Rgba::rgb(240, 240, 240));
+    }
+
+    #[test]
+    fn test_theme_grid_color() {
+        let t = Theme::minimal().grid_color(Rgba::rgb(200, 200, 200));
+        assert_eq!(t.grid_color, Rgba::rgb(200, 200, 200));
+    }
+
+    #[test]
+    fn test_theme_axis() {
+        let t = Theme::minimal().axis(false);
+        assert!(!t.show_axis);
+    }
+
+    #[test]
+    fn test_theme_debug_clone() {
+        let t1 = Theme::dark();
+        let t2 = t1.clone();
+        assert_eq!(t1.background.r, t2.background.r);
+        let _ = format!("{:?}", t2);
+    }
+
+    #[test]
+    fn test_all_themes_valid() {
+        // Verify all theme constructors produce valid themes
+        let themes = [
+            Theme::grey(),
+            Theme::minimal(),
+            Theme::bw(),
+            Theme::classic(),
+            Theme::dark(),
+            Theme::void(),
+        ];
+        for t in themes {
+            assert!(t.margin > 0 || t.margin == 10); // void has 10
+            assert!(t.grid_width >= 0.0);
+            assert!(t.axis_width >= 0.0);
+        }
+    }
 }

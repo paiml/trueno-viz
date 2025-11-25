@@ -707,4 +707,260 @@ mod tests {
         let fb = plot.to_framebuffer().unwrap();
         assert!(fb.width() > 0);
     }
+
+    #[test]
+    fn test_layer_data() {
+        let layer_data = DataFrame::from_xy(&[5.0, 6.0], &[7.0, 8.0]);
+        let layer = Layer::new(Geom::point()).data(layer_data);
+        assert!(layer.data.is_some());
+    }
+
+    #[test]
+    fn test_layer_aes() {
+        let layer = Layer::new(Geom::point()).aes(Aes::new().color_value(Rgba::GREEN));
+        assert_eq!(layer.aes.color_value, Some(Rgba::GREEN));
+    }
+
+    #[test]
+    fn test_ggplot_data() {
+        let df = DataFrame::from_xy(&[1.0, 2.0], &[3.0, 4.0]);
+        let plot = GGPlot::new()
+            .data(df)
+            .aes(Aes::new().x("x").y("y"))
+            .geom(Geom::point())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_layer() {
+        let layer = Layer::new(Geom::line());
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
+            .layer(layer)
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_facet() {
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .geom(Geom::point())
+            .facet(Facet::wrap("category", 2))
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_title_labels() {
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .geom(Geom::point())
+            .title("My Plot")
+            .xlab("X Axis")
+            .ylab("Y Axis")
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_bar() {
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
+            .geom(Geom::bar())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_area() {
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0, 4.0], &[1.0, 3.0, 2.0, 4.0])
+            .geom(Geom::area())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_hline() {
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0], &[1.0, 4.0, 2.0])
+            .geom(Geom::point())
+            .geom(Geom::hline(2.5))
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_vline() {
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0], &[1.0, 4.0, 2.0])
+            .geom(Geom::point())
+            .geom(Geom::vline(1.5))
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_square_points() {
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
+            .geom(Geom::point().shape(PointShape::Square))
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_triangle_points() {
+        // Other shapes fallback to circle
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .geom(Geom::point().shape(PointShape::Triangle))
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_single_point() {
+        // Edge case: single point triggers range adjustment
+        let plot = GGPlot::new()
+            .data_xy(&[5.0], &[5.0])
+            .geom(Geom::point())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_theme_bw() {
+        // Theme with panel border
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .geom(Geom::point())
+            .theme(Theme::bw())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_theme_void() {
+        // Theme with no grid/axes
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .geom(Geom::point())
+            .theme(Theme::void())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_layer_specific_data() {
+        let layer = Layer::new(Geom::point())
+            .data(DataFrame::from_xy(&[10.0, 20.0], &[30.0, 40.0]));
+
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .layer(layer)
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_default() {
+        let plot = GGPlot::default();
+        assert!(plot.layers.is_empty());
+    }
+
+    #[test]
+    fn test_layer_debug_clone() {
+        let layer = Layer::new(Geom::point());
+        let layer2 = layer.clone();
+        let _ = format!("{:?}", layer2);
+    }
+
+    #[test]
+    fn test_ggplot_debug_clone() {
+        let plot = GGPlot::new().data_xy(&[1.0], &[2.0]);
+        let plot2 = plot.clone();
+        let _ = format!("{:?}", plot2);
+    }
+
+    #[test]
+    fn test_built_ggplot_debug() {
+        let built = GGPlot::new()
+            .data_xy(&[1.0], &[2.0])
+            .geom(Geom::point())
+            .build()
+            .unwrap();
+        let _ = format!("{:?}", built);
+    }
+
+    #[test]
+    fn test_ggplot_coord_polar() {
+        // Non-cartesian coord doesn't apply limits
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .geom(Geom::point())
+            .coord(Coord::polar())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_ggplot_negative_values_bar() {
+        // Bars with negative y values
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0], &[-2.0, 3.0, -1.0])
+            .geom(Geom::bar())
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer().unwrap();
+        assert!(fb.width() > 0);
+    }
 }

@@ -688,4 +688,162 @@ mod tests {
         assert!(svg.contains("<path"));
         assert!(svg.contains("d=\"M 10 10 L 90 90\""));
     }
+
+    #[test]
+    fn test_svg_rect_outlined() {
+        let svg = SvgEncoder::new(100, 100)
+            .rect_outlined(10.0, 20.0, 30.0, 40.0, Rgba::RED, Rgba::BLACK, 2.0)
+            .render();
+
+        assert!(svg.contains("<rect"));
+        assert!(svg.contains("stroke=\"rgb(0,0,0)\""));
+        assert!(svg.contains("stroke-width=\"2\""));
+    }
+
+    #[test]
+    fn test_svg_circle_outlined() {
+        let svg = SvgEncoder::new(100, 100)
+            .circle_outlined(50.0, 50.0, 25.0, Rgba::BLUE, Rgba::BLACK, 2.0)
+            .render();
+
+        assert!(svg.contains("<circle"));
+        assert!(svg.contains("stroke=\"rgb(0,0,0)\""));
+        assert!(svg.contains("stroke-width=\"2\""));
+    }
+
+    #[test]
+    fn test_svg_text_anchored_middle() {
+        let svg = SvgEncoder::new(100, 100)
+            .text_anchored(50.0, 50.0, "Centered", 12.0, Rgba::BLACK, TextAnchor::Middle)
+            .render();
+
+        assert!(svg.contains("<text"));
+        assert!(svg.contains("text-anchor=\"middle\""));
+    }
+
+    #[test]
+    fn test_svg_text_anchored_end() {
+        let svg = SvgEncoder::new(100, 100)
+            .text_anchored(90.0, 50.0, "Right", 12.0, Rgba::BLACK, TextAnchor::End)
+            .render();
+
+        assert!(svg.contains("<text"));
+        assert!(svg.contains("text-anchor=\"end\""));
+    }
+
+    #[test]
+    fn test_svg_add_element() {
+        let mut encoder = SvgEncoder::new(100, 100);
+        encoder.add_element(SvgElement::Circle {
+            cx: 50.0,
+            cy: 50.0,
+            r: 10.0,
+            fill: Rgba::RED,
+            stroke: None,
+            stroke_width: 1.0,
+        });
+        let svg = encoder.render();
+        assert!(svg.contains("<circle"));
+    }
+
+    #[test]
+    fn test_svg_write_to_file() {
+        let encoder = SvgEncoder::new(100, 100)
+            .rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
+
+        let temp_path = std::env::temp_dir().join("test_svg_write.svg");
+        encoder.write_to_file(&temp_path).unwrap();
+
+        let content = std::fs::read_to_string(&temp_path).unwrap();
+        assert!(content.contains("<svg"));
+        assert!(content.contains("</svg>"));
+
+        std::fs::remove_file(temp_path).ok();
+    }
+
+    #[test]
+    fn test_svg_encoder_default() {
+        let encoder = SvgEncoder::default();
+        let svg = encoder.render();
+        assert!(svg.contains("width=\"800\""));
+        assert!(svg.contains("height=\"600\""));
+    }
+
+    #[test]
+    fn test_text_anchor_default() {
+        let anchor = TextAnchor::default();
+        assert!(matches!(anchor, TextAnchor::Start));
+    }
+
+    #[test]
+    fn test_svg_path_with_fill() {
+        let svg = SvgEncoder::new(100, 100)
+            .path("M 10 10 L 90 90 L 50 50 Z", Some(Rgba::GREEN), Some(Rgba::BLACK), 1.0)
+            .render();
+
+        assert!(svg.contains("<path"));
+        // Rgba::GREEN is rgb(0,255,0) - pure green
+        assert!(svg.contains("fill=\"rgb(0,255,0)\""));
+        assert!(svg.contains("stroke=\"rgb(0,0,0)\""));
+    }
+
+    #[test]
+    fn test_svg_path_no_stroke() {
+        let svg = SvgEncoder::new(100, 100)
+            .path("M 10 10 L 90 90", Some(Rgba::RED), None, 0.0)
+            .render();
+
+        assert!(svg.contains("<path"));
+        assert!(svg.contains("fill=\"rgb(255,0,0)\""));
+        assert!(!svg.contains("stroke="));
+    }
+
+    #[test]
+    fn test_svg_polygon_no_stroke() {
+        let points = vec![(0.0, 0.0), (50.0, 100.0), (100.0, 0.0)];
+        let svg = SvgEncoder::new(100, 100)
+            .polygon(&points, Rgba::RED, None, 1.0)
+            .render();
+
+        assert!(svg.contains("<polygon"));
+    }
+
+    #[test]
+    fn test_svg_debug_clone() {
+        let encoder = SvgEncoder::new(100, 100)
+            .rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
+        let encoder2 = encoder.clone();
+        let _ = format!("{:?}", encoder2);
+    }
+
+    #[test]
+    fn test_svg_element_debug_clone() {
+        let element = SvgElement::Circle {
+            cx: 50.0,
+            cy: 50.0,
+            r: 10.0,
+            fill: Rgba::RED,
+            stroke: Some(Rgba::BLACK),
+            stroke_width: 2.0,
+        };
+        let element2 = element.clone();
+        let _ = format!("{:?}", element2);
+    }
+
+    #[test]
+    fn test_text_anchor_debug_clone() {
+        let anchor = TextAnchor::Middle;
+        let anchor2 = anchor;
+        let _ = format!("{:?}", anchor2);
+    }
+
+    #[test]
+    fn test_svg_text_xml_entities() {
+        let svg = SvgEncoder::new(100, 100)
+            .text(10.0, 50.0, "A & B \"quoted\"", 12.0, Rgba::BLACK)
+            .render();
+
+        assert!(svg.contains("&amp;"));
+        assert!(svg.contains("&quot;"));
+    }
 }

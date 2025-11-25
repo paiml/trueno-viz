@@ -68,4 +68,47 @@ mod tests {
         // PNG magic bytes
         assert_eq!(&bytes[0..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
     }
+
+    #[test]
+    fn test_png_write_to_file() {
+        let mut fb = Framebuffer::new(8, 8).unwrap();
+        fb.clear(Rgba::BLUE);
+
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let path = tmp.path();
+
+        PngEncoder::write_to_file(&fb, path).unwrap();
+
+        // Verify file was written and has PNG header
+        let data = std::fs::read(path).unwrap();
+        assert_eq!(&data[0..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
+        assert!(data.len() > 8);
+    }
+
+    #[test]
+    fn test_png_roundtrip_dimensions() {
+        let mut fb = Framebuffer::new(16, 24).unwrap();
+        fb.clear(Rgba::GREEN);
+
+        let bytes = PngEncoder::to_bytes(&fb).unwrap();
+
+        // Decode to verify dimensions are correct in header
+        // PNG IHDR chunk starts at byte 8, width at 16, height at 20
+        // IHDR: length(4) + "IHDR"(4) + width(4) + height(4)
+        let width = u32::from_be_bytes([bytes[16], bytes[17], bytes[18], bytes[19]]);
+        let height = u32::from_be_bytes([bytes[20], bytes[21], bytes[22], bytes[23]]);
+
+        assert_eq!(width, 16);
+        assert_eq!(height, 24);
+    }
+
+    #[test]
+    fn test_png_various_sizes() {
+        for (w, h) in [(1, 1), (100, 50), (3, 7)] {
+            let fb = Framebuffer::new(w, h).unwrap();
+            let bytes = PngEncoder::to_bytes(&fb).unwrap();
+            assert!(!bytes.is_empty());
+            assert_eq!(&bytes[0..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
+        }
+    }
 }

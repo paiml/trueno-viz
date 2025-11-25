@@ -343,4 +343,193 @@ mod tests {
         let mid = scale.scale(0.5);
         assert!(mid.r > 100 && mid.r < 150);
     }
+
+    #[test]
+    fn test_linear_scale_from_data() {
+        let scale = LinearScale::from_data(&[0.0, 50.0, 100.0], (0.0, 1.0)).unwrap();
+        assert!((scale.scale(50.0) - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_linear_scale_from_data_empty() {
+        assert!(LinearScale::from_data(&[], (0.0, 1.0)).is_none());
+    }
+
+    #[test]
+    fn test_linear_scale_domain_range() {
+        let scale = LinearScale::new((10.0, 20.0), (100.0, 200.0)).unwrap();
+        assert_eq!(scale.domain(), (10.0, 20.0));
+        assert_eq!(scale.range(), (100.0, 200.0));
+    }
+
+    #[test]
+    fn test_linear_scale_equal_domain_error() {
+        let result = LinearScale::new((5.0, 5.0), (0.0, 1.0));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_log_scale_with_base() {
+        let scale = LogScale::with_base((1.0, 100.0), (0.0, 2.0), 10.0).unwrap();
+        assert!((scale.scale(1.0) - 0.0).abs() < 0.001);
+        assert!((scale.scale(100.0) - 2.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_log_scale_base_e() {
+        let scale = LogScale::with_base((1.0, std::f32::consts::E), (0.0, 1.0), std::f32::consts::E).unwrap();
+        assert!((scale.scale(1.0) - 0.0).abs() < 0.001);
+        assert!((scale.scale(std::f32::consts::E) - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_log_scale_invalid_base() {
+        // Base <= 0
+        assert!(LogScale::with_base((1.0, 100.0), (0.0, 1.0), -1.0).is_err());
+        assert!(LogScale::with_base((1.0, 100.0), (0.0, 1.0), 0.0).is_err());
+        // Base == 1
+        assert!(LogScale::with_base((1.0, 100.0), (0.0, 1.0), 1.0).is_err());
+    }
+
+    #[test]
+    fn test_log_scale_domain_range() {
+        let scale = LogScale::new((1.0, 1000.0), (0.0, 3.0)).unwrap();
+        assert_eq!(scale.domain(), (1.0, 1000.0));
+        assert_eq!(scale.range(), (0.0, 3.0));
+    }
+
+    #[test]
+    fn test_log_scale_very_small_value() {
+        let scale = LogScale::new((1.0, 1000.0), (0.0, 3.0)).unwrap();
+        // Very small value should be clamped to MIN_POSITIVE
+        let _ = scale.scale(0.0001);
+    }
+
+    #[test]
+    fn test_color_scale_single_color() {
+        let scale = ColorScale::new(vec![Rgba::RED], (0.0, 1.0)).unwrap();
+        let color = scale.scale(0.5);
+        assert_eq!(color, Rgba::RED);
+    }
+
+    #[test]
+    fn test_color_scale_domain_range() {
+        let scale = ColorScale::new(vec![Rgba::BLACK, Rgba::WHITE], (0.0, 10.0)).unwrap();
+        assert_eq!(scale.domain(), (0.0, 10.0));
+        let (range_start, range_end) = scale.range();
+        assert_eq!(range_start, Rgba::BLACK);
+        assert_eq!(range_end, Rgba::WHITE);
+    }
+
+    #[test]
+    fn test_color_scale_clamping() {
+        let scale = ColorScale::new(vec![Rgba::BLACK, Rgba::WHITE], (0.0, 1.0)).unwrap();
+        // Values outside domain should be clamped
+        let below = scale.scale(-1.0);
+        let above = scale.scale(2.0);
+        assert_eq!(below, Rgba::BLACK);
+        assert_eq!(above, Rgba::WHITE);
+    }
+
+    #[test]
+    fn test_color_scale_blues() {
+        let scale = ColorScale::blues((0.0, 1.0)).unwrap();
+        let _ = scale.scale(0.5);
+    }
+
+    #[test]
+    fn test_color_scale_red_blue() {
+        let scale = ColorScale::red_blue((0.0, 1.0)).unwrap();
+        let _ = scale.scale(0.5);
+    }
+
+    #[test]
+    fn test_color_scale_viridis() {
+        let scale = ColorScale::viridis((0.0, 1.0)).unwrap();
+        let _ = scale.scale(0.5);
+    }
+
+    #[test]
+    fn test_color_scale_magma() {
+        let scale = ColorScale::magma((0.0, 1.0)).unwrap();
+        let _ = scale.scale(0.5);
+    }
+
+    #[test]
+    fn test_color_scale_greyscale() {
+        let scale = ColorScale::greyscale((0.0, 1.0)).unwrap();
+        let mid = scale.scale(0.5);
+        // Should be gray
+        assert!(mid.r > 100 && mid.r < 150);
+    }
+
+    #[test]
+    fn test_color_scale_heat() {
+        let scale = ColorScale::heat((0.0, 1.0)).unwrap();
+        let _ = scale.scale(0.5);
+    }
+
+    #[test]
+    fn test_color_scale_invalid_empty() {
+        let result = ColorScale::new(vec![], (0.0, 1.0));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_color_scale_invalid_equal_domain() {
+        let result = ColorScale::new(vec![Rgba::RED, Rgba::BLUE], (5.0, 5.0));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_color_scale_builtin_invalid_domain() {
+        // Equal domain returns None
+        assert!(ColorScale::blues((5.0, 5.0)).is_none());
+        assert!(ColorScale::red_blue((5.0, 5.0)).is_none());
+        assert!(ColorScale::viridis((5.0, 5.0)).is_none());
+        assert!(ColorScale::magma((5.0, 5.0)).is_none());
+        assert!(ColorScale::greyscale((5.0, 5.0)).is_none());
+        assert!(ColorScale::heat((5.0, 5.0)).is_none());
+    }
+
+    #[test]
+    fn test_linear_scale_debug_clone() {
+        let scale = LinearScale::new((0.0, 100.0), (0.0, 1.0)).unwrap();
+        let scale2 = scale;
+        let _ = format!("{:?}", scale2);
+    }
+
+    #[test]
+    fn test_log_scale_debug_clone() {
+        let scale = LogScale::new((1.0, 1000.0), (0.0, 3.0)).unwrap();
+        let scale2 = scale;
+        let _ = format!("{:?}", scale2);
+    }
+
+    #[test]
+    fn test_color_scale_debug_clone() {
+        let scale = ColorScale::new(vec![Rgba::RED, Rgba::BLUE], (0.0, 1.0)).unwrap();
+        let scale2 = scale.clone();
+        let _ = format!("{:?}", scale2);
+    }
+
+    #[test]
+    fn test_linear_scale_from_data_equal_values() {
+        // All same values = equal domain = error
+        assert!(LinearScale::from_data(&[5.0, 5.0, 5.0], (0.0, 1.0)).is_none());
+    }
+
+    #[test]
+    fn test_color_scale_multi_segment() {
+        // Test with multiple segments
+        let scale = ColorScale::new(
+            vec![Rgba::RED, Rgba::GREEN, Rgba::BLUE, Rgba::WHITE],
+            (0.0, 1.0),
+        )
+        .unwrap();
+        let _ = scale.scale(0.0);
+        let _ = scale.scale(0.33);
+        let _ = scale.scale(0.66);
+        let _ = scale.scale(1.0);
+    }
 }

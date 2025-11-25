@@ -379,12 +379,37 @@ mod tests {
     }
 
     #[test]
+    fn test_vector_histogram_with() {
+        let v = Vector::from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0]);
+        let fb = v.to_histogram_with(400, 300, Rgba::RED).unwrap();
+        assert_eq!(fb.width(), 400);
+        assert_eq!(fb.height(), 300);
+    }
+
+    #[test]
     fn test_vector_scatter_vs() {
         let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
         let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
         let fb = pred.scatter_vs(&actual).unwrap();
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 600);
+    }
+
+    #[test]
+    fn test_vector_scatter_vs_with() {
+        let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
+        let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
+        let fb = pred.scatter_vs_with(&actual, 500, 500, Rgba::GREEN).unwrap();
+        assert_eq!(fb.width(), 500);
+        assert_eq!(fb.height(), 500);
+    }
+
+    #[test]
+    fn test_vector_to_line() {
+        let v = Vector::from_slice(&[1.0, 2.0, 3.0, 2.5, 4.0, 3.5]);
+        let fb = v.to_line().unwrap();
+        assert_eq!(fb.width(), 600);
+        assert_eq!(fb.height(), 400);
     }
 
     #[test]
@@ -404,6 +429,21 @@ mod tests {
     }
 
     #[test]
+    fn test_matrix_heatmap_with_palette() {
+        let m = Matrix::from_vec(3, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]).unwrap();
+        let fb = m.to_heatmap_with(HeatmapPalette::Magma).unwrap();
+        assert_eq!(fb.width(), 600);
+    }
+
+    #[test]
+    fn test_matrix_correlation_heatmap() {
+        let m = Matrix::from_vec(3, 3, vec![1.0, 0.5, 0.3, 0.5, 1.0, 0.7, 0.3, 0.7, 1.0]).unwrap();
+        let fb = m.correlation_heatmap().unwrap();
+        assert_eq!(fb.width(), 600);
+        assert_eq!(fb.height(), 600);
+    }
+
+    #[test]
     fn test_pearson_correlation() {
         // Perfect positive correlation
         let x = [1.0, 2.0, 3.0, 4.0, 5.0];
@@ -418,6 +458,24 @@ mod tests {
     }
 
     #[test]
+    fn test_pearson_correlation_short() {
+        // Less than 2 elements
+        let x = [1.0];
+        let y = [2.0];
+        let corr = pearson_correlation(&x, &y);
+        assert_eq!(corr, 0.0);
+    }
+
+    #[test]
+    fn test_pearson_correlation_zero_variance() {
+        // Constant values = zero variance
+        let x = [5.0, 5.0, 5.0, 5.0];
+        let y = [1.0, 2.0, 3.0, 4.0];
+        let corr = pearson_correlation(&x, &y);
+        assert_eq!(corr, 0.0);
+    }
+
+    #[test]
     fn test_dataframe_scatter() {
         let columns = vec![
             ("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0])),
@@ -429,6 +487,14 @@ mod tests {
     }
 
     #[test]
+    fn test_dataframe_scatter_missing_column() {
+        let columns = vec![("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0]))];
+        let df = AprenderDataFrame::new(columns).unwrap();
+        let result = df.scatter("x", "missing");
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_dataframe_histogram() {
         let columns = vec![(
             "values".to_string(),
@@ -436,6 +502,90 @@ mod tests {
         )];
         let df = AprenderDataFrame::new(columns).unwrap();
         let fb = df.histogram("values").unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_dataframe_histogram_missing_column() {
+        let columns = vec![("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0]))];
+        let df = AprenderDataFrame::new(columns).unwrap();
+        let result = df.histogram("missing");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dataframe_boxplot() {
+        let columns = vec![
+            ("a".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0])),
+            ("b".to_string(), Vector::from_slice(&[2.0, 3.0, 4.0, 5.0, 6.0])),
+        ];
+        let df = AprenderDataFrame::new(columns).unwrap();
+        let fb = df.boxplot(&["a", "b"]).unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_dataframe_line() {
+        let columns = vec![(
+            "values".to_string(),
+            Vector::from_slice(&[1.0, 2.0, 3.0, 2.5, 4.0]),
+        )];
+        let df = AprenderDataFrame::new(columns).unwrap();
+        let fb = df.line("values").unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_dataframe_line_missing_column() {
+        let columns = vec![("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0]))];
+        let df = AprenderDataFrame::new(columns).unwrap();
+        let result = df.line("missing");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_dataframe_correlation_matrix() {
+        let columns = vec![
+            ("a".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0])),
+            ("b".to_string(), Vector::from_slice(&[2.0, 4.0, 6.0, 8.0])),
+            ("c".to_string(), Vector::from_slice(&[8.0, 6.0, 4.0, 2.0])),
+        ];
+        let df = AprenderDataFrame::new(columns).unwrap();
+        let fb = df.correlation_matrix().unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_dataframe_correlation_matrix_single_row() {
+        let columns = vec![
+            ("a".to_string(), Vector::from_slice(&[1.0])),
+            ("b".to_string(), Vector::from_slice(&[2.0])),
+        ];
+        let df = AprenderDataFrame::new(columns).unwrap();
+        let result = df.correlation_matrix();
+        assert!(result.is_err()); // Need at least 2 rows
+    }
+
+    #[test]
+    fn test_convenience_predictions_vs_actual() {
+        let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
+        let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
+        let fb = predictions_vs_actual(&pred, &actual).unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_convenience_residuals() {
+        let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
+        let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
+        let fb = residuals(&pred, &actual).unwrap();
+        assert!(fb.width() > 0);
+    }
+
+    #[test]
+    fn test_convenience_loss_curve() {
+        let losses = Vector::from_slice(&[1.0, 0.8, 0.6, 0.4, 0.3, 0.25]);
+        let fb = loss_curve(&losses).unwrap();
         assert!(fb.width() > 0);
     }
 }

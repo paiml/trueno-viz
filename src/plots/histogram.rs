@@ -261,4 +261,142 @@ mod tests {
         let fb = hist.to_framebuffer();
         assert!(fb.is_ok());
     }
+
+    #[test]
+    fn test_histogram_scott() {
+        let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
+        let hist = Histogram::new()
+            .data(&data)
+            .bins(BinStrategy::Scott)
+            .build()
+            .unwrap();
+
+        assert!(hist.bin_count() >= 1);
+    }
+
+    #[test]
+    fn test_histogram_freedman_diaconis() {
+        let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
+        let hist = Histogram::new()
+            .data(&data)
+            .bins(BinStrategy::FreedmanDiaconis)
+            .build()
+            .unwrap();
+
+        assert!(hist.bin_count() >= 1);
+    }
+
+    #[test]
+    fn test_histogram_freedman_diaconis_zero_iqr() {
+        // All same values = zero IQR, should fall back to Sturges
+        let data: Vec<f32> = vec![5.0; 100];
+        let hist = Histogram::new()
+            .data(&data)
+            .bins(BinStrategy::FreedmanDiaconis)
+            .build()
+            .unwrap();
+
+        assert!(hist.bin_count() >= 1);
+    }
+
+    #[test]
+    fn test_histogram_fixed_zero() {
+        let hist = Histogram::new()
+            .data(&[1.0, 2.0, 3.0])
+            .bins(BinStrategy::Fixed(0))
+            .build()
+            .unwrap();
+
+        // Should be at least 1
+        assert_eq!(hist.bin_count(), 1);
+    }
+
+    #[test]
+    fn test_histogram_color() {
+        let hist = Histogram::new()
+            .data(&[1.0, 2.0, 3.0])
+            .color(Rgba::RED)
+            .build()
+            .unwrap();
+
+        assert_eq!(hist.color, Rgba::RED);
+    }
+
+    #[test]
+    fn test_histogram_normalize() {
+        let hist = Histogram::new()
+            .data(&[1.0, 2.0, 3.0])
+            .normalize(true)
+            .build()
+            .unwrap();
+
+        assert!(hist.normalize);
+    }
+
+    #[test]
+    fn test_histogram_default() {
+        let hist = Histogram::default();
+        assert!(hist.data.is_empty());
+    }
+
+    #[test]
+    fn test_histogram_small_data() {
+        // Test with 1 element
+        let hist1 = Histogram::new()
+            .data(&[5.0])
+            .build()
+            .unwrap();
+        assert!(hist1.bin_count() >= 1);
+        let _ = hist1.to_framebuffer().unwrap();
+
+        // Test with 2 elements
+        let hist2 = Histogram::new()
+            .data(&[1.0, 2.0])
+            .build()
+            .unwrap();
+        assert!(hist2.bin_count() >= 1);
+    }
+
+    #[test]
+    fn test_histogram_iqr_small() {
+        // Test IQR with small data (< 4 elements)
+        let hist = Histogram::new()
+            .data(&[1.0, 2.0, 3.0])
+            .bins(BinStrategy::FreedmanDiaconis)
+            .build()
+            .unwrap();
+
+        assert!(hist.bin_count() >= 1);
+    }
+
+    #[test]
+    fn test_histogram_std_small() {
+        // Test std_dev with 1 element
+        let hist = Histogram::new()
+            .data(&[5.0])
+            .bins(BinStrategy::Scott)
+            .build()
+            .unwrap();
+
+        assert!(hist.bin_count() >= 1);
+    }
+
+    #[test]
+    fn test_bin_strategy_default() {
+        assert!(matches!(BinStrategy::default(), BinStrategy::Sturges));
+    }
+
+    #[test]
+    fn test_histogram_debug_clone() {
+        let hist = Histogram::new().data(&[1.0, 2.0, 3.0]);
+        let hist2 = hist.clone();
+        let _ = format!("{:?}", hist2);
+    }
+
+    #[test]
+    fn test_histogram_bin_count_empty() {
+        let hist = Histogram::new();
+        // Empty data should return 1
+        assert_eq!(hist.bin_count(), 1);
+    }
 }
