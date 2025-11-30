@@ -515,4 +515,152 @@ mod tests {
         assert!(rendered.contains("run-002"));
         assert!(rendered.contains("loss"));
     }
+
+    #[test]
+    fn test_run_status_is_active() {
+        assert!(RunStatus::Pending.is_active());
+        assert!(RunStatus::Running.is_active());
+        assert!(!RunStatus::Completed.is_active());
+        assert!(!RunStatus::Failed.is_active());
+    }
+
+    #[test]
+    fn test_run_table_default() {
+        let table = RunTable::default();
+        assert!(table.is_empty());
+        assert_eq!(table.len(), 0);
+        assert!(table.metric_columns().is_empty());
+    }
+
+    #[test]
+    fn test_run_table_add_run() {
+        let mut table = RunTable::new();
+        assert!(table.is_empty());
+
+        table.add_run(RunRow::new("r1", RunStatus::Running).with_metric("loss", 0.5));
+        assert_eq!(table.len(), 1);
+        assert!(table.metric_columns().contains(&"loss".to_string()));
+
+        // Add another run with a new metric
+        table.add_run(RunRow::new("r2", RunStatus::Pending).with_metric("accuracy", 0.9));
+        assert_eq!(table.len(), 2);
+        assert!(table.metric_columns().contains(&"accuracy".to_string()));
+    }
+
+    #[test]
+    fn test_run_table_sort_accessors() {
+        let table = RunTable::new();
+        assert_eq!(table.sort_column(), SortColumn::Id);
+        assert_eq!(table.sort_direction(), SortDirection::Ascending);
+    }
+
+    #[test]
+    fn test_run_table_sort_by_status() {
+        let runs = vec![
+            RunRow::new("r1", RunStatus::Completed),
+            RunRow::new("r2", RunStatus::Running),
+            RunRow::new("r3", RunStatus::Pending),
+            RunRow::new("r4", RunStatus::Failed),
+        ];
+
+        let mut table = RunTable::from_runs(runs);
+        table.sort_by(SortColumn::Status);
+
+        // Order: Running=0, Pending=1, Completed=2, Failed=3
+        assert_eq!(table.runs()[0].status, RunStatus::Running);
+        assert_eq!(table.runs()[1].status, RunStatus::Pending);
+        assert_eq!(table.runs()[2].status, RunStatus::Completed);
+        assert_eq!(table.runs()[3].status, RunStatus::Failed);
+    }
+
+    #[test]
+    fn test_run_table_filter_by_status() {
+        let runs = vec![
+            RunRow::new("r1", RunStatus::Running),
+            RunRow::new("r2", RunStatus::Completed),
+            RunRow::new("r3", RunStatus::Completed),
+            RunRow::new("r4", RunStatus::Failed),
+        ];
+
+        let table = RunTable::from_runs(runs);
+
+        let completed = table.filter_by_status(RunStatus::Completed);
+        assert_eq!(completed.len(), 2);
+
+        let pending = table.filter_by_status(RunStatus::Pending);
+        assert!(pending.is_empty());
+    }
+
+    #[test]
+    fn test_run_table_sort_by_nonexistent_metric() {
+        let runs = vec![
+            RunRow::new("r1", RunStatus::Completed).with_metric("loss", 0.5),
+            RunRow::new("r2", RunStatus::Completed).with_metric("loss", 0.1),
+        ];
+
+        let mut table = RunTable::from_runs(runs);
+        // Sort by a metric that doesn't exist - should do nothing
+        table.sort_by_metric("nonexistent");
+        // Order should remain as initialized (by id ascending)
+        assert_eq!(table.runs()[0].id, "r1");
+    }
+
+    #[test]
+    fn test_run_table_sort_with_none_durations() {
+        let runs = vec![
+            RunRow::new("r1", RunStatus::Completed).with_duration(100.0),
+            RunRow::new("r2", RunStatus::Pending), // No duration
+            RunRow::new("r3", RunStatus::Running).with_duration(50.0),
+        ];
+
+        let mut table = RunTable::from_runs(runs);
+        table.sort_by(SortColumn::Duration);
+
+        // r3 (50.0) < r1 (100.0) < r2 (MAX/None)
+        assert_eq!(table.runs()[0].id, "r3");
+        assert_eq!(table.runs()[1].id, "r1");
+        assert_eq!(table.runs()[2].id, "r2");
+    }
+
+    #[test]
+    fn test_run_table_sort_with_missing_metrics() {
+        let runs = vec![
+            RunRow::new("r1", RunStatus::Completed).with_metric("loss", 0.5),
+            RunRow::new("r2", RunStatus::Completed), // No loss metric
+            RunRow::new("r3", RunStatus::Completed).with_metric("loss", 0.1),
+        ];
+
+        let mut table = RunTable::from_runs(runs);
+        table.sort_by_metric("loss");
+
+        // r3 (0.1) < r1 (0.5) < r2 (MAX/missing)
+        assert_eq!(table.runs()[0].id, "r3");
+        assert_eq!(table.runs()[1].id, "r1");
+        assert_eq!(table.runs()[2].id, "r2");
+    }
+
+    #[test]
+    fn test_run_table_render_empty() {
+        let table = RunTable::new();
+        let rendered = table.render();
+        // Should have header but no data rows
+        assert!(rendered.contains("ID"));
+        assert!(rendered.contains("Status"));
+        assert!(rendered.contains("Duration"));
+    }
+
+    #[test]
+    fn test_run_table_render_with_missing_metric() {
+        let runs = vec![
+            RunRow::new("r1", RunStatus::Completed).with_metric("loss", 0.05),
+            RunRow::new("r2", RunStatus::Running), // No metrics
+        ];
+
+        let table = RunTable::from_runs(runs);
+        let rendered = table.render();
+
+        // r2 should show "-" for missing metric
+        assert!(rendered.contains("-"));
+        assert!(rendered.contains("0.0500"));
+    }
 }
