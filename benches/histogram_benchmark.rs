@@ -13,7 +13,7 @@ fn histogram_benchmark(c: &mut Criterion) {
             .map(|i| {
                 let x = i as f32 / size as f32;
                 // Create bell-curve-like distribution
-                (x * 6.28).sin() * 50.0 + 50.0 + (i % 17) as f32
+                (x * std::f32::consts::TAU).sin() * 50.0 + 50.0 + (i % 17) as f32
             })
             .collect();
 

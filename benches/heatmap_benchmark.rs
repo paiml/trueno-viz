@@ -15,7 +15,7 @@ fn heatmap_benchmark(c: &mut Criterion) {
                     .map(|j| {
                         let x = i as f32 / size as f32;
                         let y = j as f32 / size as f32;
-                        (x * 3.14).sin() * (y * 3.14).cos() * 100.0
+                        (x * std::f32::consts::PI).sin() * (y * std::f32::consts::PI).cos() * 100.0
                     })
                     .collect()
             })
