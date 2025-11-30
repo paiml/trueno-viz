@@ -38,6 +38,14 @@ if gpu_bar.is_over_budget() {
 }
 ```
 
+## Running the Example
+
+```bash
+cargo run --example dashboard_widgets
+```
+
+This demonstrates all three widgets with sample ML experiment data.
+
 ## Design Philosophy
 
 These widgets follow the trueno-viz design principles:
