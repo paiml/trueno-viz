@@ -24,15 +24,23 @@ fn main() {
         .with_trend_indicator();
 
     let trend = sparkline.trend();
-    println!("   Loss trend: {} {}", trend.indicator(), match trend {
-        TrendDirection::Rising => "Rising (bad for loss!)",
-        TrendDirection::Falling => "Falling (good for loss!)",
-        TrendDirection::Stable => "Stable",
-    });
+    println!(
+        "   Loss trend: {} {}",
+        trend.indicator(),
+        match trend {
+            TrendDirection::Rising => "Rising (bad for loss!)",
+            TrendDirection::Falling => "Falling (good for loss!)",
+            TrendDirection::Stable => "Stable",
+        }
+    );
 
     // Render sparkline
     match sparkline.to_framebuffer() {
-        Ok(fb) => println!("   Rendered sparkline: {}x{} pixels", fb.width(), fb.height()),
+        Ok(fb) => println!(
+            "   Rendered sparkline: {}x{} pixels",
+            fb.width(),
+            fb.height()
+        ),
         Err(e) => println!("   Error: {e}"),
     }
 
@@ -45,13 +53,17 @@ fn main() {
     let resources = vec![
         ("GPU Hours", 100.0, 75.0, "hours"),
         ("Training Time", 24.0, 18.5, "hours"),
-        ("Compute Cost", 500.0, 620.0, "$"),  // Over budget!
+        ("Compute Cost", 500.0, 620.0, "$"), // Over budget!
         ("Memory", 32.0, 28.0, "GB"),
     ];
 
     for (label, planned, actual, unit) in resources {
         let bar = ResourceBar::new(label, planned, actual, unit);
-        let status = if bar.is_over_budget() { "OVER BUDGET" } else { "OK" };
+        let status = if bar.is_over_budget() {
+            "OVER BUDGET"
+        } else {
+            "OK"
+        };
         println!(
             "   {}: {:.1}/{:.1} {} ({:.1}%) [{}]",
             label,
@@ -92,10 +104,22 @@ fn main() {
     // Status summary
     let counts = table.status_counts();
     println!("   Status Summary:");
-    println!("   - Completed: {}", counts.get(&RunStatus::Completed).unwrap_or(&0));
-    println!("   - Running: {}", counts.get(&RunStatus::Running).unwrap_or(&0));
-    println!("   - Pending: {}", counts.get(&RunStatus::Pending).unwrap_or(&0));
-    println!("   - Failed: {}", counts.get(&RunStatus::Failed).unwrap_or(&0));
+    println!(
+        "   - Completed: {}",
+        counts.get(&RunStatus::Completed).unwrap_or(&0)
+    );
+    println!(
+        "   - Running: {}",
+        counts.get(&RunStatus::Running).unwrap_or(&0)
+    );
+    println!(
+        "   - Pending: {}",
+        counts.get(&RunStatus::Pending).unwrap_or(&0)
+    );
+    println!(
+        "   - Failed: {}",
+        counts.get(&RunStatus::Failed).unwrap_or(&0)
+    );
 
     // Render table
     println!("\n   Rendered Table:");
@@ -111,7 +135,8 @@ fn main() {
     ]);
     sorted_table.sort_by_metric("loss");
 
-    println!("\n   Best run by loss: {} (loss={:.4})",
+    println!(
+        "\n   Best run by loss: {} (loss={:.4})",
         sorted_table.runs()[0].id,
         sorted_table.runs()[0].metric("loss").unwrap_or(f64::NAN)
     );
