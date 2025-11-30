@@ -36,6 +36,13 @@
 - [Loss Curves](./ml-viz/loss.md)
 - [Confusion Matrices](./ml-viz/confusion-matrix.md)
 
+# Dashboard Widgets
+
+- [Overview](./widgets/overview.md)
+- [Sparkline](./widgets/sparkline.md)
+- [ResourceBar](./widgets/resource-bar.md)
+- [RunTable](./widgets/run-table.md)
+
 # Output Formats
 
 - [PNG Encoding](./output/png.md)

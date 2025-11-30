@@ -111,6 +111,9 @@ pub mod prompt;
 /// Ecosystem integrations (trueno-db, trueno-graph, aprender).
 pub mod interop;
 
+/// Dashboard widgets for experiment tracking and visualization.
+pub mod widgets;
+
 /// WebAssembly bindings for browser usage.
 #[cfg(feature = "wasm")]
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
@@ -144,6 +147,7 @@ pub mod prelude {
         PrCurve, RocCurve, ScatterPlot,
     };
     pub use crate::scale::{ColorScale, LinearScale, LogScale, Scale};
+    pub use crate::widgets::{ResourceBar, RunRow, RunStatus, RunTable, Sparkline, TrendDirection};
 }
 
 // ============================================================================
