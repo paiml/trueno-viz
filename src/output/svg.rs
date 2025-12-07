@@ -343,6 +343,18 @@ impl SvgEncoder {
         self.elements.push(element);
     }
 
+    /// Get the SVG width.
+    #[must_use]
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// Get the SVG height.
+    #[must_use]
+    pub fn height(&self) -> u32 {
+        self.height
+    }
+
     /// Render to SVG string.
     #[must_use]
     pub fn render(&self) -> String {
@@ -541,6 +553,12 @@ fn element_to_svg(element: &SvgElement) -> String {
                 r#"<image x="{x}" y="{y}" width="{width}" height="{height}" xlink:href="{data}"/>"#
             )
         }
+    }
+}
+
+impl std::fmt::Display for SvgEncoder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.render())
     }
 }
 
@@ -855,5 +873,23 @@ mod tests {
 
         assert!(svg.contains("&amp;"));
         assert!(svg.contains("&quot;"));
+    }
+
+    #[test]
+    fn test_svg_encoder_width_height() {
+        let encoder = SvgEncoder::new(800, 600);
+        assert_eq!(encoder.width(), 800);
+        assert_eq!(encoder.height(), 600);
+    }
+
+    #[test]
+    fn test_svg_encoder_display() {
+        let encoder = SvgEncoder::new(400, 300).rect(10.0, 10.0, 100.0, 50.0, Rgba::BLUE);
+        let display_str = format!("{encoder}");
+
+        assert!(display_str.contains("<svg"));
+        assert!(display_str.contains("</svg>"));
+        assert!(display_str.contains("width=\"400\""));
+        assert!(display_str.contains("height=\"300\""));
     }
 }
