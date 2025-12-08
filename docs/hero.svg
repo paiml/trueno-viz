@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f0c29"/>
+      <stop offset="50%" style="stop-color:#302b63"/>
+      <stop offset="100%" style="stop-color:#24243e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#ec4899"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <g transform="translate(640, 280)">
+    <rect x="-100" y="-80" width="200" height="160" rx="8" fill="none" stroke="url(#accent)" stroke-width="3" opacity="0.6"/>
+    <line x1="-80" y1="-40" x2="80" y2="-40" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+    <line x1="-80" y1="0" x2="80" y2="0" stroke="#ec4899" stroke-width="2" opacity="0.8"/>
+    <line x1="-80" y1="40" x2="80" y2="40" stroke="#a855f7" stroke-width="2" opacity="0.8"/>
+    <circle cx="-60" cy="-40" r="8" fill="#a855f7"/>
+    <circle cx="0" cy="0" r="8" fill="#ec4899"/>
+    <circle cx="60" cy="40" r="8" fill="#a855f7"/>
+    <path d="M-60,-40 Q0,-20 0,0 Q0,20 60,40" fill="none" stroke="#fff" stroke-width="2" opacity="0.6"/>
+  </g>
+  <text x="640" y="480" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="700" fill="#fff" text-anchor="middle">trueno-viz</text>
+  <text x="640" y="530" font-family="system-ui, -apple-system, sans-serif" font-size="24" fill="#888" text-anchor="middle">GPU-Accelerated Visualization Engine</text>
+</svg>
