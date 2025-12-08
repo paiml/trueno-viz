@@ -4,7 +4,7 @@ SIMD/GPU/WASM-accelerated visualization for Data Science, Physics, and ML/DL.
 
 **Pure Rust** - zero JavaScript, zero browser dependencies.
 
-## Quick Example
+## Usage
 
 ```rust
 use trueno_viz::prelude::*;
