@@ -34,8 +34,11 @@ trueno-graph = { version = "0.1.2", optional = true }
 # Optional: Database integration
 trueno-db = { version = "0.3.4", optional = true }
 
-# Optional: Training integration
-entrenar = { version = "0.1.0", optional = true }
+# Optional: Training integration and inference monitoring
+entrenar = { version = "0.2.7", optional = true }
+
+# Optional: Serialization (for ML inference monitoring visualization)
+serde = { version = "1.0", optional = true }
 
 # Optional: WASM support
 wasm-bindgen = { version = "0.2", optional = true }
@@ -67,7 +70,7 @@ gpu-wasm = ["trueno/gpu-wasm", "wasm"]
 parallel = ["trueno/parallel"]
 
 # ML library integration
-ml = ["dep:aprender", "dep:entrenar"]
+ml = ["dep:aprender", "dep:entrenar", "dep:serde"]
 
 # Graph library integration
 graph = ["dep:trueno-graph"]
