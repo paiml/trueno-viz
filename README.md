@@ -2,9 +2,7 @@
 
 SIMD/GPU/WASM-accelerated visualization for Data Science, Physics, and ML.
 
-[![Crates.io](https://img.shields.io/crates/v/trueno-viz.svg)](https://crates.io/crates/trueno-viz)
-[![Documentation](https://docs.rs/trueno-viz/badge.svg)](https://docs.rs/trueno-viz)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue)](LICENSE)
+[![CI](https://github.com/paiml/trueno-viz/actions/workflows/ci.yml/badge.svg)](https://github.com/paiml/trueno-viz/actions)
 
 **Pure Rust** - zero JavaScript, zero browser dependencies.
 
