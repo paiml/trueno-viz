@@ -1,6 +1,6 @@
 [package]
 name = "trueno-viz"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -14,7 +14,7 @@ categories = ["visualization", "graphics", "science", "wasm"]
 
 [dependencies]
 # Core SIMD/GPU acceleration
-trueno = { version = "0.10.0", default-features = false }
+trueno = { version = "0.10.1", default-features = false }
 
 # PNG encoding (pure Rust, no libpng)
 png = "0.17"

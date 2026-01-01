@@ -3934,9 +3934,9 @@ dependencies = [
 
 [[package]]
 name = "trueno"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e265a12a7ec338b0843022316056e618f24c4f1991eebc29aead423dbcae7fc"
+checksum = "27f3dcb4168729183188125bd1c4591b7e435b68a9527c6b6258e42d955b2cad"
 dependencies = [
  "bytemuck",
  "futures-intrusive",
@@ -3972,7 +3972,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "trueno 0.10.0",
+ "trueno 0.10.1",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -3990,7 +3990,7 @@ dependencies = [
  "parquet",
  "thiserror 2.0.17",
  "tokio",
- "trueno 0.10.0",
+ "trueno 0.10.1",
  "trueno-db",
 ]
 
@@ -4008,7 +4008,7 @@ dependencies = [
 
 [[package]]
 name = "trueno-viz"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "approx",
  "aprender 0.14.0",
@@ -4021,7 +4021,7 @@ dependencies = [
  "serde",
  "tempfile",
  "thiserror 2.0.17",
- "trueno 0.10.0",
+ "trueno 0.10.1",
  "trueno-db",
  "trueno-graph",
  "wasm-bindgen",
