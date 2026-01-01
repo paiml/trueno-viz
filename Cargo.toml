@@ -1,6 +1,6 @@
 [package]
 name = "trueno-viz"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -14,7 +14,7 @@ categories = ["visualization", "graphics", "science", "wasm"]
 
 [dependencies]
 # Core SIMD/GPU acceleration
-trueno = { version = "0.8.7", default-features = false }
+trueno = { version = "0.10.0", default-features = false }
 
 # PNG encoding (pure Rust, no libpng)
 png = "0.17"
@@ -29,10 +29,10 @@ thiserror = "2.0"
 aprender = { version = "0.14", optional = true }
 
 # Optional: Graph integration
-trueno-graph = { version = "0.1.3", optional = true }
+trueno-graph = { version = "0.1.5", optional = true }
 
 # Optional: Database integration
-trueno-db = { version = "0.3.6", optional = true }
+trueno-db = { version = "0.3.8", optional = true }
 
 # Optional: Training integration and inference monitoring
 entrenar = { version = "0.2.7", optional = true }
