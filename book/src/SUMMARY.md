@@ -36,6 +36,10 @@
 - [Loss Curves](./ml-viz/loss.md)
 - [Confusion Matrices](./ml-viz/confusion-matrix.md)
 
+# System Monitor (ttop)
+
+- [ttop - Terminal Top](./monitor/ttop.md)
+
 # Dashboard Widgets
 
 - [Overview](./widgets/overview.md)
