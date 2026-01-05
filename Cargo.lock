@@ -4899,7 +4899,7 @@ dependencies = [
 
 [[package]]
 name = "trueno-viz"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "approx",
  "aprender 0.14.0",
@@ -4952,7 +4952,7 @@ dependencies = [
  "serde_yaml",
  "tempfile",
  "thiserror 2.0.17",
- "trueno-viz 0.1.7",
+ "trueno-viz 0.1.8",
 ]
 
 [[package]]
