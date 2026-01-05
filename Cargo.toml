@@ -1,5 +1,6 @@
 [workspace]
-members = [".", "crates/ttop"]
+members = ["."]
+exclude = ["crates/ttop"]
 
 [package]
 name = "trueno-viz"

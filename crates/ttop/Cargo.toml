@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "ttop"
 version = "0.1.0"
@@ -17,7 +19,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core monitoring library
-trueno-viz = { path = "../..", features = ["monitor"] }
+trueno-viz = { version = "0.1.8", features = ["monitor"] }
 
 # TUI framework
 ratatui = "0.29"
