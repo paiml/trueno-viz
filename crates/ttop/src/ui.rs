@@ -1,10 +1,10 @@
 //! UI layout and rendering for ttop.
 
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph};
-use ratatui::Frame;
+use trueno_viz::monitor::ratatui::layout::{Constraint, Direction, Layout, Rect};
+use trueno_viz::monitor::ratatui::style::{Color, Modifier, Style};
+use trueno_viz::monitor::ratatui::text::{Line, Span};
+use trueno_viz::monitor::ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use trueno_viz::monitor::ratatui::Frame;
 use trueno_viz::monitor::types::Collector;
 
 use crate::app::App;

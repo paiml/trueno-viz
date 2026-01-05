@@ -38,6 +38,13 @@ pub mod gpu_amd;
 #[cfg(target_os = "linux")]
 pub use gpu_amd::{AmdGpuCollector, AmdGpuInfo};
 
+// Apple GPU (macOS only)
+#[cfg(target_os = "macos")]
+pub mod gpu_apple;
+
+#[cfg(target_os = "macos")]
+pub use gpu_apple::{AppleGpuCollector, AppleGpuInfo};
+
 // Stack collectors (feature-gated)
 #[cfg(feature = "monitor-stack")]
 pub mod stack;

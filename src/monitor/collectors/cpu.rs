@@ -124,7 +124,16 @@ impl CpuCollector {
                 })
                 .unwrap_or(1)
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("sysctl")
+                .args(["-n", "hw.ncpu"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+                .unwrap_or(1)
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             1
         }
@@ -153,9 +162,67 @@ impl CpuCollector {
         Ok((total, cores))
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     fn parse_proc_stat() -> Result<(CpuStats, Vec<CpuStats>)> {
-        // Return dummy data on non-Linux systems
+        // Use top -l 1 to get CPU stats on macOS
+        let output = std::process::Command::new("top")
+            .args(["-l", "1", "-n", "0", "-s", "0"])
+            .output()
+            .map_err(|e| MonitorError::CollectionFailed {
+                collector: "cpu",
+                message: format!("Failed to run top: {}", e),
+            })?;
+
+        let content = String::from_utf8_lossy(&output.stdout);
+        let mut user: u64 = 0;
+        let mut sys: u64 = 0;
+        let mut idle: u64 = 0;
+
+        // Parse "CPU usage: X.X% user, Y.Y% sys, Z.Z% idle"
+        for line in content.lines() {
+            if line.starts_with("CPU usage:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                for (i, part) in parts.iter().enumerate() {
+                    if *part == "user," || *part == "user" {
+                        if let Some(val) = parts.get(i - 1) {
+                            user = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0) as u64;
+                        }
+                    } else if *part == "sys," || *part == "sys" {
+                        if let Some(val) = parts.get(i - 1) {
+                            sys = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0) as u64;
+                        }
+                    } else if *part == "idle" {
+                        if let Some(val) = parts.get(i - 1) {
+                            idle = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0) as u64;
+                        }
+                    }
+                }
+                break;
+            }
+        }
+
+        // Convert percentages to counts (scale by 100 for consistency with Linux jiffies)
+        let total = CpuStats {
+            user: user * 100,
+            nice: 0,
+            system: sys * 100,
+            idle: idle * 100,
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0,
+        };
+
+        // On macOS, we don't easily get per-core stats from top, so duplicate total for each core
+        let core_count = Self::detect_core_count();
+        let cores = vec![total.clone(); core_count];
+
+        Ok((total, cores))
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    fn parse_proc_stat() -> Result<(CpuStats, Vec<CpuStats>)> {
+        // Return dummy data on other systems
         Ok((CpuStats::default(), vec![CpuStats::default()]))
     }
 
@@ -190,7 +257,7 @@ impl CpuCollector {
             return 0.0;
         }
 
-        let used_delta = total_delta - idle_delta;
+        let used_delta = total_delta.saturating_sub(idle_delta);
         (used_delta as f64 / total_delta as f64) * 100.0
     }
 
@@ -250,7 +317,31 @@ impl CpuCollector {
             .unwrap_or_default()
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn read_load_average() -> LoadAverage {
+        std::process::Command::new("sysctl")
+            .args(["-n", "vm.loadavg"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let content = String::from_utf8_lossy(&o.stdout);
+                // Format: "{ 1.23 4.56 7.89 }"
+                let trimmed = content.trim().trim_start_matches('{').trim_end_matches('}');
+                let parts: Vec<&str> = trimmed.split_whitespace().collect();
+                if parts.len() >= 3 {
+                    Some(LoadAverage {
+                        one: parts[0].parse().unwrap_or(0.0),
+                        five: parts[1].parse().unwrap_or(0.0),
+                        fifteen: parts[2].parse().unwrap_or(0.0),
+                    })
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_default()
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn read_load_average() -> LoadAverage {
         LoadAverage::default()
     }
@@ -285,7 +376,30 @@ impl CpuCollector {
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn read_frequency(_core: usize) -> CpuFrequency {
+        // macOS doesn't expose per-core frequency easily, use sysctl for base frequency
+        let current = std::process::Command::new("sysctl")
+            .args(["-n", "hw.cpufrequency"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                String::from_utf8_lossy(&o.stdout)
+                    .trim()
+                    .parse::<u64>()
+                    .ok()
+            })
+            .unwrap_or(0)
+            / 1_000_000; // Convert Hz to MHz
+
+        CpuFrequency {
+            current_mhz: current,
+            min_mhz: current,
+            max_mhz: current,
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn read_frequency(_core: usize) -> CpuFrequency {
         CpuFrequency::default()
     }
@@ -304,7 +418,32 @@ impl CpuCollector {
             .unwrap_or(0.0)
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn read_uptime() -> f64 {
+        std::process::Command::new("sysctl")
+            .args(["-n", "kern.boottime"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                let content = String::from_utf8_lossy(&o.stdout);
+                // Format: "{ sec = 1234567890, usec = 123456 } Mon Jan 1 00:00:00 2024"
+                content
+                    .split("sec = ")
+                    .nth(1)
+                    .and_then(|s| s.split(',').next())
+                    .and_then(|s| s.trim().parse::<u64>().ok())
+                    .map(|boot_time| {
+                        let now = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0);
+                        (now - boot_time) as f64
+                    })
+            })
+            .unwrap_or(0.0)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn read_uptime() -> f64 {
         0.0
     }
@@ -393,7 +532,11 @@ impl Collector for CpuCollector {
         {
             std::path::Path::new("/proc/stat").exists()
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        {
+            true // macOS uses sysctl and top, which are always available
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             false
         }

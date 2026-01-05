@@ -19,8 +19,8 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use ratatui::backend::CrosstermBackend;
-use ratatui::Terminal;
+use trueno_viz::monitor::ratatui::backend::CrosstermBackend;
+use trueno_viz::monitor::ratatui::Terminal;
 use std::io::stdout;
 use std::time::{Duration, Instant};
 

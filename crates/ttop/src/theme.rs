@@ -3,7 +3,7 @@
 //! btop-style dark theme with vibrant gradients.
 //! Uses perceptually uniform color transitions.
 
-use ratatui::style::Color;
+use trueno_viz::monitor::ratatui::style::Color;
 
 /// btop-style color gradient for percentage values (0-100)
 /// Uses smooth transition: cyan → green → yellow → orange → red
@@ -68,8 +68,8 @@ pub fn temp_color(temp: f64) -> Color {
 
 /// Panel border colors - btop-style vibrant distinct colors
 pub mod borders {
-    use ratatui::style::Color;
-    use ratatui::widgets::BorderType;
+    use trueno_viz::monitor::ratatui::style::Color;
+    use trueno_viz::monitor::ratatui::widgets::BorderType;
 
     // btop uses vibrant, saturated colors for borders
     pub const CPU: Color = Color::Rgb(100, 200, 255); // Bright cyan
@@ -87,7 +87,7 @@ pub mod borders {
 
 /// Graph colors - high contrast for visibility
 pub mod graph {
-    use ratatui::style::Color;
+    use trueno_viz::monitor::ratatui::style::Color;
 
     // btop-style graph colors: bright and distinct
     pub const CPU: Color = Color::Rgb(100, 200, 255); // Bright cyan
@@ -102,7 +102,7 @@ pub mod graph {
 
 /// Process state colors
 pub mod process_state {
-    use ratatui::style::Color;
+    use trueno_viz::monitor::ratatui::style::Color;
 
     pub const RUNNING: Color = Color::Rgb(100, 255, 100); // Bright green
     pub const SLEEPING: Color = Color::Rgb(120, 120, 140); // Gray
