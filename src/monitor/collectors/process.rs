@@ -124,7 +124,16 @@ impl ProcessCollector {
                 })
                 .unwrap_or(8 * 1024 * 1024 * 1024)
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        {
+            std::process::Command::new("sysctl")
+                .args(["-n", "hw.memsize"])
+                .output()
+                .ok()
+                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+                .unwrap_or(8 * 1024 * 1024 * 1024)
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             8 * 1024 * 1024 * 1024
         }
@@ -164,7 +173,73 @@ impl ProcessCollector {
         Ok(())
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn scan_processes(&mut self) -> Result<()> {
+        // Use ps to get process information on macOS
+        // Note: macOS ps doesn't support nlwp, so we skip thread count
+        let output = std::process::Command::new("ps")
+            .args(["-axo", "pid,ppid,state,%cpu,%mem,rss,user,comm"])
+            .output()
+            .map_err(|e| MonitorError::CollectionFailed {
+                collector: "process",
+                message: format!("Failed to run ps: {}", e),
+            })?;
+
+        let content = String::from_utf8_lossy(&output.stdout);
+        let mut new_processes = BTreeMap::new();
+
+        for line in content.lines().skip(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 8 {
+                continue;
+            }
+
+            let pid: u32 = match parts[0].parse() {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let ppid: u32 = parts[1].parse().unwrap_or(0);
+
+            // macOS state chars: R=running, S=sleeping, I=idle, U=uninterruptible, Z=zombie, T=stopped
+            let state = match parts[2].chars().next().unwrap_or('?') {
+                'R' => ProcessState::Running,
+                'S' | 'I' => ProcessState::Sleeping,
+                'U' => ProcessState::DiskWait,
+                'Z' => ProcessState::Zombie,
+                'T' => ProcessState::Stopped,
+                _ => ProcessState::Unknown,
+            };
+
+            let cpu_percent: f64 = parts[3].parse().unwrap_or(0.0);
+            let mem_percent: f64 = parts[4].parse().unwrap_or(0.0);
+            let rss_kb: u64 = parts[5].parse().unwrap_or(0);
+            let user = parts[6].to_string();
+            let name = parts[7..].join(" ");
+
+            let mem_bytes = rss_kb * 1024;
+
+            new_processes.insert(
+                pid,
+                ProcessInfo {
+                    pid,
+                    ppid,
+                    name: name.clone(),
+                    cmdline: name, // ps doesn't give full cmdline easily
+                    state,
+                    cpu_percent,
+                    mem_bytes,
+                    mem_percent,
+                    threads: 1, // Thread count not available via ps on macOS
+                    user,
+                },
+            );
+        }
+
+        self.processes = new_processes;
+        Ok(())
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn scan_processes(&mut self) -> Result<()> {
         Ok(())
     }
@@ -350,7 +425,11 @@ impl Collector for ProcessCollector {
         {
             std::path::Path::new("/proc").exists()
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        {
+            true // macOS uses ps which is always available
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             false
         }

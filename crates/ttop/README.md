@@ -10,9 +10,10 @@ cargo install ttop
 
 ## Features
 
-- **Pure Rust**: Zero C dependencies, cross-platform
+- **Pure Rust**: Zero C dependencies, cross-platform (Linux + macOS)
 - **8ms Frame Time**: 2X faster than btop's 16ms target
-- **GPU Monitoring**: NVIDIA (via NVML) and AMD (via ROCm SMI)
+- **GPU Monitoring**: NVIDIA (via NVML), AMD (via ROCm SMI), Apple Silicon
+- **macOS Native**: Full support for Apple Silicon and Intel Macs
 - **Deterministic Mode**: Reproducible rendering for testing
 - **CIELAB Colors**: Perceptually uniform gradients
 - **Sovereign AI Stack**: Integration with trueno, aprender, realizar

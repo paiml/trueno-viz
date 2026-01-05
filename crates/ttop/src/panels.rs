@@ -1,12 +1,12 @@
 //! Panel rendering for ttop.
 
-use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{
+use trueno_viz::monitor::ratatui::layout::Rect;
+use trueno_viz::monitor::ratatui::style::{Modifier, Style};
+use trueno_viz::monitor::ratatui::text::{Line, Span};
+use trueno_viz::monitor::ratatui::widgets::{
     Block, Borders, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table,
 };
-use ratatui::Frame;
+use trueno_viz::monitor::ratatui::Frame;
 
 use trueno_viz::monitor::collectors::process::ProcessState;
 use trueno_viz::monitor::types::Collector;
@@ -16,7 +16,7 @@ use crate::app::App;
 use crate::theme::{self, borders, graph, percent_color, process_state, temp_color};
 
 /// Helper to create a btop-style block with rounded corners
-fn btop_block(title: &str, color: ratatui::style::Color) -> Block<'_> {
+fn btop_block(title: &str, color: trueno_viz::monitor::ratatui::style::Color) -> Block<'_> {
     Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -178,7 +178,7 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
         value_gb: f64,
         pct: f64,
         history: &'a [f64],
-        color: ratatui::style::Color,
+        color: trueno_viz::monitor::ratatui::style::Color,
     }
 
     let mut rows: Vec<MemRow> = vec![
@@ -194,32 +194,32 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
             value_gb: available_gb,
             pct: avail_pct,
             history: &app.mem_available_history,
-            color: ratatui::style::Color::Green,
+            color: trueno_viz::monitor::ratatui::style::Color::Green,
         },
         MemRow {
             label: "Cached",
             value_gb: cached_gb,
             pct: cached_pct,
             history: &app.mem_cached_history,
-            color: ratatui::style::Color::Cyan,
+            color: trueno_viz::monitor::ratatui::style::Color::Cyan,
         },
         MemRow {
             label: "Free",
             value_gb: free_gb,
             pct: free_pct,
             history: &app.mem_free_history,
-            color: ratatui::style::Color::Blue,
+            color: trueno_viz::monitor::ratatui::style::Color::Blue,
         },
     ];
 
     // Add swap if exists
     if app.swap_total > 0 {
         let swap_color = if swap_pct > 50.0 {
-            ratatui::style::Color::Red
+            trueno_viz::monitor::ratatui::style::Color::Red
         } else if swap_pct > 10.0 {
-            ratatui::style::Color::Yellow
+            trueno_viz::monitor::ratatui::style::Color::Yellow
         } else {
-            ratatui::style::Color::Green
+            trueno_viz::monitor::ratatui::style::Color::Green
         };
         rows.push(MemRow {
             label: "Swap",
@@ -377,7 +377,7 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
             };
 
             let info_line =
-                Paragraph::new(io_str).style(Style::default().fg(ratatui::style::Color::DarkGray));
+                Paragraph::new(io_str).style(Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray));
             f.render_widget(
                 info_line,
                 Rect {
@@ -443,7 +443,7 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
             Span::styled(
                 theme::format_bytes_rate(rx_rate),
                 Style::default()
-                    .fg(ratatui::style::Color::White)
+                    .fg(trueno_viz::monitor::ratatui::style::Color::White)
                     .add_modifier(Modifier::BOLD),
             ),
         ]);
@@ -503,7 +503,7 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
             Span::styled(
                 theme::format_bytes_rate(tx_rate),
                 Style::default()
-                    .fg(ratatui::style::Color::White)
+                    .fg(trueno_viz::monitor::ratatui::style::Color::White)
                     .add_modifier(Modifier::BOLD),
             ),
         ]);
@@ -564,18 +564,18 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         let totals_line = Line::from(vec![
             Span::styled(
                 "Session: ",
-                Style::default().fg(ratatui::style::Color::DarkGray),
+                Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray),
             ),
             Span::styled("↓ ", Style::default().fg(graph::NETWORK_RX)),
             Span::styled(
                 theme::format_bytes(app.net_rx_total),
-                Style::default().fg(ratatui::style::Color::White),
+                Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White),
             ),
-            Span::styled(" │ ", Style::default().fg(ratatui::style::Color::DarkGray)),
+            Span::styled(" │ ", Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray)),
             Span::styled("↑ ", Style::default().fg(graph::NETWORK_TX)),
             Span::styled(
                 theme::format_bytes(app.net_tx_total),
-                Style::default().fg(ratatui::style::Color::White),
+                Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White),
             ),
         ]);
         f.render_widget(
@@ -932,7 +932,7 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
                 Span::styled(format!("{:>6}", p.pid), Style::default()),
                 Span::styled(
                     format!("{:8}", p.user.chars().take(8).collect::<String>()),
-                    Style::default().fg(ratatui::style::Color::Blue),
+                    Style::default().fg(trueno_viz::monitor::ratatui::style::Color::Blue),
                 ),
                 Span::styled(
                     format!("{}", p.state.as_char()),
@@ -949,35 +949,35 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
                 ),
                 Span::styled(
                     format!("{:15}", name_with_tree),
-                    Style::default().fg(ratatui::style::Color::White),
+                    Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White),
                 ),
                 Span::styled(
                     p.cmdline.chars().take(50).collect::<String>(),
-                    Style::default().fg(ratatui::style::Color::DarkGray),
+                    Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray),
                 ),
             ])
         })
         .collect();
 
     let widths = [
-        ratatui::layout::Constraint::Length(7),  // PID
-        ratatui::layout::Constraint::Length(9),  // USER
-        ratatui::layout::Constraint::Length(2),  // State
-        ratatui::layout::Constraint::Length(5),  // CPU%
-        ratatui::layout::Constraint::Length(5),  // CPU bar
-        ratatui::layout::Constraint::Length(6),  // MEM%
-        ratatui::layout::Constraint::Length(16), // NAME (with tree)
-        ratatui::layout::Constraint::Min(20),    // COMMAND
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(7),  // PID
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(9),  // USER
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(2),  // State
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(5),  // CPU%
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(5),  // CPU bar
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(6),  // MEM%
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(16), // NAME (with tree)
+        trueno_viz::monitor::ratatui::layout::Constraint::Min(20),    // COMMAND
     ];
 
-    let mut table_state = ratatui::widgets::TableState::default();
+    let mut table_state = trueno_viz::monitor::ratatui::widgets::TableState::default();
     table_state.select(Some(app.process_selected));
 
     let table = Table::new(rows, widths)
         .header(header)
         .row_highlight_style(
             Style::default()
-                .bg(ratatui::style::Color::DarkGray)
+                .bg(trueno_viz::monitor::ratatui::style::Color::DarkGray)
                 .add_modifier(Modifier::BOLD),
         )
         .highlight_symbol("▶ ");

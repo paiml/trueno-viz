@@ -177,7 +177,75 @@ impl DiskCollector {
         Ok(stats)
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn read_diskstats(&self) -> Result<HashMap<String, DiskStats>> {
+        // Use iostat -d to get disk I/O stats on macOS
+        let output = std::process::Command::new("iostat")
+            .args(["-d", "-c", "1"])
+            .output()
+            .map_err(|e| MonitorError::CollectionFailed {
+                collector: "disk",
+                message: format!("Failed to run iostat: {}", e),
+            })?;
+
+        let content = String::from_utf8_lossy(&output.stdout);
+        let mut stats = HashMap::new();
+
+        // Parse iostat -d output:
+        //           disk0
+        // KB/t  tps  MB/s
+        // 45.23   12  0.53
+
+        let lines: Vec<&str> = content.lines().collect();
+        if lines.len() < 3 {
+            return Ok(stats);
+        }
+
+        // First line has disk names
+        let disk_names: Vec<&str> = lines[0].split_whitespace().collect();
+
+        // Third line has stats (KB/t, tps, MB/s per disk)
+        let values: Vec<&str> = lines[2].split_whitespace().collect();
+
+        // Each disk has 3 values: KB/t, tps, MB/s
+        for (i, name) in disk_names.iter().enumerate() {
+            let base_idx = i * 3;
+            if base_idx + 2 >= values.len() {
+                continue;
+            }
+
+            let _kb_per_transfer: f64 = values[base_idx].parse().unwrap_or(0.0);
+            let transfers_per_sec: f64 = values[base_idx + 1].parse().unwrap_or(0.0);
+            let mb_per_sec: f64 = values[base_idx + 2].parse().unwrap_or(0.0);
+
+            // Convert to cumulative-style stats for rate calculation
+            // Since iostat gives us rates directly, we'll store current timestamp-based values
+            let bytes_per_sec = mb_per_sec * 1024.0 * 1024.0;
+            let sectors = (bytes_per_sec / self.sector_size as f64) as u64;
+
+            stats.insert(
+                name.to_string(),
+                DiskStats {
+                    name: name.to_string(),
+                    reads_completed: (transfers_per_sec / 2.0) as u64, // Approximate split
+                    reads_merged: 0,
+                    sectors_read: sectors / 2, // Approximate split
+                    read_time_ms: 0,
+                    writes_completed: (transfers_per_sec / 2.0) as u64,
+                    writes_merged: 0,
+                    sectors_written: sectors / 2,
+                    write_time_ms: 0,
+                    io_in_progress: 0,
+                    io_time_ms: 0,
+                    weighted_io_time_ms: 0,
+                },
+            );
+        }
+
+        Ok(stats)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn read_diskstats(&self) -> Result<HashMap<String, DiskStats>> {
         Ok(HashMap::new())
     }
@@ -235,7 +303,75 @@ impl DiskCollector {
         Ok(mounts)
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn read_mounts(&self) -> Result<Vec<MountInfo>> {
+        // Use df to get mount information on macOS
+        let output = std::process::Command::new("df")
+            .args(["-k"]) // Get sizes in KB
+            .output()
+            .map_err(|e| MonitorError::CollectionFailed {
+                collector: "disk",
+                message: format!("Failed to run df: {}", e),
+            })?;
+
+        let content = String::from_utf8_lossy(&output.stdout);
+        let mut mounts = Vec::new();
+
+        // Parse df -k output:
+        // Filesystem    1024-blocks      Used Available Capacity  Mounted on
+        // /dev/disk1s1   976490576 123456789 876543210    13%    /
+
+        for line in content.lines().skip(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 6 {
+                continue;
+            }
+
+            let device = parts[0];
+
+            // Skip virtual filesystems
+            if !device.starts_with("/dev") {
+                continue;
+            }
+
+            // Mount point is the last element (may contain spaces, but we'll take the last)
+            let mount_point = parts[parts.len() - 1];
+
+            // Skip system volumes
+            if mount_point.starts_with("/System")
+                || mount_point.starts_with("/private/var/vm")
+                || mount_point.contains("/Preboot")
+                || mount_point.contains("/Recovery")
+                || mount_point.contains("/Update")
+            {
+                continue;
+            }
+
+            let total_kb: u64 = parts[1].parse().unwrap_or(0);
+            let used_kb: u64 = parts[2].parse().unwrap_or(0);
+            let avail_kb: u64 = parts[3].parse().unwrap_or(0);
+
+            // Determine filesystem type (macOS typically uses APFS)
+            let fs_type = if device.contains("disk") {
+                "apfs".to_string()
+            } else {
+                "unknown".to_string()
+            };
+
+            mounts.push(MountInfo {
+                device: device.to_string(),
+                mount_point: mount_point.to_string(),
+                fs_type,
+                total_bytes: total_kb * 1024,
+                used_bytes: used_kb * 1024,
+                available_bytes: avail_kb * 1024,
+            });
+        }
+
+        Ok(mounts)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn read_mounts(&self) -> Result<Vec<MountInfo>> {
         Ok(Vec::new())
     }
@@ -278,7 +414,39 @@ impl DiskCollector {
         Some((values[0], values[1], values[2]))
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn statvfs(path: &str) -> Option<(u64, u64, u64)> {
+        // Use df on macOS as well
+        let output = std::process::Command::new("df")
+            .args(["-k", path])
+            .output()
+            .ok()?;
+
+        if !output.status.success() {
+            return None;
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let lines: Vec<&str> = stdout.lines().collect();
+
+        if lines.len() < 2 {
+            return None;
+        }
+
+        let values: Vec<&str> = lines[1].split_whitespace().collect();
+        if values.len() < 4 {
+            return None;
+        }
+
+        let total: u64 = values[1].parse().ok()?;
+        let used: u64 = values[2].parse().ok()?;
+        let avail: u64 = values[3].parse().ok()?;
+
+        // Convert from KB to bytes
+        Some((total * 1024, used * 1024, avail * 1024))
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn statvfs(_path: &str) -> Option<(u64, u64, u64)> {
         None
     }
@@ -415,7 +583,11 @@ impl Collector for DiskCollector {
         {
             std::path::Path::new("/proc/diskstats").exists()
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        {
+            true // macOS uses iostat and df which are always available
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             false
         }

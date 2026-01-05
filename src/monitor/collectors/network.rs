@@ -239,7 +239,85 @@ impl NetworkCollector {
         Ok(stats)
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
+    fn read_net_dev(&self) -> Result<HashMap<String, NetStats>> {
+        // Use netstat -ib to get interface statistics on macOS
+        let output = std::process::Command::new("netstat")
+            .args(["-ib"])
+            .output()
+            .map_err(|e| MonitorError::CollectionFailed {
+                collector: "network",
+                message: format!("Failed to run netstat: {}", e),
+            })?;
+
+        let content = String::from_utf8_lossy(&output.stdout);
+        let mut stats = HashMap::new();
+
+        // Parse netstat -ib output:
+        // Name  Mtu   Network       Address            Ipkts Ierrs     Ibytes    Opkts Oerrs     Obytes  Coll
+        // en0   1500  <Link#6>      xx:xx:xx:xx:xx:xx 123456     0  123456789   654321     0  987654321     0
+
+        for line in content.lines().skip(1) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 11 {
+                continue;
+            }
+
+            let name = parts[0].to_string();
+
+            // Skip loopback and non-physical interfaces
+            if name.starts_with("lo") || name.starts_with("gif") || name.starts_with("stf") {
+                continue;
+            }
+
+            // Only consider interfaces with link-level addresses (contain <Link#)
+            let has_link = parts.iter().any(|p| p.starts_with("<Link#"));
+            if !has_link {
+                continue;
+            }
+
+            // Find the byte columns (they're the large numbers after error counts)
+            // Format: Ipkts Ierrs Ibytes Opkts Oerrs Obytes Coll
+            // Position varies based on whether Address field is present
+            let (rx_bytes, rx_packets, rx_errors, tx_bytes, tx_packets, tx_errors) =
+                if parts.len() >= 11 {
+                    // Standard format with MAC address
+                    let ipkts: u64 = parts[4].parse().unwrap_or(0);
+                    let ierrs: u64 = parts[5].parse().unwrap_or(0);
+                    let ibytes: u64 = parts[6].parse().unwrap_or(0);
+                    let opkts: u64 = parts[7].parse().unwrap_or(0);
+                    let oerrs: u64 = parts[8].parse().unwrap_or(0);
+                    let obytes: u64 = parts[9].parse().unwrap_or(0);
+                    (ibytes, ipkts, ierrs, obytes, opkts, oerrs)
+                } else {
+                    continue;
+                };
+
+            // Skip interfaces with no traffic
+            if rx_bytes == 0 && tx_bytes == 0 {
+                continue;
+            }
+
+            stats.insert(
+                name.clone(),
+                NetStats {
+                    name,
+                    rx_bytes,
+                    rx_packets,
+                    rx_errors,
+                    rx_drops: 0, // Not available in netstat -ib
+                    tx_bytes,
+                    tx_packets,
+                    tx_errors,
+                    tx_drops: 0, // Not available in netstat -ib
+                },
+            );
+        }
+
+        Ok(stats)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     fn read_net_dev(&self) -> Result<HashMap<String, NetStats>> {
         Ok(HashMap::new())
     }
@@ -385,7 +463,11 @@ impl Collector for NetworkCollector {
         {
             std::path::Path::new("/proc/net/dev").exists()
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        {
+            true // macOS uses netstat which is always available
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             false
         }

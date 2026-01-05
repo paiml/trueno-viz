@@ -9,12 +9,12 @@
 //! - Meter bars render correctly
 //! - Colors are applied to cells
 
-use ratatui::backend::TestBackend;
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::style::Color;
-use ratatui::widgets::Widget;
-use ratatui::Terminal;
+use trueno_viz::monitor::ratatui::backend::TestBackend;
+use trueno_viz::monitor::ratatui::buffer::Buffer;
+use trueno_viz::monitor::ratatui::layout::Rect;
+use trueno_viz::monitor::ratatui::style::Color;
+use trueno_viz::monitor::ratatui::widgets::Widget;
+use trueno_viz::monitor::ratatui::Terminal;
 
 /// Test frame capture for panel verification
 struct TestFrame {
@@ -128,7 +128,7 @@ mod theme_tests {
 
     #[test]
     fn test_percent_color_ranges() {
-        use ratatui::style::Color;
+        use trueno_viz::monitor::ratatui::style::Color;
 
         // Low values should have cyan/blue tint (high blue component)
         if let Color::Rgb(_, _, b) = percent_color(10.0) {
@@ -169,7 +169,7 @@ mod theme_tests {
 
     #[test]
     fn test_temp_color_ranges() {
-        use ratatui::style::Color;
+        use trueno_viz::monitor::ratatui::style::Color;
 
         // Cool temps should be cyan/blue
         if let Color::Rgb(_, g, b) = temp_color(30.0) {
@@ -423,7 +423,7 @@ mod pixel_level_tests {
     //! These tests use ratatui's TestBackend to capture rendered frames.
 
     use super::*;
-    use ratatui::style::Style;
+    use trueno_viz::monitor::ratatui::style::Style;
     use trueno_viz::monitor::widgets::{Graph, GraphMode, Meter, MonitorSparkline};
 
     #[test]
@@ -713,8 +713,8 @@ mod border_tests {
     //! Tests for btop-style rounded borders
 
     use super::*;
-    use ratatui::style::Style;
-    use ratatui::widgets::{Block, BorderType, Borders};
+    use trueno_viz::monitor::ratatui::style::Style;
+    use trueno_viz::monitor::ratatui::widgets::{Block, BorderType, Borders};
 
     #[test]
     fn test_rounded_border_corners() {
@@ -726,7 +726,7 @@ mod border_tests {
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .title("Test");
-        ratatui::widgets::Widget::render(block, area, &mut buffer);
+        trueno_viz::monitor::ratatui::widgets::Widget::render(block, area, &mut buffer);
 
         let frame = TestFrame { buffer };
         let text = frame.as_text();
@@ -750,7 +750,7 @@ mod border_tests {
         let block = Block::default()
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded);
-        ratatui::widgets::Widget::render(block, area, &mut buffer);
+        trueno_viz::monitor::ratatui::widgets::Widget::render(block, area, &mut buffer);
 
         let frame = TestFrame { buffer };
         let text = frame.as_text();
@@ -770,7 +770,7 @@ mod border_tests {
             .borders(Borders::ALL)
             .border_type(BorderType::Rounded)
             .border_style(Style::default().fg(Color::Rgb(100, 200, 255)));
-        ratatui::widgets::Widget::render(block, area, &mut buffer);
+        trueno_viz::monitor::ratatui::widgets::Widget::render(block, area, &mut buffer);
 
         // Check that corner cells have the correct color
         if let Some(cell) = buffer.cell((0, 0)) {

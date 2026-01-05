@@ -15,6 +15,9 @@ use trueno_viz::monitor::collectors::NvidiaGpuCollector;
 #[cfg(target_os = "linux")]
 use trueno_viz::monitor::collectors::AmdGpuCollector;
 
+#[cfg(target_os = "macos")]
+use trueno_viz::monitor::collectors::AppleGpuCollector;
+
 use crate::state::ProcessSortColumn;
 
 /// Panel visibility state
@@ -61,6 +64,9 @@ pub struct App {
 
     #[cfg(target_os = "linux")]
     pub amd_gpu: AmdGpuCollector,
+
+    #[cfg(target_os = "macos")]
+    pub apple_gpu: AppleGpuCollector,
 
     // History buffers (normalized 0-1)
     pub cpu_history: Vec<f64>,
@@ -126,6 +132,9 @@ impl App {
 
             #[cfg(target_os = "linux")]
             amd_gpu: AmdGpuCollector::new(),
+
+            #[cfg(target_os = "macos")]
+            apple_gpu: AppleGpuCollector::new(),
 
             cpu_history: Vec::with_capacity(300),
             mem_history: Vec::with_capacity(300),
@@ -299,6 +308,11 @@ impl App {
         #[cfg(target_os = "linux")]
         if self.amd_gpu.is_available() {
             let _ = self.amd_gpu.collect();
+        }
+
+        #[cfg(target_os = "macos")]
+        if self.apple_gpu.is_available() {
+            let _ = self.apple_gpu.collect();
         }
 
         self.last_collect = Instant::now();
@@ -489,6 +503,11 @@ impl App {
 
         #[cfg(target_os = "linux")]
         if self.amd_gpu.is_available() {
+            return true;
+        }
+
+        #[cfg(target_os = "macos")]
+        if self.apple_gpu.is_available() {
             return true;
         }
 

@@ -59,6 +59,13 @@ pub use ring_buffer::RingBuffer;
 pub use types::{Collector, MetricValue, Metrics};
 
 // ============================================================================
+// Re-export ratatui for downstream crates
+// This ensures trait compatibility when using widgets
+// ============================================================================
+
+pub use ratatui;
+
+// ============================================================================
 // Widgets
 // ============================================================================
 

@@ -89,9 +89,164 @@ impl MemoryCollector {
         Ok(metrics)
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "macos")]
     fn parse_meminfo() -> Result<Metrics> {
-        // Return dummy data on non-Linux systems
+        let mut metrics = Metrics::new();
+
+        // Get total memory from sysctl
+        let total: u64 = std::process::Command::new("sysctl")
+            .args(["-n", "hw.memsize"])
+            .output()
+            .ok()
+            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+            .unwrap_or(0);
+
+        // Parse vm_stat for memory breakdown
+        let vm_stat = std::process::Command::new("vm_stat")
+            .output()
+            .map_err(|e| MonitorError::CollectionFailed {
+                collector: "memory",
+                message: format!("Failed to run vm_stat: {}", e),
+            })?;
+
+        let content = String::from_utf8_lossy(&vm_stat.stdout);
+
+        // Parse page size (first line: "Mach Virtual Memory Statistics: (page size of XXXX bytes)")
+        let page_size: u64 = content
+            .lines()
+            .next()
+            .and_then(|line| {
+                line.split("page size of ")
+                    .nth(1)
+                    .and_then(|s| s.split(' ').next())
+                    .and_then(|s| s.parse().ok())
+            })
+            .unwrap_or(4096);
+
+        let mut pages_free: u64 = 0;
+        let mut pages_active: u64 = 0;
+        let mut pages_inactive: u64 = 0;
+        let mut pages_speculative: u64 = 0;
+        let mut pages_wired: u64 = 0;
+        let mut pages_compressed: u64 = 0;
+        let mut pages_purgeable: u64 = 0;
+
+        for line in content.lines() {
+            let parts: Vec<&str> = line.split(':').collect();
+            if parts.len() != 2 {
+                continue;
+            }
+
+            let value: u64 = parts[1]
+                .trim()
+                .trim_end_matches('.')
+                .parse()
+                .unwrap_or(0);
+
+            match parts[0].trim() {
+                "Pages free" => pages_free = value,
+                "Pages active" => pages_active = value,
+                "Pages inactive" => pages_inactive = value,
+                "Pages speculative" => pages_speculative = value,
+                "Pages wired down" => pages_wired = value,
+                "Pages occupied by compressor" => pages_compressed = value,
+                "Pages purgeable" => pages_purgeable = value,
+                _ => {}
+            }
+        }
+
+        let free = (pages_free + pages_speculative) * page_size;
+        let cached = pages_purgeable * page_size;
+        let active = pages_active * page_size;
+        let inactive = pages_inactive * page_size;
+        let wired = pages_wired * page_size;
+        let compressed = pages_compressed * page_size;
+
+        // Available = free + inactive (can be reclaimed)
+        let available = free + inactive + cached;
+        let used = total.saturating_sub(available);
+
+        metrics.insert("memory.total", MetricValue::Counter(total));
+        metrics.insert("memory.free", MetricValue::Counter(free));
+        metrics.insert("memory.available", MetricValue::Counter(available));
+        metrics.insert("memory.used", MetricValue::Counter(used));
+        metrics.insert("memory.cached", MetricValue::Counter(cached));
+        metrics.insert("memory.buffers", MetricValue::Counter(0)); // Not applicable on macOS
+        metrics.insert("memory.active", MetricValue::Counter(active));
+        metrics.insert("memory.inactive", MetricValue::Counter(inactive));
+        metrics.insert("memory.wired", MetricValue::Counter(wired));
+        metrics.insert("memory.compressed", MetricValue::Counter(compressed));
+
+        // Swap info from sysctl
+        let swap_usage = std::process::Command::new("sysctl")
+            .args(["-n", "vm.swapusage"])
+            .output()
+            .ok();
+
+        let (swap_total, swap_used, swap_free) = swap_usage
+            .map(|o| {
+                let content = String::from_utf8_lossy(&o.stdout);
+                // Format: "total = 2048.00M  used = 1024.00M  free = 1024.00M  ..."
+                let mut total: u64 = 0;
+                let mut used: u64 = 0;
+                let mut free: u64 = 0;
+
+                for part in content.split_whitespace() {
+                    if part.ends_with('M') {
+                        let val = part
+                            .trim_end_matches('M')
+                            .parse::<f64>()
+                            .unwrap_or(0.0);
+                        let bytes = (val * 1024.0 * 1024.0) as u64;
+                        if total == 0 {
+                            total = bytes;
+                        } else if used == 0 {
+                            used = bytes;
+                        } else if free == 0 {
+                            free = bytes;
+                            break;
+                        }
+                    } else if part.ends_with('G') {
+                        let val = part
+                            .trim_end_matches('G')
+                            .parse::<f64>()
+                            .unwrap_or(0.0);
+                        let bytes = (val * 1024.0 * 1024.0 * 1024.0) as u64;
+                        if total == 0 {
+                            total = bytes;
+                        } else if used == 0 {
+                            used = bytes;
+                        } else if free == 0 {
+                            free = bytes;
+                            break;
+                        }
+                    }
+                }
+                (total, used, free)
+            })
+            .unwrap_or((0, 0, 0));
+
+        metrics.insert("memory.swap.total", MetricValue::Counter(swap_total));
+        metrics.insert("memory.swap.used", MetricValue::Counter(swap_used));
+        metrics.insert("memory.swap.free", MetricValue::Counter(swap_free));
+
+        // Calculate percentages
+        if total > 0 {
+            let used_percent = (used as f64 / total as f64) * 100.0;
+            metrics.insert("memory.used.percent", used_percent);
+        }
+
+        if swap_total > 0 {
+            let swap_percent = (swap_used as f64 / swap_total as f64) * 100.0;
+            metrics.insert("memory.swap.percent", swap_percent);
+        }
+
+        Ok(metrics)
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    fn parse_meminfo() -> Result<Metrics> {
+        // Return dummy data on other systems
         let mut metrics = Metrics::new();
         metrics.insert("memory.total", MetricValue::Counter(8 * 1024 * 1024 * 1024));
         metrics.insert("memory.used", MetricValue::Counter(4 * 1024 * 1024 * 1024));
@@ -133,7 +288,11 @@ impl Collector for MemoryCollector {
         {
             std::path::Path::new("/proc/meminfo").exists()
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(target_os = "macos")]
+        {
+            true // macOS uses vm_stat which is always available
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         {
             false
         }
