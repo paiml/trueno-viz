@@ -1,0 +1,70 @@
+[package]
+name = "ttop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["PAIML Team"]
+description = "Terminal Top: 10X better than btop - Pure Rust system monitor with GPU, ML stack, and deterministic rendering"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/paiml/trueno-viz"
+readme = "README.md"
+keywords = ["system-monitor", "tui", "terminal", "btop", "htop"]
+categories = ["command-line-utilities", "visualization"]
+
+[[bin]]
+name = "ttop"
+path = "src/main.rs"
+
+[dependencies]
+# Core monitoring library
+trueno-viz = { path = "../..", features = ["monitor"] }
+
+# TUI framework
+ratatui = "0.29"
+crossterm = "0.28"
+
+# Configuration
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+dirs = "5.0"
+
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
+# Error handling
+thiserror = "2.0"
+anyhow = "1.0"
+
+# Tracing (optional renacer integration)
+renacer = { version = "0.9", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+# Testing
+proptest = "1.4"
+tempfile = "3.10"
+
+# TUI testing (probar)
+# jugar-probar = "0.4"  # Enable when testing
+
+[features]
+default = ["nvidia"]
+nvidia = ["trueno-viz/monitor-nvidia"]
+amd = []  # AMD GPU uses dynamic loading, always available on Linux
+tracing = ["dep:renacer"]
+full = ["nvidia", "tracing"]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = "symbols"
+
+[lints.rust]
+unsafe_code = "warn"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "deny"
+expect_used = "allow"

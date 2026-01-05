@@ -1,0 +1,217 @@
+//! Input handling for the TUI monitor.
+
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent};
+
+/// Input action resulting from user input.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Action {
+    /// Quit the application.
+    Quit,
+    /// Navigate up.
+    Up,
+    /// Navigate down.
+    Down,
+    /// Navigate left.
+    Left,
+    /// Navigate right.
+    Right,
+    /// Select/confirm.
+    Select,
+    /// Toggle help.
+    Help,
+    /// Switch to preset N (0-9).
+    Preset(u8),
+    /// Filter processes.
+    Filter,
+    /// Toggle tree view.
+    Tree,
+    /// Kill selected process.
+    Kill,
+    /// Refresh immediately.
+    Refresh,
+    /// No action.
+    None,
+}
+
+/// Input handler with configurable vim keys.
+#[derive(Debug, Clone)]
+pub struct InputHandler {
+    /// Enable vim-style keys (hjkl).
+    pub vim_keys: bool,
+}
+
+impl InputHandler {
+    /// Creates a new input handler.
+    #[must_use]
+    pub fn new(vim_keys: bool) -> Self {
+        Self { vim_keys }
+    }
+
+    /// Handles a key event and returns the corresponding action.
+    #[must_use]
+    pub fn handle_key(&self, event: KeyEvent) -> Action {
+        // Check for Ctrl+C or Ctrl+Q
+        if event.modifiers.contains(KeyModifiers::CONTROL) {
+            match event.code {
+                KeyCode::Char('c') | KeyCode::Char('q') => return Action::Quit,
+                _ => {}
+            }
+        }
+
+        match event.code {
+            // Quit
+            KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
+
+            // Navigation
+            KeyCode::Up => Action::Up,
+            KeyCode::Down => Action::Down,
+            KeyCode::Left => Action::Left,
+            KeyCode::Right => Action::Right,
+
+            // Vim keys
+            KeyCode::Char('k') if self.vim_keys => Action::Up,
+            KeyCode::Char('j') if self.vim_keys => Action::Down,
+            KeyCode::Char('h') if self.vim_keys => Action::Left,
+            KeyCode::Char('l') if self.vim_keys => Action::Right,
+
+            // Selection
+            KeyCode::Enter => Action::Select,
+
+            // Help
+            KeyCode::Char('?') | KeyCode::F(1) => Action::Help,
+
+            // Presets
+            KeyCode::Char(c @ '0'..='9') => Action::Preset(c.to_digit(10).unwrap_or(0) as u8),
+
+            // Filter
+            KeyCode::Char('/') | KeyCode::Char('f') => Action::Filter,
+
+            // Tree toggle
+            KeyCode::Char('t') => Action::Tree,
+
+            // Kill process
+            KeyCode::Char('K') => Action::Kill,
+
+            // Refresh
+            KeyCode::Char('r') | KeyCode::F(5) => Action::Refresh,
+
+            _ => Action::None,
+        }
+    }
+
+    /// Handles a mouse event and returns the corresponding action.
+    #[must_use]
+    pub fn handle_mouse(&self, _event: MouseEvent) -> Action {
+        // TODO: Implement mouse handling
+        Action::None
+    }
+}
+
+impl Default for InputHandler {
+    fn default() -> Self {
+        Self::new(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn key_event(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::empty())
+    }
+
+    fn key_event_ctrl(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::CONTROL)
+    }
+
+    #[test]
+    fn test_quit_actions() {
+        let handler = InputHandler::new(true);
+
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('q'))),
+            Action::Quit
+        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Esc)), Action::Quit);
+        assert_eq!(
+            handler.handle_key(key_event_ctrl(KeyCode::Char('c'))),
+            Action::Quit
+        );
+    }
+
+    #[test]
+    fn test_navigation() {
+        let handler = InputHandler::new(true);
+
+        assert_eq!(handler.handle_key(key_event(KeyCode::Up)), Action::Up);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Down)), Action::Down);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Left)), Action::Left);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Right)), Action::Right);
+    }
+
+    #[test]
+    fn test_vim_keys_enabled() {
+        let handler = InputHandler::new(true);
+
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('k'))),
+            Action::Up
+        );
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('j'))),
+            Action::Down
+        );
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('h'))),
+            Action::Left
+        );
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('l'))),
+            Action::Right
+        );
+    }
+
+    #[test]
+    fn test_vim_keys_disabled() {
+        let handler = InputHandler::new(false);
+
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('k'))),
+            Action::None
+        );
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('j'))),
+            Action::None
+        );
+    }
+
+    #[test]
+    fn test_presets() {
+        let handler = InputHandler::new(true);
+
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('0'))),
+            Action::Preset(0)
+        );
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('5'))),
+            Action::Preset(5)
+        );
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('9'))),
+            Action::Preset(9)
+        );
+    }
+
+    #[test]
+    fn test_help() {
+        let handler = InputHandler::new(true);
+
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('?'))),
+            Action::Help
+        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::F(1))), Action::Help);
+    }
+}

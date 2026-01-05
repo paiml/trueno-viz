@@ -119,6 +119,11 @@ pub mod widgets;
 #[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
 pub mod wasm;
 
+/// TUI monitoring system (btop-like).
+#[cfg(feature = "monitor")]
+#[cfg_attr(docsrs, doc(cfg(feature = "monitor")))]
+pub mod monitor;
+
 // ============================================================================
 // Error Types
 // ============================================================================
