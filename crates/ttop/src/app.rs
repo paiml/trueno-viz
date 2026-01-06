@@ -18,6 +18,9 @@ use trueno_viz::monitor::collectors::AmdGpuCollector;
 #[cfg(target_os = "macos")]
 use trueno_viz::monitor::collectors::AppleGpuCollector;
 
+#[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+use trueno_viz::monitor::collectors::AppleAcceleratorsCollector;
+
 use crate::state::ProcessSortColumn;
 
 /// Panel visibility state
@@ -31,6 +34,7 @@ pub struct PanelVisibility {
     pub gpu: bool,
     pub battery: bool,
     pub sensors: bool,
+    pub accelerators: bool,
 }
 
 impl Default for PanelVisibility {
@@ -44,6 +48,7 @@ impl Default for PanelVisibility {
             gpu: true,
             battery: true,
             sensors: true,
+            accelerators: true,
         }
     }
 }
@@ -67,6 +72,9 @@ pub struct App {
 
     #[cfg(target_os = "macos")]
     pub apple_gpu: AppleGpuCollector,
+
+    #[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+    pub apple_accelerators: AppleAcceleratorsCollector,
 
     // History buffers (normalized 0-1)
     pub cpu_history: Vec<f64>,
@@ -166,6 +174,16 @@ impl App {
             g
         };
 
+        #[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+        let apple_accelerators = {
+            debug::log(Level::Debug, "app", "Initializing Apple Accelerators collector (manzana)...");
+            let _t = TimingGuard::new("app", "AppleAcceleratorsCollector::new");
+            let a = AppleAcceleratorsCollector::new();
+            drop(_t);
+            debug::log(Level::Info, "app", &format!("Apple Accelerators: {} available", a.available_count()));
+            a
+        };
+
         debug::log(Level::Debug, "app", "All collectors initialized");
 
         let mut app = Self {
@@ -185,6 +203,9 @@ impl App {
 
             #[cfg(target_os = "macos")]
             apple_gpu,
+
+            #[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+            apple_accelerators,
 
             cpu_history: Vec::with_capacity(300),
             mem_history: Vec::with_capacity(300),
@@ -377,6 +398,11 @@ impl App {
         #[cfg(target_os = "macos")]
         if self.apple_gpu.is_available() {
             let _ = self.apple_gpu.collect();
+        }
+
+        #[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+        if self.apple_accelerators.is_available() {
+            let _ = self.apple_accelerators.collect();
         }
 
         self.last_collect = Instant::now();
