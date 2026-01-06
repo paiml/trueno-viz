@@ -2,7 +2,7 @@
 
 [package]
 name = "ttop"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -20,9 +20,22 @@ exclude = ["tests/", "target/"]
 name = "ttop"
 path = "src/main.rs"
 
+[[example]]
+name = "headless"
+path = "examples/headless.rs"
+
+[[example]]
+name = "collectors"
+path = "examples/collectors.rs"
+
+[[example]]
+name = "apple_accelerators"
+path = "examples/apple_accelerators.rs"
+required-features = ["apple-hardware"]
+
 [dependencies]
 # Core monitoring library (re-exports ratatui for trait compatibility)
-trueno-viz = { version = "0.1.11", path = "../..", features = ["monitor"] }
+trueno-viz = { version = "0.1.12", path = "../..", features = ["monitor"] }
 
 # TUI framework - use crossterm directly, ratatui comes from trueno-viz
 crossterm = "0.28"

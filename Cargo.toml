@@ -4,7 +4,7 @@ exclude = ["crates/ttop"]
 
 [package]
 name = "trueno-viz"
-version = "0.1.11"
+version = "0.1.12"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -88,6 +88,9 @@ criterion = { version = "0.6", features = ["html_reports"] }
 # Test utilities
 tempfile = "3.10"
 approx = "0.5"
+
+# TUI testing (required for popperian_falsification_test.rs)
+ratatui = "0.29"
 
 [features]
 default = []
