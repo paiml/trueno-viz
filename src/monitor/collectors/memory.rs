@@ -4,6 +4,7 @@
 
 use crate::monitor::error::{MonitorError, Result};
 use crate::monitor::ring_buffer::RingBuffer;
+#[cfg(target_os = "macos")]
 use crate::monitor::subprocess::run_with_timeout_stdout;
 use crate::monitor::types::{Collector, MetricValue, Metrics};
 use std::time::Duration;

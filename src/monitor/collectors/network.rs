@@ -9,6 +9,8 @@
 
 use crate::monitor::error::{MonitorError, Result};
 use crate::monitor::ring_buffer::RingBuffer;
+#[cfg(target_os = "macos")]
+use crate::monitor::subprocess::run_with_timeout;
 use crate::monitor::types::{Collector, MetricValue, Metrics};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
@@ -242,15 +244,16 @@ impl NetworkCollector {
     #[cfg(target_os = "macos")]
     fn read_net_dev(&self) -> Result<HashMap<String, NetStats>> {
         // Use netstat -ib to get interface statistics on macOS
-        let output = std::process::Command::new("netstat")
-            .args(["-ib"])
-            .output()
-            .map_err(|e| MonitorError::CollectionFailed {
-                collector: "network",
-                message: format!("Failed to run netstat: {}", e),
-            })?;
+        // Wrap in timeout to prevent hangs on slow/unresponsive systems
+        let result = run_with_timeout("netstat", &["-ib"], Duration::from_secs(5));
 
-        let content = String::from_utf8_lossy(&output.stdout);
+        let content = match result.stdout_string() {
+            Some(s) => s,
+            None => {
+                // Timeout or error - return empty stats rather than hanging
+                return Ok(HashMap::new());
+            }
+        };
         let mut stats = HashMap::new();
 
         // Parse netstat -ib output:

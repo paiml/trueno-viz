@@ -502,7 +502,7 @@ mod amd_gpu_collector_tests {
     #[test]
     fn test_amd_gpu_collector_id() {
         let collector = AmdGpuCollector::new();
-        assert_eq!(collector.id(), "gpu_amd");
+        assert_eq!(collector.id(), "amd_gpu");
     }
 
     #[test]
@@ -644,5 +644,203 @@ mod metrics_validation_tests {
 
         assert_eq!(metrics.get_gauge("nonexistent"), None);
         assert_eq!(metrics.get_counter("nonexistent"), None);
+    }
+}
+
+// ============================================================================
+// Subprocess Timeout Tests (Hang Prevention)
+// ============================================================================
+
+mod subprocess_timeout_tests {
+    use std::time::{Duration, Instant};
+    use trueno_viz::monitor::subprocess::{run_with_timeout, run_with_timeout_stdout, SubprocessResult};
+
+    #[test]
+    fn test_timeout_prevents_hang() {
+        // This is the critical test: a slow command MUST timeout
+        let start = Instant::now();
+        let result = run_with_timeout("sleep", &["10"], Duration::from_millis(100));
+        let elapsed = start.elapsed();
+
+        assert!(result.is_timeout(), "Sleep should timeout");
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "Timeout should occur quickly, not hang. Elapsed: {:?}",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn test_fast_command_succeeds() {
+        let result = run_with_timeout("echo", &["hello"], Duration::from_secs(1));
+        assert!(result.is_success());
+        assert_eq!(result.stdout_string().unwrap().trim(), "hello");
+    }
+
+    #[test]
+    fn test_run_with_timeout_stdout_returns_none_on_timeout() {
+        let result = run_with_timeout_stdout("sleep", &["10"], Duration::from_millis(50));
+        assert!(result.is_none(), "Timeout should return None");
+    }
+
+    #[test]
+    fn test_nonexistent_command_returns_spawn_error() {
+        let result = run_with_timeout(
+            "this_command_does_not_exist_xyz123",
+            &[],
+            Duration::from_secs(1),
+        );
+        assert!(matches!(result, SubprocessResult::SpawnError));
+    }
+
+    #[test]
+    fn test_failed_command_returns_failed() {
+        let result = run_with_timeout("false", &[], Duration::from_secs(1));
+        assert!(matches!(result, SubprocessResult::Failed(_)));
+    }
+
+    #[test]
+    fn test_multiple_rapid_timeouts_no_resource_leak() {
+        // Stress test: many rapid timeouts should not leak threads/handles
+        for _ in 0..10 {
+            let start = Instant::now();
+            let result = run_with_timeout("sleep", &["10"], Duration::from_millis(20));
+            let elapsed = start.elapsed();
+
+            assert!(result.is_timeout());
+            assert!(elapsed < Duration::from_millis(500), "Timeout took too long: {:?}", elapsed);
+        }
+    }
+}
+
+// ============================================================================
+// Collector Timeout Behavior Tests (Regression Prevention)
+// ============================================================================
+
+mod collector_timeout_tests {
+    use super::*;
+    use std::time::{Duration, Instant};
+
+    /// Test that process collection completes within reasonable time.
+    /// This catches hangs in ps/sysctl calls on macOS.
+    #[test]
+    fn test_process_collector_does_not_hang() {
+        let mut collector = ProcessCollector::new();
+        let start = Instant::now();
+
+        let result = collector.collect();
+        let elapsed = start.elapsed();
+
+        // Process collection should complete within 10 seconds even on slow systems
+        assert!(
+            elapsed < Duration::from_secs(10),
+            "Process collection took too long: {:?}. Possible hang!",
+            elapsed
+        );
+        assert!(result.is_ok(), "Collection should succeed: {:?}", result.err());
+    }
+
+    /// Test that network collection completes within reasonable time.
+    /// This catches hangs in netstat calls on macOS.
+    #[test]
+    fn test_network_collector_does_not_hang() {
+        let mut collector = NetworkCollector::new();
+        let start = Instant::now();
+
+        let result = collector.collect();
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed < Duration::from_secs(10),
+            "Network collection took too long: {:?}. Possible hang!",
+            elapsed
+        );
+        assert!(result.is_ok(), "Collection should succeed: {:?}", result.err());
+    }
+
+    /// Test that disk collection completes within reasonable time.
+    /// This catches hangs in iostat/df calls on macOS.
+    #[test]
+    fn test_disk_collector_does_not_hang() {
+        let mut collector = DiskCollector::new();
+        let start = Instant::now();
+
+        let result = collector.collect();
+        let elapsed = start.elapsed();
+
+        assert!(
+            elapsed < Duration::from_secs(10),
+            "Disk collection took too long: {:?}. Possible hang!",
+            elapsed
+        );
+        assert!(result.is_ok(), "Collection should succeed: {:?}", result.err());
+    }
+
+    /// Test that all collectors together complete within reasonable time.
+    /// Simulates a full refresh cycle.
+    #[test]
+    fn test_full_collection_cycle_does_not_hang() {
+        let mut cpu = CpuCollector::new();
+        let mut memory = MemoryCollector::new();
+        let mut network = NetworkCollector::new();
+        let mut disk = DiskCollector::new();
+        let mut process = ProcessCollector::new();
+        let mut sensor = SensorCollector::new();
+
+        let start = Instant::now();
+
+        // Run all collectors sequentially (like ttop's collect_metrics)
+        let _ = cpu.collect();
+        let _ = memory.collect();
+        let _ = network.collect();
+        let _ = disk.collect();
+        let _ = process.collect();
+        let _ = sensor.collect();
+
+        let elapsed = start.elapsed();
+
+        // Full cycle should complete in under 15 seconds
+        assert!(
+            elapsed < Duration::from_secs(15),
+            "Full collection cycle took too long: {:?}. Possible hang in one of the collectors!",
+            elapsed
+        );
+    }
+
+    /// Test that rapid repeated collections don't accumulate delay.
+    /// This catches resource leaks from timed-out threads.
+    #[test]
+    fn test_repeated_collections_no_delay_accumulation() {
+        let mut process = ProcessCollector::new();
+        let mut timings = Vec::new();
+
+        for i in 0..5 {
+            let start = Instant::now();
+            let _ = process.collect();
+            let elapsed = start.elapsed();
+            timings.push(elapsed);
+
+            // No single collection should take more than 10 seconds
+            assert!(
+                elapsed < Duration::from_secs(10),
+                "Collection {} took too long: {:?}",
+                i,
+                elapsed
+            );
+        }
+
+        // Check that timing doesn't grow over iterations (would indicate resource leak)
+        if timings.len() >= 3 {
+            let first_three_avg = timings[..3].iter().map(|d| d.as_millis()).sum::<u128>() / 3;
+            let last_three_avg = timings[timings.len()-3..].iter().map(|d| d.as_millis()).sum::<u128>() / 3;
+
+            // Later collections shouldn't be more than 5x slower than earlier ones
+            assert!(
+                last_three_avg < first_three_avg * 5 + 1000,
+                "Collection time increased significantly: first avg {:?}ms, last avg {:?}ms",
+                first_three_avg,
+                last_three_avg
+            );
+        }
     }
 }

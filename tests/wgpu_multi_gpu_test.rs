@@ -24,7 +24,7 @@ use std::time::{Duration, Instant};
 
 // These imports will fail until we implement the modules
 #[cfg(feature = "gpu-wgpu")]
-use trueno_viz::monitor::ffi::wgpu::{WgpuMonitor, GpuAdapterInfo, WgpuBackendType};
+use trueno_viz::monitor::ffi::wgpu::{GpuAdapterInfo, WgpuBackendType, WgpuMonitor};
 
 // ============================================================================
 // CLAIMS 26-35: GPU Detection & Enumeration
@@ -143,7 +143,10 @@ fn claim_31_discrete_gpu_type() {
     let monitor = WgpuMonitor::new();
 
     for adapter in monitor.adapters() {
-        if adapter.name.contains("Radeon") || adapter.name.contains("GeForce") || adapter.name.contains("RTX") {
+        if adapter.name.contains("Radeon")
+            || adapter.name.contains("GeForce")
+            || adapter.name.contains("RTX")
+        {
             assert!(
                 adapter.is_discrete(),
                 "FALSIFIED Claim 31: {} should be DiscreteGpu",

@@ -103,10 +103,6 @@ fn count_top_panels(app: &App) -> u32 {
     if app.panels.sensors && app.sensors.is_available() {
         count += 1;
     }
-    #[cfg(all(target_os = "macos", feature = "apple-hardware"))]
-    if app.panels.accelerators && app.apple_accelerators.is_available() {
-        count += 1;
-    }
     count
 }
 
@@ -152,10 +148,6 @@ fn draw_top_panels(f: &mut Frame, app: &App, area: Rect) {
     }
     if app.panels.sensors && app.sensors.is_available() {
         panels_to_draw.push((panels::draw_sensors, app));
-    }
-    #[cfg(all(target_os = "macos", feature = "apple-hardware"))]
-    if app.panels.accelerators && app.apple_accelerators.is_available() {
-        panels_to_draw.push((panels::draw_accelerators, app));
     }
 
     // Draw panels in grid

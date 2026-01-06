@@ -1,35 +1,10 @@
 # trueno-viz
 
-<p align="center">
-  <img src="docs/hero.svg" alt="trueno-viz" width="800">
-</p>
-
 SIMD/GPU/WASM-accelerated visualization for Data Science, Physics, and ML.
 
 [![CI](https://github.com/paiml/trueno-viz/actions/workflows/ci.yml/badge.svg)](https://github.com/paiml/trueno-viz/actions)
-[![Crates.io](https://img.shields.io/crates/v/trueno-viz.svg)](https://crates.io/crates/trueno-viz)
 
 **Pure Rust** - zero JavaScript, zero browser dependencies.
-
-## ttop - Terminal System Monitor
-
-**10X Better Than btop** - Install the standalone system monitor:
-
-```bash
-# Standard install
-cargo install ttop
-
-# With Apple hardware acceleration (macOS)
-cargo install ttop --features apple-hardware
-```
-
-Features:
-- **GPU Monitoring**: NVIDIA/AMD/Apple Silicon
-- **Apple Accelerators**: Neural Engine, Afterburner FPGA, Secure Enclave via [manzana](https://crates.io/crates/manzana)
-- **8ms Frame Time**: 2X faster than btop
-- **Cross-Platform**: Linux + macOS (Intel & Apple Silicon)
-
-See [crates/ttop](crates/ttop) for full documentation.
 
 ## Installation
 
@@ -39,9 +14,6 @@ trueno-viz = "0.1"
 
 # Optional: GPU acceleration
 trueno-viz = { version = "0.1", features = ["gpu"] }
-
-# Optional: Apple hardware (Neural Engine, Afterburner, Secure Enclave)
-trueno-viz = { version = "0.1", features = ["apple-hardware"] }
 ```
 
 ## Usage

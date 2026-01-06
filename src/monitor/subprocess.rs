@@ -106,6 +106,7 @@ pub fn run_with_timeout_stdout(cmd: &str, args: &[&str], timeout: Duration) -> O
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
 
     #[test]
     fn test_successful_command() {

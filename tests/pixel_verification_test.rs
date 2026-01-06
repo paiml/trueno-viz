@@ -190,10 +190,7 @@ mod gpu_tests {
         // After fix: Values should not all be exactly 0.0
         // The fixed implementation either reads real GPU util or provides
         // a varying fallback value to show the graph is updating
-        assert!(
-            !samples.is_empty(),
-            "PIXEL FAIL: No GPU samples collected"
-        );
+        assert!(!samples.is_empty(), "PIXEL FAIL: No GPU samples collected");
 
         // Check that values are valid (0-100%)
         for &sample in &samples {
@@ -256,10 +253,7 @@ mod gpu_tests {
             );
 
             if let Some(info) = gpu.primary_gpu() {
-                assert!(
-                    !info.name.is_empty(),
-                    "PIXEL FAIL: GPU name is empty"
-                );
+                assert!(!info.name.is_empty(), "PIXEL FAIL: GPU name is empty");
                 println!("Detected GPU: {}", info.name);
             }
         }
@@ -275,7 +269,9 @@ fn pixel_memory_values_consistent() {
     let mut mem = MemoryCollector::new();
     let metrics = mem.collect().expect("Memory collection failed");
 
-    let total = metrics.get_counter("memory.total").expect("No memory.total");
+    let total = metrics
+        .get_counter("memory.total")
+        .expect("No memory.total");
     let used = metrics.get_counter("memory.used").unwrap_or(0);
     let available = metrics.get_counter("memory.available").unwrap_or(0);
 
@@ -406,10 +402,7 @@ fn pixel_disk_mounts_valid() {
 
     let mounts = disk.mounts();
 
-    assert!(
-        !mounts.is_empty(),
-        "PIXEL FAIL: No disk mounts detected"
-    );
+    assert!(!mounts.is_empty(), "PIXEL FAIL: No disk mounts detected");
 
     // Must have root mount
     let has_root = mounts.iter().any(|m| m.mount_point == "/");
@@ -470,10 +463,7 @@ fn pixel_process_pid1_exists() {
 
     let has_pid1 = proc.processes().contains_key(&1);
 
-    assert!(
-        has_pid1,
-        "PIXEL FAIL: PID 1 (init/launchd) not found"
-    );
+    assert!(has_pid1, "PIXEL FAIL: PID 1 (init/launchd) not found");
 }
 
 #[test]
@@ -483,10 +473,7 @@ fn pixel_process_tree_valid() {
 
     let tree = proc.build_tree();
 
-    assert!(
-        !tree.is_empty(),
-        "PIXEL FAIL: Process tree is empty"
-    );
+    assert!(!tree.is_empty(), "PIXEL FAIL: Process tree is empty");
 
     // Root should have children
     if let Some(children) = tree.get(&0) {
@@ -539,7 +526,10 @@ fn pixel_all_collectors_produce_changing_output() {
     let m2 = cpu.collect().ok();
 
     // History should grow
-    assert!(cpu.history().len() >= 2, "PIXEL FAIL: CPU history not growing");
+    assert!(
+        cpu.history().len() >= 2,
+        "PIXEL FAIL: CPU history not growing"
+    );
 
     // Memory
     let mut mem = MemoryCollector::new();
@@ -547,7 +537,10 @@ fn pixel_all_collectors_produce_changing_output() {
     std::thread::sleep(Duration::from_millis(100));
     let _ = mem.collect();
 
-    assert!(mem.history().len() >= 2, "PIXEL FAIL: Memory history not growing");
+    assert!(
+        mem.history().len() >= 2,
+        "PIXEL FAIL: Memory history not growing"
+    );
 
     // Network
     let mut net = NetworkCollector::new();
@@ -646,6 +639,9 @@ fn pixel_gpu_returns_actual_values() {
 
         // After fix, GPU util should vary (not be hardcoded)
         // The implementation provides at least a varying fallback
-        println!("GPU utilization: {}% (graph should now animate)", info.gpu_util);
+        println!(
+            "GPU utilization: {}% (graph should now animate)",
+            info.gpu_util
+        );
     }
 }
