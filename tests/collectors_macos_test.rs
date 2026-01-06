@@ -21,7 +21,10 @@ use trueno_viz::monitor::collectors::AppleGpuCollector;
 #[test]
 fn test_cpu_accuracy_vs_top() {
     let mut cpu = CpuCollector::new();
-    assert!(cpu.is_available(), "CPU collector must be available on macOS");
+    assert!(
+        cpu.is_available(),
+        "CPU collector must be available on macOS"
+    );
 
     // Collect twice for delta calculation
     let _ = cpu.collect();
@@ -114,14 +117,21 @@ fn test_network_accuracy() {
 
     // Verify en0 exists (primary interface on most Macs)
     let has_en0 = interfaces.iter().any(|i| i.starts_with("en"));
-    assert!(has_en0, "Should detect en* interface, found: {:?}", interfaces);
+    assert!(
+        has_en0,
+        "Should detect en* interface, found: {:?}",
+        interfaces
+    );
 }
 
 /// Claim 44: Disk mounts match df
 #[test]
 fn test_disk_accuracy() {
     let mut disk = DiskCollector::new();
-    assert!(disk.is_available(), "Disk collector must be available on macOS");
+    assert!(
+        disk.is_available(),
+        "Disk collector must be available on macOS"
+    );
 
     let _ = disk.collect();
 
@@ -181,7 +191,10 @@ fn test_gpu_detection() {
     let gpu = AppleGpuCollector::new();
 
     // GPU should be available on any Mac
-    assert!(gpu.is_available(), "GPU collector should be available on macOS");
+    assert!(
+        gpu.is_available(),
+        "GPU collector should be available on macOS"
+    );
 
     if let Some(info) = gpu.primary_gpu() {
         // Name should not be empty

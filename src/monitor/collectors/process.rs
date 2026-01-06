@@ -3,6 +3,8 @@
 //! Parses `/proc/[pid]/*` on Linux to collect process information.
 
 use crate::monitor::error::{MonitorError, Result};
+#[cfg(target_os = "macos")]
+use crate::monitor::subprocess::run_with_timeout;
 use crate::monitor::types::{Collector, MetricValue, Metrics};
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -126,11 +128,9 @@ impl ProcessCollector {
         }
         #[cfg(target_os = "macos")]
         {
-            std::process::Command::new("sysctl")
-                .args(["-n", "hw.memsize"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+            run_with_timeout("sysctl", &["-n", "hw.memsize"], Duration::from_secs(2))
+                .stdout_string()
+                .and_then(|s| s.trim().parse().ok())
                 .unwrap_or(8 * 1024 * 1024 * 1024)
         }
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -177,15 +177,20 @@ impl ProcessCollector {
     fn scan_processes(&mut self) -> Result<()> {
         // Use ps to get process information on macOS
         // Note: macOS ps doesn't support nlwp, so we skip thread count
-        let output = std::process::Command::new("ps")
-            .args(["-axo", "pid,ppid,state,%cpu,%mem,rss,user,comm"])
-            .output()
-            .map_err(|e| MonitorError::CollectionFailed {
-                collector: "process",
-                message: format!("Failed to run ps: {}", e),
-            })?;
+        // Use timeout to prevent hangs on slow systems
+        let result = run_with_timeout(
+            "ps",
+            &["-axo", "pid,ppid,state,%cpu,%mem,rss,user,comm"],
+            Duration::from_secs(5),
+        );
 
-        let content = String::from_utf8_lossy(&output.stdout);
+        let content = match result.stdout_string() {
+            Some(s) => s,
+            None => {
+                // Timeout or error - return empty but don't fail
+                return Ok(());
+            }
+        };
         let mut new_processes = BTreeMap::new();
 
         for line in content.lines().skip(1) {

@@ -177,10 +177,11 @@ fn claim_21_braille_8_dots_per_cell() {
     graph.render(area, &mut buffer);
 
     // Check buffer for braille characters
-    let has_braille = buffer
-        .content()
-        .iter()
-        .any(|c| c.symbol().chars().any(|ch| ch >= '\u{2800}' && ch <= '\u{28FF}'));
+    let has_braille = buffer.content().iter().any(|c| {
+        c.symbol()
+            .chars()
+            .any(|ch| ch >= '\u{2800}' && ch <= '\u{28FF}')
+    });
 
     assert!(
         has_braille,
@@ -289,7 +290,9 @@ fn claim_42_memory_accuracy() {
     let mut mem = MemoryCollector::new();
     let metrics = mem.collect().expect("Memory collection failed");
 
-    let total = metrics.get_counter("memory.total").expect("No memory.total");
+    let total = metrics
+        .get_counter("memory.total")
+        .expect("No memory.total");
     let used = metrics.get_counter("memory.used").unwrap_or(0);
     let available = metrics.get_counter("memory.available").unwrap_or(0);
 
@@ -502,10 +505,7 @@ fn claim_67_process_sort_stable() {
     data.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
     let order2: Vec<_> = data.iter().map(|p| p.0).collect();
 
-    assert_eq!(
-        order1, order2,
-        "Claim 67 FALSIFIED: Sort not stable"
-    );
+    assert_eq!(order1, order2, "Claim 67 FALSIFIED: Sort not stable");
 }
 
 /// Claim 69: Color gradient sampling deterministic
@@ -764,11 +764,26 @@ fn claim_02_memory_usage_under_10mb() {
     let proc = ProcessCollector::new();
 
     // Verify structs are small (not allocating huge buffers)
-    assert!(std::mem::size_of_val(&cpu) < 10000, "CPU collector too large");
-    assert!(std::mem::size_of_val(&mem) < 10000, "Memory collector too large");
-    assert!(std::mem::size_of_val(&disk) < 10000, "Disk collector too large");
-    assert!(std::mem::size_of_val(&net) < 10000, "Network collector too large");
-    assert!(std::mem::size_of_val(&proc) < 10000, "Process collector too large");
+    assert!(
+        std::mem::size_of_val(&cpu) < 10000,
+        "CPU collector too large"
+    );
+    assert!(
+        std::mem::size_of_val(&mem) < 10000,
+        "Memory collector too large"
+    );
+    assert!(
+        std::mem::size_of_val(&disk) < 10000,
+        "Disk collector too large"
+    );
+    assert!(
+        std::mem::size_of_val(&net) < 10000,
+        "Network collector too large"
+    );
+    assert!(
+        std::mem::size_of_val(&proc) < 10000,
+        "Process collector too large"
+    );
 }
 
 /// Claim 4: Collection interval configurable
@@ -794,7 +809,10 @@ fn claim_05_cpu_utilization_updates() {
     let m2 = cpu.collect().ok();
 
     // At least one metric should exist
-    assert!(m1.is_some() || m2.is_some(), "CPU metrics should be collectible");
+    assert!(
+        m1.is_some() || m2.is_some(),
+        "CPU metrics should be collectible"
+    );
 }
 
 /// Claim 6: Memory metrics reflect system state
@@ -836,8 +854,14 @@ fn claim_11_theme_colors_valid() {
     let bg = theme.bg();
     let fg = theme.fg();
 
-    assert!(matches!(bg, ratatui::style::Color::Rgb(_, _, _)), "Background should be RGB");
-    assert!(matches!(fg, ratatui::style::Color::Rgb(_, _, _)), "Foreground should be RGB");
+    assert!(
+        matches!(bg, ratatui::style::Color::Rgb(_, _, _)),
+        "Background should be RGB"
+    );
+    assert!(
+        matches!(fg, ratatui::style::Color::Rgb(_, _, _)),
+        "Foreground should be RGB"
+    );
 }
 
 /// Claim 12: Gradient interpolation smooth
@@ -854,11 +878,18 @@ fn claim_12_gradient_interpolation_smooth() {
         let c2 = gradient.sample(t2);
 
         // Colors should be reasonably close (both are RGB)
-        if let (ratatui::style::Color::Rgb(r1, g1, b1), ratatui::style::Color::Rgb(r2, g2, b2)) = (c1, c2) {
-            let diff = (r1 as i32 - r2 as i32).abs() +
-                       (g1 as i32 - g2 as i32).abs() +
-                       (b1 as i32 - b2 as i32).abs();
-            assert!(diff < 50, "Gradient jump too large at t={}: diff={}", t1, diff);
+        if let (ratatui::style::Color::Rgb(r1, g1, b1), ratatui::style::Color::Rgb(r2, g2, b2)) =
+            (c1, c2)
+        {
+            let diff = (r1 as i32 - r2 as i32).abs()
+                + (g1 as i32 - g2 as i32).abs()
+                + (b1 as i32 - b2 as i32).abs();
+            assert!(
+                diff < 50,
+                "Gradient jump too large at t={}: diff={}",
+                t1,
+                diff
+            );
         }
     }
 }
@@ -922,16 +953,24 @@ fn claim_17_graph_modes_differ() {
     let area = Rect::new(0, 0, 10, 4);
 
     let mut buf_block = Buffer::empty(area);
-    Graph::new(&data).mode(GraphMode::Block).render(area, &mut buf_block);
+    Graph::new(&data)
+        .mode(GraphMode::Block)
+        .render(area, &mut buf_block);
 
     let mut buf_braille = Buffer::empty(area);
-    Graph::new(&data).mode(GraphMode::Braille).render(area, &mut buf_braille);
+    Graph::new(&data)
+        .mode(GraphMode::Braille)
+        .render(area, &mut buf_braille);
 
     // Content should differ
-    let text_block: String = buf_block.content().iter()
+    let text_block: String = buf_block
+        .content()
+        .iter()
         .map(|c| c.symbol().chars().next().unwrap_or(' '))
         .collect();
-    let text_braille: String = buf_braille.content().iter()
+    let text_braille: String = buf_braille
+        .content()
+        .iter()
         .map(|c| c.symbol().chars().next().unwrap_or(' '))
         .collect();
 
@@ -960,11 +999,17 @@ fn claim_19_meter_shows_label() {
     let meter = Meter::new(0.5).label("TestLabel");
     meter.render(area, &mut buffer);
 
-    let text: String = buffer.content().iter()
+    let text: String = buffer
+        .content()
+        .iter()
         .map(|c| c.symbol().chars().next().unwrap_or(' '))
         .collect();
 
-    assert!(text.contains("TestLabel"), "Meter should show label: {}", text);
+    assert!(
+        text.contains("TestLabel"),
+        "Meter should show label: {}",
+        text
+    );
 }
 
 /// Claim 20: Meter percentage display
@@ -977,7 +1022,9 @@ fn claim_20_meter_shows_percentage() {
     let meter = Meter::new(0.75);
     meter.render(area, &mut buffer);
 
-    let text: String = buffer.content().iter()
+    let text: String = buffer
+        .content()
+        .iter()
         .map(|c| c.symbol().chars().next().unwrap_or(' '))
         .collect();
 
@@ -1004,7 +1051,8 @@ fn claim_22_graph_tty_ascii_safe() {
         let c = cell.symbol().chars().next().unwrap_or(' ');
         assert!(
             c == ' ' || c == '░' || c == '▒' || c == '█',
-            "TTY mode should use basic chars, found: {:?}", c
+            "TTY mode should use basic chars, found: {:?}",
+            c
         );
     }
 }
@@ -1069,8 +1117,12 @@ fn claim_26_graph_scales_to_area() {
     let mut buf_small = Buffer::empty(small);
     let mut buf_large = Buffer::empty(large);
 
-    Graph::new(&data).mode(GraphMode::Block).render(small, &mut buf_small);
-    Graph::new(&data).mode(GraphMode::Block).render(large, &mut buf_large);
+    Graph::new(&data)
+        .mode(GraphMode::Block)
+        .render(small, &mut buf_small);
+    Graph::new(&data)
+        .mode(GraphMode::Block)
+        .render(large, &mut buf_large);
 
     // Both should render without issues (different sizes)
     assert!(buf_small.area.width == 5);
@@ -1133,7 +1185,9 @@ fn claim_32_zero_size_area() {
 /// Test: Graph handles large data without issues
 #[test]
 fn claim_33_large_data_set() {
-    let data: Vec<f64> = (0..10000).map(|i| (i as f64 / 1000.0).sin().abs()).collect();
+    let data: Vec<f64> = (0..10000)
+        .map(|i| (i as f64 / 1000.0).sin().abs())
+        .collect();
     let area = Rect::new(0, 0, 80, 24);
     let mut buffer = Buffer::empty(area);
 
@@ -1171,7 +1225,11 @@ fn claim_46_process_cpu_valid() {
     let _ = proc.collect();
 
     for p in proc.processes().values() {
-        assert!(p.cpu_percent >= 0.0, "Process CPU can't be negative: {}", p.cpu_percent);
+        assert!(
+            p.cpu_percent >= 0.0,
+            "Process CPU can't be negative: {}",
+            p.cpu_percent
+        );
     }
 }
 
@@ -1184,8 +1242,16 @@ fn claim_47_process_mem_valid() {
     let _ = proc.collect();
 
     for p in proc.processes().values() {
-        assert!(p.mem_percent >= 0.0, "Process MEM can't be negative: {}", p.mem_percent);
-        assert!(p.mem_percent <= 100.0, "Process MEM can't exceed 100%: {}", p.mem_percent);
+        assert!(
+            p.mem_percent >= 0.0,
+            "Process MEM can't be negative: {}",
+            p.mem_percent
+        );
+        assert!(
+            p.mem_percent <= 100.0,
+            "Process MEM can't exceed 100%: {}",
+            p.mem_percent
+        );
     }
 }
 
@@ -1237,13 +1303,20 @@ fn claim_54_process_names_non_empty() {
     let mut proc = ProcessCollector::new();
     let _ = proc.collect();
 
-    let empty_names = proc.processes().values()
+    let empty_names = proc
+        .processes()
+        .values()
         .filter(|p| p.name.is_empty())
         .count();
 
     // Allow some processes with empty names (kernel threads)
     let total = proc.count();
-    assert!(empty_names < total / 2, "Too many processes with empty names: {}/{}", empty_names, total);
+    assert!(
+        empty_names < total / 2,
+        "Too many processes with empty names: {}/{}",
+        empty_names,
+        total
+    );
 }
 
 /// Claim 55: Collector IDs are static strings
@@ -1263,8 +1336,14 @@ fn claim_55_collector_ids_static() {
 fn claim_56_memory_total_consistent() {
     let mut mem = MemoryCollector::new();
 
-    let m1 = mem.collect().ok().and_then(|m| m.get_counter("memory.total"));
-    let m2 = mem.collect().ok().and_then(|m| m.get_counter("memory.total"));
+    let m1 = mem
+        .collect()
+        .ok()
+        .and_then(|m| m.get_counter("memory.total"));
+    let m2 = mem
+        .collect()
+        .ok()
+        .and_then(|m| m.get_counter("memory.total"));
 
     assert_eq!(m1, m2, "Total memory should not change");
 }
@@ -1333,11 +1412,23 @@ fn claim_62_rendering_deterministic() {
     let mut buf1 = Buffer::empty(area);
     let mut buf2 = Buffer::empty(area);
 
-    Graph::new(&data).mode(GraphMode::Block).render(area, &mut buf1);
-    Graph::new(&data).mode(GraphMode::Block).render(area, &mut buf2);
+    Graph::new(&data)
+        .mode(GraphMode::Block)
+        .render(area, &mut buf1);
+    Graph::new(&data)
+        .mode(GraphMode::Block)
+        .render(area, &mut buf2);
 
-    let text1: String = buf1.content().iter().map(|c| c.symbol().to_string()).collect();
-    let text2: String = buf2.content().iter().map(|c| c.symbol().to_string()).collect();
+    let text1: String = buf1
+        .content()
+        .iter()
+        .map(|c| c.symbol().to_string())
+        .collect();
+    let text2: String = buf2
+        .content()
+        .iter()
+        .map(|c| c.symbol().to_string())
+        .collect();
 
     assert_eq!(text1, text2, "Same data should produce same output");
 }
@@ -1354,8 +1445,16 @@ fn claim_63_meter_deterministic() {
     Meter::new(0.5).label("Test").render(area, &mut buf1);
     Meter::new(0.5).label("Test").render(area, &mut buf2);
 
-    let text1: String = buf1.content().iter().map(|c| c.symbol().to_string()).collect();
-    let text2: String = buf2.content().iter().map(|c| c.symbol().to_string()).collect();
+    let text1: String = buf1
+        .content()
+        .iter()
+        .map(|c| c.symbol().to_string())
+        .collect();
+    let text2: String = buf2
+        .content()
+        .iter()
+        .map(|c| c.symbol().to_string())
+        .collect();
 
     assert_eq!(text1, text2, "Same meter should produce same output");
 }
@@ -1384,8 +1483,14 @@ fn claim_65_gradient_endpoints() {
     let start = gradient.sample(0.0);
     let end = gradient.sample(1.0);
 
-    assert!(matches!(start, ratatui::style::Color::Rgb(255, 0, 0)), "Start should be red");
-    assert!(matches!(end, ratatui::style::Color::Rgb(0, 0, 255)), "End should be blue");
+    assert!(
+        matches!(start, ratatui::style::Color::Rgb(255, 0, 0)),
+        "Start should be red"
+    );
+    assert!(
+        matches!(end, ratatui::style::Color::Rgb(0, 0, 255)),
+        "End should be blue"
+    );
 }
 
 /// Claim 66: Theme defaults consistent
@@ -1614,7 +1719,9 @@ fn claim_91_process_filter() {
 
     // Should be able to filter processes
     let count_before = proc.count();
-    let filtered: Vec<_> = proc.processes().values()
+    let filtered: Vec<_> = proc
+        .processes()
+        .values()
         .filter(|p| p.name.contains("a"))
         .collect();
 

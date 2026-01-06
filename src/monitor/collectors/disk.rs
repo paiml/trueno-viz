@@ -7,11 +7,34 @@
 //! - #39: Disk IO matches `iostat` within ±5%
 //! - #49: Disk mount points match `df` output
 
-use crate::monitor::error::{MonitorError, Result};
+use crate::monitor::error::Result;
 use crate::monitor::ring_buffer::RingBuffer;
+use crate::monitor::subprocess::run_with_timeout;
 use crate::monitor::types::{Collector, MetricValue, Metrics};
 use std::collections::HashMap;
+use std::sync::mpsc;
 use std::time::{Duration, Instant};
+
+/// Reads a file with a timeout to prevent hanging on blocked devices.
+///
+/// This is critical for /proc files that can block indefinitely if a disk device
+/// is hung or unresponsive (e.g., disconnected NFS, failed hardware).
+fn read_file_with_timeout(path: &str, timeout: Duration) -> Option<String> {
+    let path = path.to_string();
+    let (tx, rx) = mpsc::channel();
+
+    std::thread::spawn(move || {
+        let result = std::fs::read_to_string(&path);
+        // Ignore send errors - receiver may have timed out and dropped
+        let _ = tx.send(result);
+    });
+
+    match rx.recv_timeout(timeout) {
+        Ok(Ok(content)) => Some(content),
+        Ok(Err(_)) => None, // File read error
+        Err(_) => None,     // Timeout
+    }
+}
 
 /// Statistics for a single disk device.
 #[derive(Debug, Clone, Default)]
@@ -124,12 +147,15 @@ impl DiskCollector {
     /// Reads disk statistics from /proc/diskstats.
     #[cfg(target_os = "linux")]
     fn read_diskstats(&self) -> Result<HashMap<String, DiskStats>> {
-        let content = std::fs::read_to_string("/proc/diskstats").map_err(|e| {
-            MonitorError::CollectionFailed {
-                collector: "disk",
-                message: format!("Failed to read /proc/diskstats: {}", e),
+        // Use timeout to prevent hanging on blocked/hung disk devices.
+        // /proc/diskstats can block indefinitely if a disk device is unresponsive.
+        let content = match read_file_with_timeout("/proc/diskstats", Duration::from_secs(2)) {
+            Some(c) => c,
+            None => {
+                // Timeout or read error - return empty stats for graceful degradation
+                return Ok(HashMap::new());
             }
-        })?;
+        };
 
         let mut stats = HashMap::new();
 
@@ -180,15 +206,16 @@ impl DiskCollector {
     #[cfg(target_os = "macos")]
     fn read_diskstats(&self) -> Result<HashMap<String, DiskStats>> {
         // Use iostat -d to get disk I/O stats on macOS
-        let output = std::process::Command::new("iostat")
-            .args(["-d", "-c", "1"])
-            .output()
-            .map_err(|e| MonitorError::CollectionFailed {
-                collector: "disk",
-                message: format!("Failed to run iostat: {}", e),
-            })?;
+        // Wrap in timeout to prevent hangs (iostat can block on slow I/O)
+        let result = run_with_timeout("iostat", &["-d", "-c", "1"], Duration::from_secs(5));
 
-        let content = String::from_utf8_lossy(&output.stdout);
+        let content = match result.stdout_string() {
+            Some(s) => s,
+            None => {
+                // Timeout or error - return empty stats rather than hanging
+                return Ok(HashMap::new());
+            }
+        };
         let mut stats = HashMap::new();
 
         // Parse iostat -d output:
@@ -253,12 +280,14 @@ impl DiskCollector {
     /// Reads mount information from /proc/mounts and statvfs.
     #[cfg(target_os = "linux")]
     fn read_mounts(&self) -> Result<Vec<MountInfo>> {
-        let content = std::fs::read_to_string("/proc/mounts").map_err(|e| {
-            MonitorError::CollectionFailed {
-                collector: "disk",
-                message: format!("Failed to read /proc/mounts: {}", e),
+        // Use timeout for /proc/mounts as well (can also hang on problem devices)
+        let content = match read_file_with_timeout("/proc/mounts", Duration::from_secs(2)) {
+            Some(c) => c,
+            None => {
+                // Timeout or read error - return empty mounts for graceful degradation
+                return Ok(Vec::new());
             }
-        })?;
+        };
 
         let mut mounts = Vec::new();
 
@@ -272,7 +301,7 @@ impl DiskCollector {
             let mount_point = fields[1];
             let fs_type = fields[2];
 
-            // Skip virtual filesystems
+            // Skip virtual filesystems (device doesn't start with /)
             if !device.starts_with('/') {
                 continue;
             }
@@ -283,6 +312,21 @@ impl DiskCollector {
                 || mount_point.starts_with("/dev")
                 || mount_point.starts_with("/run")
                 || mount_point.starts_with("/snap")
+            {
+                continue;
+            }
+
+            // Skip network/remote filesystems that can hang df
+            // These include: NFS, CIFS/SMB, autofs, fuse-based network mounts
+            if fs_type == "nfs"
+                || fs_type == "nfs4"
+                || fs_type == "cifs"
+                || fs_type == "smbfs"
+                || fs_type == "autofs"
+                || fs_type == "fuse.sshfs"
+                || fs_type == "fuse.rclone"
+                || fs_type == "fuse.gvfsd-fuse"
+                || fs_type == "9p"
             {
                 continue;
             }
@@ -306,15 +350,16 @@ impl DiskCollector {
     #[cfg(target_os = "macos")]
     fn read_mounts(&self) -> Result<Vec<MountInfo>> {
         // Use df to get mount information on macOS
-        let output = std::process::Command::new("df")
-            .args(["-k"]) // Get sizes in KB
-            .output()
-            .map_err(|e| MonitorError::CollectionFailed {
-                collector: "disk",
-                message: format!("Failed to run df: {}", e),
-            })?;
+        // Wrap in timeout to prevent hangs (df can block on NFS/network mounts)
+        let result = run_with_timeout("df", &["-k"], Duration::from_secs(5));
 
-        let content = String::from_utf8_lossy(&output.stdout);
+        let content = match result.stdout_string() {
+            Some(s) => s,
+            None => {
+                // Timeout or error - return empty mounts rather than hanging
+                return Ok(Vec::new());
+            }
+        };
         let mut mounts = Vec::new();
 
         // Parse df -k output:
@@ -386,16 +431,22 @@ impl DiskCollector {
         // Full implementation would use nix::sys::statvfs or libc
 
         // Read from df if available (simpler than FFI)
-        let output = std::process::Command::new("df")
-            .args(["--output=size,used,avail", "-B1", path])
-            .output()
-            .ok()?;
+        // Wrap in timeout to prevent hangs on NFS/network mounts
+        let result = run_with_timeout(
+            "df",
+            &["--output=size,used,avail", "-B1", path],
+            Duration::from_secs(2),
+        );
 
-        if !output.status.success() {
+        let stdout = match result.stdout_string() {
+            Some(s) => s,
+            None => return None, // Timeout or error
+        };
+
+        if !result.is_success() {
             return None;
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let lines: Vec<&str> = stdout.lines().collect();
 
         if lines.len() < 2 {
@@ -417,16 +468,18 @@ impl DiskCollector {
     #[cfg(target_os = "macos")]
     fn statvfs(path: &str) -> Option<(u64, u64, u64)> {
         // Use df on macOS as well
-        let output = std::process::Command::new("df")
-            .args(["-k", path])
-            .output()
-            .ok()?;
+        // Wrap in timeout to prevent hangs on NFS/network mounts
+        let result = run_with_timeout("df", &["-k", path], Duration::from_secs(5));
 
-        if !output.status.success() {
+        let stdout = match result.stdout_string() {
+            Some(s) => s,
+            None => return None, // Timeout or error
+        };
+
+        if !result.is_success() {
             return None;
         }
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
         let lines: Vec<&str> = stdout.lines().collect();
 
         if lines.len() < 2 {

@@ -110,23 +110,27 @@ test-coverage: ## Run tests with tarpaulin coverage
 		--skip-clean \
 		--timeout 300
 
+# Coverage exclusions: platform-specific code that can't be tested on current OS
+# - app.rs: UI event loop (requires terminal)
+# - gpu_amd.rs: AMD GPU hardware required
+# - gpu_apple.rs: Apple Silicon required
+# - battery.rs: Hardware-specific
+COVERAGE_EXCLUDE := --ignore-filename-regex='monitor/app\.rs|monitor/collectors/gpu_amd\.rs|monitor/collectors/gpu_apple\.rs|monitor/collectors/battery\.rs'
+
 .PHONY: coverage
-coverage: ## Generate HTML coverage report with llvm-cov
-	@echo "📊 Running comprehensive test coverage analysis..."
-	@echo "🔍 Checking for cargo-llvm-cov and cargo-nextest..."
+coverage: ## Generate HTML coverage report with llvm-cov (fast: ~30s warm)
+	@echo "📊 Running FAST coverage analysis (lib tests only)..."
 	@which cargo-llvm-cov > /dev/null 2>&1 || (echo "📦 Installing cargo-llvm-cov..." && cargo install cargo-llvm-cov --locked)
-	@which cargo-nextest > /dev/null 2>&1 || (echo "📦 Installing cargo-nextest..." && cargo install cargo-nextest --locked)
-	@echo "🧹 Cleaning old coverage data..."
 	@mkdir -p target/coverage
-	@echo "🧪 Running tests with instrumentation..."
-	@cargo llvm-cov --no-report nextest --no-tests=warn --features $(NATIVE_FEATURES)
+	@echo "🧪 Running lib tests with instrumentation..."
+	@cargo llvm-cov --no-report test --lib --features $(NATIVE_FEATURES)
 	@echo "📊 Generating coverage reports..."
-	@cargo llvm-cov report --html --output-dir target/coverage/html
-	@cargo llvm-cov report --lcov --output-path target/coverage/lcov.info
+	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --html --output-dir target/coverage/html
+	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --lcov --output-path target/coverage/lcov.info
 	@echo ""
-	@echo "📊 Coverage Summary:"
-	@echo "=================="
-	@cargo llvm-cov report --summary-only
+	@echo "📊 Coverage Summary (excluding platform-specific code):"
+	@echo "======================================================="
+	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --summary-only
 	@echo ""
 	@echo "💡 COVERAGE INSIGHTS:"
 	@echo "- HTML report: target/coverage/html/index.html"
@@ -134,9 +138,22 @@ coverage: ## Generate HTML coverage report with llvm-cov
 	@echo "- Open HTML: xdg-open target/coverage/html/index.html"
 	@echo ""
 
+.PHONY: coverage-full
+coverage-full: ## Generate FULL coverage report (all tests, ~3min)
+	@echo "📊 Running FULL coverage analysis..."
+	@which cargo-llvm-cov > /dev/null 2>&1 || (echo "📦 Installing cargo-llvm-cov..." && cargo install cargo-llvm-cov --locked)
+	@which cargo-nextest > /dev/null 2>&1 || (echo "📦 Installing cargo-nextest..." && cargo install cargo-nextest --locked)
+	@mkdir -p target/coverage
+	@echo "🧪 Running ALL tests with instrumentation..."
+	@cargo llvm-cov --no-report nextest --no-tests=warn --no-fail-fast --features $(NATIVE_FEATURES) || true
+	@echo "📊 Generating coverage reports..."
+	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --html --output-dir target/coverage/html
+	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --summary-only
+	@echo ""
+
 .PHONY: coverage-summary
 coverage-summary: ## Show coverage summary (run after 'make coverage')
-	@cargo llvm-cov report --summary-only 2>/dev/null || echo "Run 'make coverage' first"
+	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --summary-only 2>/dev/null || echo "Run 'make coverage' first"
 
 .PHONY: coverage-open
 coverage-open: ## Open coverage HTML report in browser
@@ -168,28 +185,6 @@ probar-full: ## Run full probar test suite with all flavors
 test-ttop: ## Run ttop-specific tests
 	@echo "🖥️  Running ttop tests..."
 	cd crates/ttop && CARGO_TARGET_DIR=./target cargo test --release -- --nocapture
-
-# ============================================================================
-# Docker Testing
-# ============================================================================
-
-.PHONY: docker-ttop-build
-docker-ttop-build: ## Build ttop test Docker image (Ubuntu 22.04)
-	@echo "🐳 Building ttop Docker test image..."
-	docker build -t ttop-test -f docker/ttop-test.Dockerfile .
-
-.PHONY: docker-ttop-test
-docker-ttop-test: docker-ttop-build ## Build and run ttop in Docker
-	@echo "🐳 Running ttop in Docker container..."
-	docker run --rm ttop-test
-
-.PHONY: docker-ttop-shell
-docker-ttop-shell: docker-ttop-build ## Interactive shell in ttop Docker container
-	docker run --rm -it ttop-test /bin/bash
-
-.PHONY: docker-ttop-clean
-docker-ttop-clean: ## Remove ttop Docker image
-	docker rmi ttop-test 2>/dev/null || true
 
 # ============================================================================
 # Lint & Format
