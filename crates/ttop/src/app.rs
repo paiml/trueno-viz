@@ -118,23 +118,73 @@ pub struct App {
 impl App {
     /// Create a new application instance
     pub fn new(deterministic: bool, show_fps: bool) -> Self {
+        use trueno_viz::monitor::debug::{self, Level, TimingGuard};
+
+        debug::log(Level::Debug, "app", "Initializing CPU collector...");
+        let _t = TimingGuard::new("app", "CpuCollector::new");
+        let cpu = CpuCollector::new();
+        drop(_t);
+        debug::log(Level::Info, "app", &format!("CPU: {} cores", cpu.core_count()));
+
+        debug::log(Level::Debug, "app", "Initializing Memory collector...");
+        let memory = MemoryCollector::new();
+
+        debug::log(Level::Debug, "app", "Initializing Disk collector...");
+        let disk = DiskCollector::new();
+
+        debug::log(Level::Debug, "app", "Initializing Network collector...");
+        let network = NetworkCollector::new();
+
+        debug::log(Level::Debug, "app", "Initializing Process collector...");
+        let process = ProcessCollector::new();
+
+        debug::log(Level::Debug, "app", "Initializing Sensors collector...");
+        let sensors = SensorCollector::new();
+
+        debug::log(Level::Debug, "app", "Initializing Battery collector...");
+        let battery = BatteryCollector::new();
+
+        #[cfg(feature = "nvidia")]
+        let nvidia_gpu = {
+            debug::log(Level::Debug, "app", "Initializing NVIDIA GPU collector...");
+            NvidiaGpuCollector::new()
+        };
+
+        #[cfg(target_os = "linux")]
+        let amd_gpu = {
+            debug::log(Level::Debug, "app", "Initializing AMD GPU collector...");
+            AmdGpuCollector::new()
+        };
+
+        #[cfg(target_os = "macos")]
+        let apple_gpu = {
+            debug::log(Level::Debug, "app", "Initializing Apple GPU collector...");
+            let _t = TimingGuard::new("app", "AppleGpuCollector::new");
+            let g = AppleGpuCollector::new();
+            drop(_t);
+            debug::log(Level::Info, "app", &format!("Apple GPU: {} devices", g.gpus().len()));
+            g
+        };
+
+        debug::log(Level::Debug, "app", "All collectors initialized");
+
         let mut app = Self {
-            cpu: CpuCollector::new(),
-            memory: MemoryCollector::new(),
-            disk: DiskCollector::new(),
-            network: NetworkCollector::new(),
-            process: ProcessCollector::new(),
-            sensors: SensorCollector::new(),
-            battery: BatteryCollector::new(),
+            cpu,
+            memory,
+            disk,
+            network,
+            process,
+            sensors,
+            battery,
 
             #[cfg(feature = "nvidia")]
-            nvidia_gpu: NvidiaGpuCollector::new(),
+            nvidia_gpu,
 
             #[cfg(target_os = "linux")]
-            amd_gpu: AmdGpuCollector::new(),
+            amd_gpu,
 
             #[cfg(target_os = "macos")]
-            apple_gpu: AppleGpuCollector::new(),
+            apple_gpu,
 
             cpu_history: Vec::with_capacity(300),
             mem_history: Vec::with_capacity(300),
@@ -178,17 +228,24 @@ impl App {
         };
 
         // Initial collection (need 2 for deltas)
+        debug::log(Level::Debug, "app", "Initial metrics collection (1/2)...");
         app.collect_metrics();
+        debug::log(Level::Debug, "app", "Initial metrics collection (2/2)...");
         app.collect_metrics();
+        debug::log(Level::Info, "app", "App initialization complete");
 
         app
     }
 
     /// Collect metrics from all collectors
     pub fn collect_metrics(&mut self) {
+        use trueno_viz::monitor::debug::{self, Level};
+
         self.frame_id += 1;
+        let is_first = self.frame_id <= 2;
 
         // CPU
+        if is_first { debug::log(Level::Trace, "collect", "cpu..."); }
         if self.cpu.is_available() {
             if let Ok(metrics) = self.cpu.collect() {
                 if let Some(total) = metrics.get_gauge("cpu.total") {
@@ -206,6 +263,7 @@ impl App {
         }
 
         // Memory
+        if is_first { debug::log(Level::Trace, "collect", "memory..."); }
         if self.memory.is_available() {
             if let Ok(metrics) = self.memory.collect() {
                 // Cache raw values first
@@ -261,6 +319,7 @@ impl App {
         }
 
         // Network
+        if is_first { debug::log(Level::Trace, "collect", "network..."); }
         if self.network.is_available() {
             let _ = self.network.collect();
             if let Some(iface) = self.network.current_interface() {
@@ -280,26 +339,31 @@ impl App {
         }
 
         // Disk
+        if is_first { debug::log(Level::Trace, "collect", "disk..."); }
         if self.disk.is_available() {
             let _ = self.disk.collect();
         }
 
         // Process
+        if is_first { debug::log(Level::Trace, "collect", "process..."); }
         if self.process.is_available() {
             let _ = self.process.collect();
         }
 
         // Sensors
+        if is_first { debug::log(Level::Trace, "collect", "sensors..."); }
         if self.sensors.is_available() {
             let _ = self.sensors.collect();
         }
 
         // Battery
+        if is_first { debug::log(Level::Trace, "collect", "battery..."); }
         if self.battery.is_available() {
             let _ = self.battery.collect();
         }
 
         // GPU
+        if is_first { debug::log(Level::Trace, "collect", "gpu..."); }
         #[cfg(feature = "nvidia")]
         if self.nvidia_gpu.is_available() {
             let _ = self.nvidia_gpu.collect();

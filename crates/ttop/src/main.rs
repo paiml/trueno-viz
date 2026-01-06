@@ -56,19 +56,40 @@ struct Cli {
     /// Show frame timing statistics
     #[arg(long)]
     show_fps: bool,
+
+    /// Enable debug logging (prints to stderr)
+    #[arg(long)]
+    debug: bool,
 }
 
 fn main() -> Result<()> {
+    use trueno_viz::monitor::debug::{self, Level};
+
     let cli = Cli::parse();
 
-    // Setup terminal
+    // Enable debug mode if --debug flag or TTOP_DEBUG env var
+    if cli.debug || std::env::var("TTOP_DEBUG").is_ok() {
+        debug::enable();
+        debug::log(Level::Info, "main", "Debug mode enabled");
+        debug::log(Level::Info, "main", &format!("Platform: {}", std::env::consts::OS));
+        debug::log(Level::Info, "main", &format!("Arch: {}", std::env::consts::ARCH));
+    }
+
+    debug::log(Level::Debug, "main", "Creating collectors...");
+
+    // Create app BEFORE entering raw mode so Ctrl+C works during init
+    let app = app::App::new(cli.deterministic, cli.show_fps);
+
+    debug::log(Level::Debug, "main", "Collectors ready");
+
+    // NOW enter raw mode
     enable_raw_mode()?;
     stdout().execute(EnterAlternateScreen)?;
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
 
     // Run app
-    let result = run_app(&mut terminal, &cli);
+    let result = run_app(&mut terminal, app, &cli);
 
     // Restore terminal
     disable_raw_mode()?;
@@ -83,8 +104,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_app(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, cli: &Cli) -> Result<()> {
-    let mut app = App::new(cli.deterministic, cli.show_fps);
+fn run_app(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mut app: App, cli: &Cli) -> Result<()> {
     let tick_rate = Duration::from_millis(50);
     let collect_interval = Duration::from_millis(cli.refresh);
 

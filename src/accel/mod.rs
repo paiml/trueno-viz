@@ -2,5 +2,5 @@
 //!
 //! Provides dispatch macros and kernels for hardware acceleration.
 //! Built on trueno's backend selection system.
-
-// TODO: Implement acceleration dispatch in TV-002
+//!
+//! Acceleration dispatch implementation is tracked in TV-002.

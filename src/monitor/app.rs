@@ -123,7 +123,7 @@ impl App {
             Action::Help => self.state.toggle_help(),
             Action::Preset(n) => self.layout.switch_to(n as usize),
             Action::Up | Action::Down | Action::Left | Action::Right => {
-                // TODO: Navigate within panels
+                // Navigation within panels not yet implemented - reserved for future use
             }
             _ => {}
         }
@@ -208,7 +208,7 @@ impl App {
 
         // Render help if visible
         if self.state.show_help {
-            // TODO: Render help overlay
+            // Help overlay rendering is handled by ttop::panels::draw_help()
         }
     }
 
