@@ -39,6 +39,7 @@
 # System Monitor (ttop)
 
 - [ttop - Terminal Top](./monitor/ttop.md)
+- [Manzana Integration](./monitor/manzana.md)
 
 # Dashboard Widgets
 
@@ -68,6 +69,7 @@
 # TDD Methodology
 
 - [Test-Driven Visualization](./tdd/test-driven-viz.md)
+- [System Monitor TDD](./tdd/monitor-testing.md)
 - [Property-Based Testing](./tdd/property-testing.md)
 - [Coverage Requirements](./tdd/coverage.md)
 
