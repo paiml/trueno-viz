@@ -4,6 +4,7 @@
 
 use crate::monitor::error::{MonitorError, Result};
 use crate::monitor::ring_buffer::RingBuffer;
+use crate::monitor::subprocess::run_with_timeout_stdout;
 use crate::monitor::types::{Collector, MetricValue, Metrics};
 use std::time::Duration;
 
@@ -93,23 +94,17 @@ impl MemoryCollector {
     fn parse_meminfo() -> Result<Metrics> {
         let mut metrics = Metrics::new();
 
-        // Get total memory from sysctl
-        let total: u64 = std::process::Command::new("sysctl")
-            .args(["-n", "hw.memsize"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+        // Get total memory from sysctl (fast, 1s timeout)
+        let total: u64 = run_with_timeout_stdout("sysctl", &["-n", "hw.memsize"], Duration::from_secs(1))
+            .and_then(|s| s.trim().parse().ok())
             .unwrap_or(0);
 
-        // Parse vm_stat for memory breakdown
-        let vm_stat = std::process::Command::new("vm_stat")
-            .output()
-            .map_err(|e| MonitorError::CollectionFailed {
+        // Parse vm_stat for memory breakdown (fast, 2s timeout)
+        let content = run_with_timeout_stdout("vm_stat", &[], Duration::from_secs(2))
+            .ok_or_else(|| MonitorError::CollectionFailed {
                 collector: "memory",
-                message: format!("Failed to run vm_stat: {}", e),
+                message: "vm_stat timed out or failed".to_string(),
             })?;
-
-        let content = String::from_utf8_lossy(&vm_stat.stdout);
 
         // Parse page size (first line: "Mach Virtual Memory Statistics: (page size of XXXX bytes)")
         let page_size: u64 = content
@@ -177,15 +172,11 @@ impl MemoryCollector {
         metrics.insert("memory.wired", MetricValue::Counter(wired));
         metrics.insert("memory.compressed", MetricValue::Counter(compressed));
 
-        // Swap info from sysctl
-        let swap_usage = std::process::Command::new("sysctl")
-            .args(["-n", "vm.swapusage"])
-            .output()
-            .ok();
+        // Swap info from sysctl (fast, 1s timeout)
+        let swap_output = run_with_timeout_stdout("sysctl", &["-n", "vm.swapusage"], Duration::from_secs(1));
 
-        let (swap_total, swap_used, swap_free) = swap_usage
-            .map(|o| {
-                let content = String::from_utf8_lossy(&o.stdout);
+        let (swap_total, swap_used, swap_free) = swap_output
+            .map(|content| {
                 // Format: "total = 2048.00M  used = 1024.00M  free = 1024.00M  ..."
                 let mut total: u64 = 0;
                 let mut used: u64 = 0;

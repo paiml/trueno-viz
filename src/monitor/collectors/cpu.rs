@@ -11,6 +11,7 @@
 
 use crate::monitor::error::{MonitorError, Result};
 use crate::monitor::ring_buffer::RingBuffer;
+use crate::monitor::subprocess::run_with_timeout_stdout;
 use crate::monitor::types::{Collector, MetricValue, Metrics};
 use std::time::Duration;
 
@@ -126,11 +127,8 @@ impl CpuCollector {
         }
         #[cfg(target_os = "macos")]
         {
-            std::process::Command::new("sysctl")
-                .args(["-n", "hw.ncpu"])
-                .output()
-                .ok()
-                .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+            run_with_timeout_stdout("sysctl", &["-n", "hw.ncpu"], Duration::from_secs(1))
+                .and_then(|s| s.trim().parse().ok())
                 .unwrap_or(1)
         }
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -164,36 +162,137 @@ impl CpuCollector {
 
     #[cfg(target_os = "macos")]
     fn parse_proc_stat() -> Result<(CpuStats, Vec<CpuStats>)> {
-        // Use top -l 1 to get CPU stats on macOS
-        let output = std::process::Command::new("top")
-            .args(["-l", "1", "-n", "0", "-s", "0"])
-            .output()
-            .map_err(|e| MonitorError::CollectionFailed {
+        // Use Mach kernel API for REAL per-core CPU stats (like Linux /proc/stat)
+        use std::mem;
+
+        #[repr(C)]
+        #[derive(Copy, Clone, Default)]
+        struct CpuTickInfo {
+            user: u32,
+            system: u32,
+            idle: u32,
+            nice: u32,
+        }
+
+        extern "C" {
+            fn host_processor_info(
+                host: u32,
+                flavor: i32,
+                out_processor_count: *mut u32,
+                out_processor_info: *mut *mut i32,
+                out_processor_info_count: *mut u32,
+            ) -> i32;
+            fn mach_host_self() -> u32;
+            fn vm_deallocate(target: u32, address: usize, size: usize) -> i32;
+            fn mach_task_self() -> u32;
+        }
+
+        const PROCESSOR_CPU_LOAD_INFO: i32 = 2;
+        const CPU_STATE_USER: usize = 0;
+        const CPU_STATE_SYSTEM: usize = 1;
+        const CPU_STATE_IDLE: usize = 2;
+        const CPU_STATE_NICE: usize = 3;
+        const CPU_STATE_MAX: usize = 4;
+
+        let mut processor_count: u32 = 0;
+        let mut processor_info: *mut i32 = std::ptr::null_mut();
+        let mut processor_info_count: u32 = 0;
+
+        // SAFETY: Calling Mach kernel API with valid pointers
+        let result = unsafe {
+            host_processor_info(
+                mach_host_self(),
+                PROCESSOR_CPU_LOAD_INFO,
+                &mut processor_count,
+                &mut processor_info,
+                &mut processor_info_count,
+            )
+        };
+
+        if result != 0 || processor_info.is_null() {
+            // Fallback to top command if Mach API fails
+            return Self::parse_proc_stat_fallback();
+        }
+
+        let mut cores = Vec::with_capacity(processor_count as usize);
+        let mut total_user: u64 = 0;
+        let mut total_system: u64 = 0;
+        let mut total_idle: u64 = 0;
+        let mut total_nice: u64 = 0;
+
+        // SAFETY: processor_info is valid and has processor_count * CPU_STATE_MAX elements
+        unsafe {
+            for i in 0..processor_count as usize {
+                let base = i * CPU_STATE_MAX;
+                let user = *processor_info.add(base + CPU_STATE_USER) as u64;
+                let system = *processor_info.add(base + CPU_STATE_SYSTEM) as u64;
+                let idle = *processor_info.add(base + CPU_STATE_IDLE) as u64;
+                let nice = *processor_info.add(base + CPU_STATE_NICE) as u64;
+
+                cores.push(CpuStats {
+                    user,
+                    nice,
+                    system,
+                    idle,
+                    iowait: 0,
+                    irq: 0,
+                    softirq: 0,
+                    steal: 0,
+                });
+
+                total_user += user;
+                total_system += system;
+                total_idle += idle;
+                total_nice += nice;
+            }
+
+            // Deallocate the processor info
+            let info_size = (processor_info_count as usize) * mem::size_of::<i32>();
+            vm_deallocate(mach_task_self(), processor_info as usize, info_size);
+        }
+
+        let total = CpuStats {
+            user: total_user,
+            nice: total_nice,
+            system: total_system,
+            idle: total_idle,
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0,
+        };
+
+        Ok((total, cores))
+    }
+
+    /// Fallback to top command if Mach API fails
+    #[cfg(target_os = "macos")]
+    fn parse_proc_stat_fallback() -> Result<(CpuStats, Vec<CpuStats>)> {
+        // top can be slow, 5s timeout
+        let content = run_with_timeout_stdout("top", &["-l", "1", "-n", "0", "-s", "0"], Duration::from_secs(5))
+            .ok_or_else(|| MonitorError::CollectionFailed {
                 collector: "cpu",
-                message: format!("Failed to run top: {}", e),
+                message: "top timed out or failed".to_string(),
             })?;
+        let mut user: f64 = 0.0;
+        let mut sys: f64 = 0.0;
+        let mut idle: f64 = 0.0;
 
-        let content = String::from_utf8_lossy(&output.stdout);
-        let mut user: u64 = 0;
-        let mut sys: u64 = 0;
-        let mut idle: u64 = 0;
-
-        // Parse "CPU usage: X.X% user, Y.Y% sys, Z.Z% idle"
         for line in content.lines() {
             if line.starts_with("CPU usage:") {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 for (i, part) in parts.iter().enumerate() {
                     if *part == "user," || *part == "user" {
                         if let Some(val) = parts.get(i - 1) {
-                            user = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0) as u64;
+                            user = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
                         }
                     } else if *part == "sys," || *part == "sys" {
                         if let Some(val) = parts.get(i - 1) {
-                            sys = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0) as u64;
+                            sys = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
                         }
                     } else if *part == "idle" {
                         if let Some(val) = parts.get(i - 1) {
-                            idle = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0) as u64;
+                            idle = val.trim_end_matches('%').parse::<f64>().unwrap_or(0.0);
                         }
                     }
                 }
@@ -201,19 +300,17 @@ impl CpuCollector {
             }
         }
 
-        // Convert percentages to counts (scale by 100 for consistency with Linux jiffies)
         let total = CpuStats {
-            user: user * 100,
+            user: (user * 100.0) as u64,
             nice: 0,
-            system: sys * 100,
-            idle: idle * 100,
+            system: (sys * 100.0) as u64,
+            idle: (idle * 100.0) as u64,
             iowait: 0,
             irq: 0,
             softirq: 0,
             steal: 0,
         };
 
-        // On macOS, we don't easily get per-core stats from top, so duplicate total for each core
         let core_count = Self::detect_core_count();
         let cores = vec![total.clone(); core_count];
 
@@ -319,12 +416,8 @@ impl CpuCollector {
 
     #[cfg(target_os = "macos")]
     fn read_load_average() -> LoadAverage {
-        std::process::Command::new("sysctl")
-            .args(["-n", "vm.loadavg"])
-            .output()
-            .ok()
-            .and_then(|o| {
-                let content = String::from_utf8_lossy(&o.stdout);
+        run_with_timeout_stdout("sysctl", &["-n", "vm.loadavg"], Duration::from_secs(1))
+            .and_then(|content| {
                 // Format: "{ 1.23 4.56 7.89 }"
                 let trimmed = content.trim().trim_start_matches('{').trim_end_matches('}');
                 let parts: Vec<&str> = trimmed.split_whitespace().collect();
@@ -379,16 +472,8 @@ impl CpuCollector {
     #[cfg(target_os = "macos")]
     fn read_frequency(_core: usize) -> CpuFrequency {
         // macOS doesn't expose per-core frequency easily, use sysctl for base frequency
-        let current = std::process::Command::new("sysctl")
-            .args(["-n", "hw.cpufrequency"])
-            .output()
-            .ok()
-            .and_then(|o| {
-                String::from_utf8_lossy(&o.stdout)
-                    .trim()
-                    .parse::<u64>()
-                    .ok()
-            })
+        let current = run_with_timeout_stdout("sysctl", &["-n", "hw.cpufrequency"], Duration::from_secs(1))
+            .and_then(|s| s.trim().parse::<u64>().ok())
             .unwrap_or(0)
             / 1_000_000; // Convert Hz to MHz
 
@@ -420,12 +505,8 @@ impl CpuCollector {
 
     #[cfg(target_os = "macos")]
     fn read_uptime() -> f64 {
-        std::process::Command::new("sysctl")
-            .args(["-n", "kern.boottime"])
-            .output()
-            .ok()
-            .and_then(|o| {
-                let content = String::from_utf8_lossy(&o.stdout);
+        run_with_timeout_stdout("sysctl", &["-n", "kern.boottime"], Duration::from_secs(1))
+            .and_then(|content| {
                 // Format: "{ sec = 1234567890, usec = 123456 } Mon Jan 1 00:00:00 2024"
                 content
                     .split("sec = ")
@@ -465,14 +546,15 @@ impl Collector for CpuCollector {
 
         let mut metrics = Metrics::new();
 
-        // Calculate total CPU percentage
+        // Calculate total CPU percentage using delta-based calculation
+        // Both Linux (/proc/stat) and macOS (Mach kernel) provide cumulative tick counts
         if let Some(prev) = &self.prev_total {
             let percent = Self::calculate_percentage(prev, &curr_total);
             metrics.insert("cpu.total", percent);
             self.history.push(percent / 100.0); // Normalized for graphs
         }
 
-        // Calculate per-core percentages
+        // Calculate per-core percentages using delta
         for (i, curr) in curr_cores.iter().enumerate() {
             if let Some(prev) = self.prev_cores.get(i) {
                 let percent = Self::calculate_percentage(prev, curr);
@@ -485,7 +567,7 @@ impl Collector for CpuCollector {
             }
         }
 
-        // Update previous values
+        // Update previous values for next delta calculation
         self.prev_total = Some(curr_total);
         self.prev_cores = curr_cores;
 

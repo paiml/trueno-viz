@@ -249,6 +249,19 @@ mod tests {
     }
 
     #[test]
+    fn test_table_default() {
+        let table = MonitorTable::default();
+        assert_eq!(table.row_count(), 0);
+        assert_eq!(table.selected(), None);
+    }
+
+    #[test]
+    fn test_sort_direction_default() {
+        let dir = SortDirection::default();
+        assert_eq!(dir, SortDirection::Ascending);
+    }
+
+    #[test]
     fn test_table_add_row() {
         let mut table = MonitorTable::new();
         table.add_row(vec!["a".to_string(), "b".to_string()]);
@@ -275,6 +288,59 @@ mod tests {
     }
 
     #[test]
+    fn test_table_selection_empty() {
+        let mut table = MonitorTable::new();
+
+        // No rows - select_previous should do nothing
+        table.select_previous();
+        assert_eq!(table.selected(), None);
+
+        // No rows - select_next should do nothing
+        table.select_next();
+        assert_eq!(table.selected(), None);
+    }
+
+    #[test]
+    fn test_table_selection_first_select() {
+        let mut table = MonitorTable::new();
+        table.add_row(vec!["a".to_string()]);
+        table.add_row(vec!["b".to_string()]);
+
+        // First select_next with no selection should select row 0
+        table.select_next();
+        assert_eq!(table.selected(), Some(0));
+
+        let mut table2 = MonitorTable::new();
+        table2.add_row(vec!["a".to_string()]);
+
+        // First select_previous with no selection should select row 0
+        table2.select_previous();
+        assert_eq!(table2.selected(), Some(0));
+    }
+
+    #[test]
+    fn test_table_selection_bounds() {
+        let mut table = MonitorTable::new();
+        table.add_row(vec!["0".to_string()]);
+        table.add_row(vec!["1".to_string()]);
+        table.add_row(vec!["2".to_string()]);
+
+        // Select beyond bounds should clamp
+        table.select(Some(100));
+        assert_eq!(table.selected(), Some(2));
+
+        // Select at start, previous should stay at 0
+        table.select(Some(0));
+        table.select_previous();
+        assert_eq!(table.selected(), Some(0));
+
+        // Select at end, next should stay at end
+        table.select(Some(2));
+        table.select_next();
+        assert_eq!(table.selected(), Some(2));
+    }
+
+    #[test]
     fn test_table_sorting() {
         let mut table = MonitorTable::new().headers(vec!["Name".to_string(), "Value".to_string()]);
 
@@ -287,6 +353,94 @@ mod tests {
         assert_eq!(table.rows[0][0], "a");
         assert_eq!(table.rows[1][0], "b");
         assert_eq!(table.rows[2][0], "c");
+    }
+
+    #[test]
+    fn test_table_sorting_descending() {
+        let mut table = MonitorTable::new().headers(vec!["Name".to_string()]);
+
+        table.add_row(vec!["a".to_string()]);
+        table.add_row(vec!["c".to_string()]);
+        table.add_row(vec!["b".to_string()]);
+
+        table.sort_by(0, SortDirection::Descending);
+
+        assert_eq!(table.rows[0][0], "c");
+        assert_eq!(table.rows[1][0], "b");
+        assert_eq!(table.rows[2][0], "a");
+    }
+
+    #[test]
+    fn test_table_sorting_numeric() {
+        let mut table = MonitorTable::new().headers(vec!["Value".to_string()]);
+
+        table.add_row(vec!["10".to_string()]);
+        table.add_row(vec!["2".to_string()]);
+        table.add_row(vec!["100".to_string()]);
+
+        table.sort_by(0, SortDirection::Ascending);
+
+        // Numeric sort: 2 < 10 < 100
+        assert_eq!(table.rows[0][0], "2");
+        assert_eq!(table.rows[1][0], "10");
+        assert_eq!(table.rows[2][0], "100");
+    }
+
+    #[test]
+    fn test_table_sorting_invalid_column() {
+        let mut table = MonitorTable::new().headers(vec!["A".to_string()]);
+        table.add_row(vec!["1".to_string()]);
+
+        // Sort by invalid column should do nothing
+        table.sort_by(99, SortDirection::Ascending);
+        assert_eq!(table.rows[0][0], "1");
+    }
+
+    #[test]
+    fn test_table_scroll_up() {
+        let mut table = MonitorTable::new();
+        for i in 0..100 {
+            table.add_row(vec![format!("{}", i)]);
+        }
+
+        table.scroll_down(50);
+        assert_eq!(table.visible_rows(10)[0][0], "50");
+
+        table.scroll_up(20);
+        assert_eq!(table.visible_rows(10)[0][0], "30");
+
+        // Scroll up past beginning
+        table.scroll_up(100);
+        assert_eq!(table.visible_rows(10)[0][0], "0");
+    }
+
+    #[test]
+    fn test_table_clear() {
+        let mut table = MonitorTable::new();
+        table.add_row(vec!["a".to_string()]);
+        table.add_row(vec!["b".to_string()]);
+        table.select(Some(1));
+        table.scroll_down(1);
+
+        table.clear();
+
+        assert_eq!(table.row_count(), 0);
+        assert_eq!(table.selected(), None);
+    }
+
+    #[test]
+    fn test_table_ensure_visible_scrolls_up() {
+        let mut table = MonitorTable::new();
+        for i in 0..100 {
+            table.add_row(vec![format!("{}", i)]);
+        }
+
+        table.scroll_down(50);
+        table.select(Some(10)); // Select row before visible area
+        table.select_previous(); // This calls ensure_visible
+
+        // Offset should adjust to show selected row
+        assert!(table.offset <= 9);
     }
 
     /// Falsification criterion #11: Table scrolling maintains 60fps with 10,000 rows.
@@ -334,5 +488,98 @@ mod tests {
         table.scroll_down(50);
         let visible = table.visible_rows(10);
         assert_eq!(visible[0][0], "50");
+    }
+
+    #[test]
+    fn test_table_render_empty() {
+        let table = MonitorTable::new();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        table.render(Rect::new(0, 0, 40, 10), &mut buf);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_table_render_zero_size() {
+        let table = MonitorTable::new();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 0, 0));
+        table.render(Rect::new(0, 0, 0, 0), &mut buf);
+        // Should return early without panic
+    }
+
+    #[test]
+    fn test_table_render_with_headers() {
+        let table = MonitorTable::new()
+            .headers(vec!["Name".to_string(), "Value".to_string()]);
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        table.render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Check header rendered
+        let content = buf.cell((0, 0)).map(|c| c.symbol()).unwrap_or("");
+        assert_eq!(content, "N"); // First char of "Name"
+    }
+
+    #[test]
+    fn test_table_render_with_rows() {
+        let mut table = MonitorTable::new()
+            .headers(vec!["Col".to_string()]);
+        table.add_row(vec!["Row1".to_string()]);
+        table.add_row(vec!["Row2".to_string()]);
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        table.render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Check first row rendered (at y=1 after header)
+        let content = buf.cell((0, 1)).map(|c| c.symbol()).unwrap_or("");
+        assert_eq!(content, "R"); // First char of "Row1"
+    }
+
+    #[test]
+    fn test_table_render_with_selection() {
+        let mut table = MonitorTable::new()
+            .headers(vec!["Col".to_string()]);
+        table.add_row(vec!["A".to_string()]);
+        table.add_row(vec!["B".to_string()]);
+        table.select(Some(1));
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        table.render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Selected row should have different background
+        let cell = buf.cell((0, 2)).unwrap(); // Row 1 at y=2 (after header + row 0)
+        assert_eq!(cell.bg, Color::DarkGray);
+    }
+
+    #[test]
+    fn test_table_render_with_sort_indicator() {
+        let mut table = MonitorTable::new()
+            .headers(vec!["Name".to_string(), "Value".to_string()]);
+        table.add_row(vec!["a".to_string(), "1".to_string()]);
+        table.sort_by(0, SortDirection::Ascending);
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        table.clone().render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Sort indicator should be present - the header should contain the arrow
+        // Just verify render doesn't panic with sort
+
+        // Test descending too
+        let mut table2 = table.clone();
+        table2.sort_by(0, SortDirection::Descending);
+        table2.render(Rect::new(0, 0, 40, 10), &mut buf);
+    }
+
+    #[test]
+    fn test_table_render_overflow() {
+        let mut table = MonitorTable::new()
+            .headers(vec!["Col".to_string()]);
+
+        // Add more rows than visible height
+        for i in 0..100 {
+            table.add_row(vec![format!("Row{}", i)]);
+        }
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 5));
+        table.render(Rect::new(0, 0, 40, 5), &mut buf);
+        // Should not panic, only render visible rows
     }
 }

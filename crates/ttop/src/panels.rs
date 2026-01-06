@@ -590,100 +590,170 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-/// Draw GPU panel
+/// Draw GPU panel - supports multiple GPUs
 pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
-    let mut title = " GPU ".to_string();
-    let mut gpu_util = 0.0;
-    let mut gpu_temp = 0.0;
-    let mut gpu_power = 0;
-    let mut vram_pct = 0.0;
+    // Collect GPU info into a unified structure
+    struct GpuDisplay {
+        name: String,
+        gpu_util: f64,
+        vram_pct: f64,
+        temp: f64,
+        power: u32,
+    }
+
+    let mut gpus: Vec<GpuDisplay> = Vec::new();
 
     #[cfg(feature = "nvidia")]
     if app.nvidia_gpu.is_available() {
-        let gpus = app.nvidia_gpu.gpus();
-        if let Some(gpu) = gpus.first() {
-            title = format!(
-                " {} │ {}°C │ {}W ",
-                gpu.name,
-                gpu.temperature as u32,
-                gpu.power_mw / 1000
-            );
-            gpu_util = gpu.gpu_util;
-            gpu_temp = gpu.temperature;
-            gpu_power = gpu.power_mw / 1000;
-            if gpu.mem_total > 0 {
-                vram_pct = gpu.mem_used as f64 / gpu.mem_total as f64;
-            }
+        for gpu in app.nvidia_gpu.gpus() {
+            let vram_pct = if gpu.mem_total > 0 {
+                gpu.mem_used as f64 / gpu.mem_total as f64
+            } else {
+                0.0
+            };
+            gpus.push(GpuDisplay {
+                name: gpu.name.clone(),
+                gpu_util: gpu.gpu_util,
+                vram_pct,
+                temp: gpu.temperature,
+                power: gpu.power_mw / 1000,
+            });
         }
     }
 
     #[cfg(target_os = "linux")]
     if app.amd_gpu.is_available() {
-        let gpus = app.amd_gpu.gpus();
-        if let Some(gpu) = gpus.first() {
-            title = format!(
-                " {} │ {}°C │ {:.0}W ",
-                gpu.name, gpu.temperature as u32, gpu.power_watts
-            );
-            gpu_util = gpu.gpu_util;
-            gpu_temp = gpu.temperature;
-            gpu_power = gpu.power_watts as u32;
-            if gpu.vram_total > 0 {
-                vram_pct = gpu.vram_used as f64 / gpu.vram_total as f64;
-            }
+        for gpu in app.amd_gpu.gpus() {
+            let vram_pct = if gpu.vram_total > 0 {
+                gpu.vram_used as f64 / gpu.vram_total as f64
+            } else {
+                0.0
+            };
+            gpus.push(GpuDisplay {
+                name: gpu.name.clone(),
+                gpu_util: gpu.gpu_util,
+                vram_pct,
+                temp: gpu.temperature,
+                power: gpu.power_watts as u32,
+            });
         }
     }
 
-    let block = btop_block(&title, borders::GPU);
+    #[cfg(target_os = "macos")]
+    if app.apple_gpu.is_available() {
+        for gpu in app.apple_gpu.gpus() {
+            gpus.push(GpuDisplay {
+                name: gpu.name.clone(),
+                gpu_util: gpu.gpu_util,
+                vram_pct: 0.0, // Apple GPUs don't report VRAM via IOKit
+                temp: 0.0,
+                power: 0,
+            });
+        }
+    }
 
+    // Build title showing GPU count
+    let title = if gpus.len() > 1 {
+        format!(" GPU ({} devices) ", gpus.len())
+    } else if let Some(gpu) = gpus.first() {
+        if gpu.temp > 0.0 {
+            format!(" {} │ {}°C │ {}W ", gpu.name, gpu.temp as u32, gpu.power)
+        } else {
+            format!(" {} ", gpu.name)
+        }
+    } else {
+        " GPU ".to_string()
+    };
+
+    let block = btop_block(&title, borders::GPU);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    if inner.height < 3 {
+    if inner.height < 2 || gpus.is_empty() {
         return;
     }
 
-    // GPU utilization meter
-    let gpu_color = percent_color(gpu_util);
-    let gpu_meter = Meter::new(gpu_util / 100.0).label("GPU").color(gpu_color);
-    f.render_widget(
-        gpu_meter,
-        Rect {
-            x: inner.x,
-            y: inner.y,
-            width: inner.width,
-            height: 1,
-        },
-    );
+    // Calculate rows per GPU: util + vram + info = 3 rows each (or 2 if tight)
+    let rows_per_gpu = if inner.height as usize >= gpus.len() * 3 {
+        3
+    } else if inner.height as usize >= gpus.len() * 2 {
+        2
+    } else {
+        1
+    };
 
-    // VRAM meter
-    if inner.height > 1 {
-        let vram_color = percent_color(vram_pct * 100.0);
-        let vram_meter = Meter::new(vram_pct).label("VRAM").color(vram_color);
+    let mut y_offset = 0u16;
+
+    for (i, gpu) in gpus.iter().enumerate() {
+        if y_offset >= inner.height {
+            break;
+        }
+
+        // GPU label for multi-GPU systems
+        let label = if gpus.len() > 1 {
+            format!("GPU{}", i)
+        } else {
+            "GPU".to_string()
+        };
+
+        // GPU utilization meter
+        let gpu_color = percent_color(gpu.gpu_util);
+        let gpu_meter = Meter::new(gpu.gpu_util / 100.0)
+            .label(&label)
+            .color(gpu_color);
         f.render_widget(
-            vram_meter,
+            gpu_meter,
             Rect {
                 x: inner.x,
-                y: inner.y + 1,
+                y: inner.y + y_offset,
                 width: inner.width,
                 height: 1,
             },
         );
-    }
+        y_offset += 1;
 
-    // Temperature and power info
-    if inner.height > 2 {
-        let info = format!("Temp: {}°C │ Power: {}W", gpu_temp as u32, gpu_power);
-        let info_para = Paragraph::new(info).style(Style::default().fg(temp_color(gpu_temp)));
-        f.render_widget(
-            info_para,
-            Rect {
-                x: inner.x,
-                y: inner.y + 2,
-                width: inner.width,
-                height: 1,
-            },
-        );
+        // VRAM meter (if space and VRAM data available)
+        if rows_per_gpu >= 2 && y_offset < inner.height && gpu.vram_pct > 0.0 {
+            let vram_label = if gpus.len() > 1 {
+                format!("VRM{}", i)
+            } else {
+                "VRAM".to_string()
+            };
+            let vram_color = percent_color(gpu.vram_pct * 100.0);
+            let vram_meter = Meter::new(gpu.vram_pct)
+                .label(&vram_label)
+                .color(vram_color);
+            f.render_widget(
+                vram_meter,
+                Rect {
+                    x: inner.x,
+                    y: inner.y + y_offset,
+                    width: inner.width,
+                    height: 1,
+                },
+            );
+            y_offset += 1;
+        }
+
+        // Temperature and power info (if space)
+        if rows_per_gpu >= 3 && y_offset < inner.height && gpu.temp > 0.0 {
+            let info = if gpus.len() > 1 {
+                format!("GPU{}: {}°C │ {}W", i, gpu.temp as u32, gpu.power)
+            } else {
+                format!("Temp: {}°C │ Power: {}W", gpu.temp as u32, gpu.power)
+            };
+            let info_para = Paragraph::new(info).style(Style::default().fg(temp_color(gpu.temp)));
+            f.render_widget(
+                info_para,
+                Rect {
+                    x: inner.x,
+                    y: inner.y + y_offset,
+                    width: inner.width,
+                    height: 1,
+                },
+            );
+            y_offset += 1;
+        }
     }
 }
 

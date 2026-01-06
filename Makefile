@@ -87,22 +87,17 @@ build-wasm-bundler: ## Build WASM for bundlers (webpack, etc)
 # Test Commands
 # ============================================================================
 
+# Native features (excludes wasm which requires wasm-bindgen)
+NATIVE_FEATURES := monitor,terminal,svg,parallel
+
 .PHONY: test
-test: ## Run all tests
-	$(CARGO) test --all-features
+test: ## Run all tests (native features)
+	$(CARGO) test --features $(NATIVE_FEATURES)
 
 .PHONY: test-fast
-test-fast: ## Run fast tests with nextest (<30s)
-	@echo "⚡ Running fast tests (target: <30s)..."
-	@if command -v cargo-nextest >/dev/null 2>&1; then \
-		RUST_TEST_THREADS=$$(nproc) cargo nextest run \
-			--all-features \
-			--status-level skip \
-			--failure-output immediate; \
-	else \
-		echo "📦 nextest not found, using cargo test..."; \
-		$(CARGO) test --all-features; \
-	fi
+test-fast: ## Run fast tests (<5s)
+	@echo "⚡ Running fast tests..."
+	@$(CARGO) test --lib --features $(NATIVE_FEATURES)
 
 .PHONY: test-doc
 test-doc: ## Run documentation tests
@@ -124,7 +119,7 @@ coverage: ## Generate HTML coverage report with llvm-cov
 	@echo "🧹 Cleaning old coverage data..."
 	@mkdir -p target/coverage
 	@echo "🧪 Running tests with instrumentation..."
-	@cargo llvm-cov --no-report nextest --no-tests=warn --all-features
+	@cargo llvm-cov --no-report nextest --no-tests=warn --features $(NATIVE_FEATURES)
 	@echo "📊 Generating coverage reports..."
 	@cargo llvm-cov report --html --output-dir target/coverage/html
 	@cargo llvm-cov report --lcov --output-path target/coverage/lcov.info
@@ -152,8 +147,49 @@ coverage-check: ## Enforce 95% coverage threshold (BLOCKS on failure, excludes w
 	@echo "🔒 Enforcing 95% coverage threshold (wasm.rs excluded)..."
 	@which cargo-llvm-cov > /dev/null 2>&1 || (echo "📦 Installing cargo-llvm-cov..." && cargo install cargo-llvm-cov --locked)
 	@which cargo-nextest > /dev/null 2>&1 || (echo "📦 Installing cargo-nextest..." && cargo install cargo-nextest --locked)
-	@cargo llvm-cov --no-report nextest --no-tests=warn --all-features > /dev/null 2>&1
+	@cargo llvm-cov --no-report nextest --no-tests=warn --features $(NATIVE_FEATURES) > /dev/null 2>&1
 	@./scripts/check-coverage.sh 95
+
+# ============================================================================
+# Probar Testing (GUI/UX Coverage)
+# ============================================================================
+
+.PHONY: probar
+probar: ## Run all probar tests (GUI/pixel/UX coverage)
+	@echo "🎯 Running Probar GUI/UX coverage tests..."
+	cd crates/ttop && CARGO_TARGET_DIR=./target cargo test --release --test probar_full_test -- --nocapture
+
+.PHONY: probar-full
+probar-full: ## Run full probar test suite with all flavors
+	@echo "🎯 Running full Probar test suite..."
+	cd crates/ttop && CARGO_TARGET_DIR=./target cargo test --release --test '*' -- --nocapture
+
+.PHONY: test-ttop
+test-ttop: ## Run ttop-specific tests
+	@echo "🖥️  Running ttop tests..."
+	cd crates/ttop && CARGO_TARGET_DIR=./target cargo test --release -- --nocapture
+
+# ============================================================================
+# Docker Testing
+# ============================================================================
+
+.PHONY: docker-ttop-build
+docker-ttop-build: ## Build ttop test Docker image (Ubuntu 22.04)
+	@echo "🐳 Building ttop Docker test image..."
+	docker build -t ttop-test -f docker/ttop-test.Dockerfile .
+
+.PHONY: docker-ttop-test
+docker-ttop-test: docker-ttop-build ## Build and run ttop in Docker
+	@echo "🐳 Running ttop in Docker container..."
+	docker run --rm ttop-test
+
+.PHONY: docker-ttop-shell
+docker-ttop-shell: docker-ttop-build ## Interactive shell in ttop Docker container
+	docker run --rm -it ttop-test /bin/bash
+
+.PHONY: docker-ttop-clean
+docker-ttop-clean: ## Remove ttop Docker image
+	docker rmi ttop-test 2>/dev/null || true
 
 # ============================================================================
 # Lint & Format

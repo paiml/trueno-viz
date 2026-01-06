@@ -100,9 +100,12 @@ impl InputHandler {
     }
 
     /// Handles a mouse event and returns the corresponding action.
+    ///
+    /// Note: Mouse handling is intentionally not implemented for this
+    /// keyboard-first TUI. Returns `Action::None` for all mouse events.
     #[must_use]
     pub fn handle_mouse(&self, _event: MouseEvent) -> Action {
-        // TODO: Implement mouse handling
+        // Keyboard-first TUI - mouse events are ignored
         Action::None
     }
 }

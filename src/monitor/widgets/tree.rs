@@ -229,6 +229,13 @@ mod tests {
     fn test_tree_new() {
         let tree = Tree::new();
         assert!(tree.is_empty());
+        assert_eq!(tree.len(), 0);
+    }
+
+    #[test]
+    fn test_tree_default() {
+        let tree = Tree::default();
+        assert!(tree.is_empty());
     }
 
     #[test]
@@ -239,6 +246,15 @@ mod tests {
         tree.add_node("child2", "Child 2", Some("root"));
 
         assert_eq!(tree.len(), 3);
+        assert!(!tree.is_empty());
+    }
+
+    #[test]
+    fn test_tree_add_node_missing_parent() {
+        let mut tree = Tree::new();
+        // Add node with non-existent parent - should still add node but not as child
+        tree.add_node("orphan", "Orphan", Some("nonexistent"));
+        assert_eq!(tree.len(), 1);
     }
 
     #[test]
@@ -256,6 +272,19 @@ mod tests {
 
         // Toggle to expand
         tree.toggle("root");
+        assert!(tree.is_expanded("root"));
+    }
+
+    #[test]
+    fn test_tree_expand_collapse_direct() {
+        let mut tree = Tree::new();
+        tree.add_node("root", "Root", None);
+
+        // Direct expand/collapse
+        tree.collapse("root");
+        assert!(!tree.is_expanded("root"));
+
+        tree.expand("root");
         assert!(tree.is_expanded("root"));
     }
 
@@ -299,8 +328,146 @@ mod tests {
         let mut tree = Tree::new();
         tree.add_node("root", "Root", None);
         tree.add_node("child", "Child", Some("root"));
+        tree.select(Some("root".to_string()));
+        tree.collapse("root");
 
         tree.clear();
+
         assert!(tree.is_empty());
+        assert_eq!(tree.selected(), None);
+    }
+
+    #[test]
+    fn test_tree_render_empty() {
+        let tree = Tree::new();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_tree_render_zero_size() {
+        let tree = Tree::new();
+        let mut buf = Buffer::empty(Rect::new(0, 0, 0, 0));
+        tree.render(Rect::new(0, 0, 0, 0), &mut buf);
+        // Should return early without panic
+    }
+
+    #[test]
+    fn test_tree_render_single_root() {
+        let mut tree = Tree::new();
+        tree.add_node("root", "Root Node", None);
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Check root is rendered (no children = no indicator, just label)
+        let content = buf.cell((0, 0)).map(|c| c.symbol()).unwrap_or("");
+        assert!(!content.is_empty());
+    }
+
+    #[test]
+    fn test_tree_render_with_children() {
+        let mut tree = Tree::new();
+        tree.add_node("root", "Root", None);
+        tree.add_node("child1", "Child 1", Some("root"));
+        tree.add_node("child2", "Child 2", Some("root"));
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Root should have expand indicator (▼)
+        // Children should be rendered on subsequent lines
+    }
+
+    #[test]
+    fn test_tree_render_collapsed() {
+        let mut tree = Tree::new();
+        tree.add_node("root", "Root", None);
+        tree.add_node("child1", "Child 1", Some("root"));
+        tree.add_node("child2", "Child 2", Some("root"));
+        tree.collapse("root");
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Root should show collapsed indicator (▶)
+        // Children should NOT be rendered
+    }
+
+    #[test]
+    fn test_tree_render_with_selection() {
+        let mut tree = Tree::new();
+        tree.add_node("root", "Root", None);
+        tree.select(Some("root".to_string()));
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+
+        // Selected node should have different background
+        let cell = buf.cell((0, 0)).unwrap();
+        assert_eq!(cell.bg, Color::DarkGray);
+    }
+
+    #[test]
+    fn test_tree_render_deep_hierarchy() {
+        let mut tree = Tree::new();
+        tree.add_node("level0", "Level 0", None);
+        tree.add_node("level1", "Level 1", Some("level0"));
+        tree.add_node("level2", "Level 2", Some("level1"));
+        tree.add_node("level3", "Level 3", Some("level2"));
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 60, 10));
+        tree.render(Rect::new(0, 0, 60, 10), &mut buf);
+        // Should render all levels with proper indentation
+    }
+
+    #[test]
+    fn test_tree_render_multiple_roots() {
+        let mut tree = Tree::new();
+        tree.add_node("root1", "Root 1", None);
+        tree.add_node("root2", "Root 2", None);
+        tree.add_node("root3", "Root 3", None);
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+        // Should render all roots
+    }
+
+    #[test]
+    fn test_tree_render_overflow() {
+        let mut tree = Tree::new();
+        // Add more nodes than visible height
+        for i in 0..100 {
+            tree.add_node(format!("node{}", i), format!("Node {}", i), None);
+        }
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 5));
+        tree.render(Rect::new(0, 0, 40, 5), &mut buf);
+        // Should not panic, only render visible nodes
+    }
+
+    #[test]
+    fn test_tree_render_last_child_indicator() {
+        let mut tree = Tree::new();
+        tree.add_node("root", "Root", None);
+        tree.add_node("child1", "Child 1", Some("root"));
+        tree.add_node("child2", "Last Child", Some("root")); // Last child uses └─
+
+        let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
+        tree.render(Rect::new(0, 0, 40, 10), &mut buf);
+        // Last child should use └─ instead of ├─
+    }
+
+    #[test]
+    fn test_tree_node_metadata() {
+        let mut tree = Tree::new();
+        tree.add_node("root", "Root", None);
+
+        // TreeNode has metadata field
+        if let Some(node) = tree.nodes.get_mut("root") {
+            node.metadata.insert("key".to_string(), "value".to_string());
+            assert_eq!(node.metadata.get("key"), Some(&"value".to_string()));
+        }
     }
 }

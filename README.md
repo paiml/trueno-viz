@@ -1,10 +1,25 @@
 # trueno-viz
 
+<p align="center">
+  <img src="docs/hero.svg" alt="trueno-viz" width="800">
+</p>
+
 SIMD/GPU/WASM-accelerated visualization for Data Science, Physics, and ML.
 
 [![CI](https://github.com/paiml/trueno-viz/actions/workflows/ci.yml/badge.svg)](https://github.com/paiml/trueno-viz/actions)
+[![Crates.io](https://img.shields.io/crates/v/trueno-viz.svg)](https://crates.io/crates/trueno-viz)
 
 **Pure Rust** - zero JavaScript, zero browser dependencies.
+
+## ttop - Terminal System Monitor
+
+**10X Better Than btop** - Install the standalone system monitor:
+
+```bash
+cargo install ttop
+```
+
+See [crates/ttop](crates/ttop) for full documentation.
 
 ## Installation
 

@@ -14,13 +14,25 @@ use crate::panels;
 pub fn draw(f: &mut Frame, app: &mut App) {
     let area = f.area();
 
+    // Debug: log area size
+    if std::env::var("TTOP_DEBUG").is_ok() {
+        eprintln!("draw: area={}x{}", area.width, area.height);
+    }
+
     // Calculate visible panel count for layout
     let top_panel_count = count_top_panels(app);
     let has_process = app.panels.process;
 
+    if std::env::var("TTOP_DEBUG").is_ok() {
+        eprintln!("draw: top_panels={}, has_process={}", top_panel_count, has_process);
+    }
+
     // Layout based on visible panels
     if top_panel_count == 0 && !has_process {
         // Nothing to show
+        if std::env::var("TTOP_DEBUG").is_ok() {
+            eprintln!("draw: nothing to show!");
+        }
         return;
     }
 

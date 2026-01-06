@@ -2,16 +2,19 @@
 
 [package]
 name = "ttop"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
-description = "Terminal Top: 10X better than btop - Pure Rust system monitor with GPU, ML stack, and deterministic rendering"
+description = "Terminal Top: 10X better than btop - Pure Rust system monitor with GPU support (NVIDIA/AMD/Apple), macOS native, deterministic rendering"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/paiml/trueno-viz"
+homepage = "https://github.com/paiml/trueno-viz/tree/main/crates/ttop"
+documentation = "https://docs.rs/ttop"
 readme = "README.md"
 keywords = ["system-monitor", "tui", "terminal", "btop", "htop"]
 categories = ["command-line-utilities", "visualization"]
+exclude = ["tests/", "target/"]
 
 [[bin]]
 name = "ttop"
@@ -19,7 +22,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core monitoring library (re-exports ratatui for trait compatibility)
-trueno-viz = { version = "0.1.10", path = "../..", features = ["monitor"] }
+trueno-viz = { version = "0.1.11", path = "../..", features = ["monitor"] }
 
 # TUI framework - use crossterm directly, ratatui comes from trueno-viz
 crossterm = "0.28"
@@ -47,8 +50,9 @@ libc = "0.2"
 proptest = "1.4"
 tempfile = "3.10"
 
-# TUI testing (probar)
-# jugar-probar = "0.4"  # Enable when testing
+# TUI testing (probar) - 100% pixel coverage
+jugar-probar = { version = "0.4", default-features = false, features = ["tui"] }
+ratatui = "0.29"
 
 [features]
 default = ["nvidia"]

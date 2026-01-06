@@ -52,10 +52,13 @@ pub use error::{MonitorError, Result};
 // Core Types
 // ============================================================================
 
+pub mod debug;
 pub mod ring_buffer;
+pub mod subprocess;
 pub mod types;
 
 pub use ring_buffer::RingBuffer;
+pub use subprocess::{run_with_timeout, run_with_timeout_stdout, SubprocessResult};
 pub use types::{Collector, MetricValue, Metrics};
 
 // ============================================================================
@@ -104,6 +107,18 @@ pub mod presets;
 pub mod state;
 
 pub use app::App;
+
+// ============================================================================
+// FFI - Native Platform Integration (Feature-Gated)
+// ============================================================================
+
+/// Native platform integration for GPU/accelerator monitoring.
+///
+/// Provides:
+/// - WGPU: Pure safe Rust multi-GPU monitoring (recommended)
+/// - IOKit: macOS GPU monitoring (uses unsafe FFI)
+/// - Afterburner: Apple FPGA monitoring (uses unsafe FFI)
+pub mod ffi;
 
 // ============================================================================
 // Multi-System Support (Feature-Gated)
