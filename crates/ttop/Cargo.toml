@@ -58,8 +58,9 @@ ratatui = "0.29"
 default = ["nvidia"]
 nvidia = ["trueno-viz/monitor-nvidia"]
 amd = []  # AMD GPU uses dynamic loading, always available on Linux
+apple-hardware = ["trueno-viz/apple-hardware"]  # Neural Engine, Afterburner, Metal, SE
 tracing = ["dep:renacer"]
-full = ["nvidia", "tracing"]
+full = ["nvidia", "tracing", "apple-hardware"]
 
 [profile.release]
 opt-level = 3

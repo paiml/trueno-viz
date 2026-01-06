@@ -45,6 +45,17 @@ pub mod gpu_apple;
 #[cfg(target_os = "macos")]
 pub use gpu_apple::{AppleGpuCollector, AppleGpuInfo};
 
+// Apple Accelerators via manzana (macOS only, feature-gated)
+#[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "apple-hardware")))]
+pub mod apple_accelerators;
+
+#[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+pub use apple_accelerators::{
+    AfterburnerInfo, AppleAcceleratorsCollector, MetalInfo, NeuralEngineInfo, SecureEnclaveInfo,
+    UmaInfo,
+};
+
 // Stack collectors (feature-gated)
 #[cfg(feature = "monitor-stack")]
 pub mod stack;

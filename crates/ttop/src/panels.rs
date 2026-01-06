@@ -1071,3 +1071,111 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
         f.render_stateful_widget(scrollbar, scrollbar_area, &mut scroll_state);
     }
 }
+
+/// Draw Apple Accelerators panel (Neural Engine, Afterburner, Secure Enclave)
+#[cfg(all(target_os = "macos", feature = "apple-hardware"))]
+pub fn draw_accelerators(f: &mut Frame, app: &App, area: Rect) {
+    let accel = &app.apple_accelerators;
+    let available = accel.available_count();
+
+    let title = format!(" Accelerators │ {} available ", available);
+    let block = btop_block(&title, borders::ACCELERATORS);
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    if inner.height < 1 {
+        return;
+    }
+
+    let mut y = inner.y;
+
+    // Neural Engine
+    if accel.neural_engine.available && y < inner.y + inner.height {
+        let ne = &accel.neural_engine;
+        let color = percent_color(ne.utilization);
+        let label = format!("Neural Engine │ {:.1} TOPS │ {} cores", ne.tops, ne.core_count);
+        let meter = Meter::new(ne.utilization / 100.0).label(&label).color(color);
+        f.render_widget(
+            meter,
+            Rect {
+                x: inner.x,
+                y,
+                width: inner.width,
+                height: 1,
+            },
+        );
+        y += 1;
+    }
+
+    // Afterburner
+    if accel.afterburner.available && y < inner.y + inner.height {
+        let ab = &accel.afterburner;
+        let color = percent_color(ab.utilization);
+        let label = format!(
+            "Afterburner   │ {}/{} streams",
+            ab.streams_active, ab.streams_capacity
+        );
+        let meter = Meter::new(ab.utilization / 100.0).label(&label).color(color);
+        f.render_widget(
+            meter,
+            Rect {
+                x: inner.x,
+                y,
+                width: inner.width,
+                height: 1,
+            },
+        );
+        y += 1;
+    }
+
+    // Metal GPU (enhanced)
+    if accel.metal.available && y < inner.y + inner.height {
+        let metal = &accel.metal;
+        let uma_str = if metal.is_uma { "UMA" } else { "Discrete" };
+        let label = format!(
+            "Metal GPU     │ {:.1}GB {} │ {} threads",
+            metal.vram_gb, uma_str, metal.max_threads
+        );
+        f.render_widget(
+            Paragraph::new(label).style(Style::default().fg(borders::GPU)),
+            Rect {
+                x: inner.x,
+                y,
+                width: inner.width,
+                height: 1,
+            },
+        );
+        y += 1;
+    }
+
+    // Secure Enclave
+    if accel.secure_enclave.available && y < inner.y + inner.height {
+        let se = &accel.secure_enclave;
+        let label = format!("Secure Enclave │ {} │ Active", se.algorithm);
+        f.render_widget(
+            Paragraph::new(label).style(Style::default().fg(borders::ACCELERATORS)),
+            Rect {
+                x: inner.x,
+                y,
+                width: inner.width,
+                height: 1,
+            },
+        );
+        y += 1;
+    }
+
+    // UMA status
+    if accel.uma.available && y < inner.y + inner.height {
+        let uma = &accel.uma;
+        let label = format!("Unified Memory │ Page size: {} bytes", uma.page_size);
+        f.render_widget(
+            Paragraph::new(label).style(Style::default().fg(borders::MEMORY)),
+            Rect {
+                x: inner.x,
+                y,
+                width: inner.width,
+                height: 1,
+            },
+        );
+    }
+}
