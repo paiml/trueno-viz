@@ -270,11 +270,15 @@ impl CpuCollector {
     #[cfg(target_os = "macos")]
     fn parse_proc_stat_fallback() -> Result<(CpuStats, Vec<CpuStats>)> {
         // top can be slow, 5s timeout
-        let content = run_with_timeout_stdout("top", &["-l", "1", "-n", "0", "-s", "0"], Duration::from_secs(5))
-            .ok_or_else(|| MonitorError::CollectionFailed {
-                collector: "cpu",
-                message: "top timed out or failed".to_string(),
-            })?;
+        let content = run_with_timeout_stdout(
+            "top",
+            &["-l", "1", "-n", "0", "-s", "0"],
+            Duration::from_secs(5),
+        )
+        .ok_or_else(|| MonitorError::CollectionFailed {
+            collector: "cpu",
+            message: "top timed out or failed".to_string(),
+        })?;
         let mut user: f64 = 0.0;
         let mut sys: f64 = 0.0;
         let mut idle: f64 = 0.0;
@@ -473,10 +477,11 @@ impl CpuCollector {
     #[cfg(target_os = "macos")]
     fn read_frequency(_core: usize) -> CpuFrequency {
         // macOS doesn't expose per-core frequency easily, use sysctl for base frequency
-        let current = run_with_timeout_stdout("sysctl", &["-n", "hw.cpufrequency"], Duration::from_secs(1))
-            .and_then(|s| s.trim().parse::<u64>().ok())
-            .unwrap_or(0)
-            / 1_000_000; // Convert Hz to MHz
+        let current =
+            run_with_timeout_stdout("sysctl", &["-n", "hw.cpufrequency"], Duration::from_secs(1))
+                .and_then(|s| s.trim().parse::<u64>().ok())
+                .unwrap_or(0)
+                / 1_000_000; // Convert Hz to MHz
 
         CpuFrequency {
             current_mhz: current,

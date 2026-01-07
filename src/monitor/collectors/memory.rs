@@ -96,15 +96,18 @@ impl MemoryCollector {
         let mut metrics = Metrics::new();
 
         // Get total memory from sysctl (fast, 1s timeout)
-        let total: u64 = run_with_timeout_stdout("sysctl", &["-n", "hw.memsize"], Duration::from_secs(1))
-            .and_then(|s| s.trim().parse().ok())
-            .unwrap_or(0);
+        let total: u64 =
+            run_with_timeout_stdout("sysctl", &["-n", "hw.memsize"], Duration::from_secs(1))
+                .and_then(|s| s.trim().parse().ok())
+                .unwrap_or(0);
 
         // Parse vm_stat for memory breakdown (fast, 2s timeout)
-        let content = run_with_timeout_stdout("vm_stat", &[], Duration::from_secs(2))
-            .ok_or_else(|| MonitorError::CollectionFailed {
-                collector: "memory",
-                message: "vm_stat timed out or failed".to_string(),
+        let content =
+            run_with_timeout_stdout("vm_stat", &[], Duration::from_secs(2)).ok_or_else(|| {
+                MonitorError::CollectionFailed {
+                    collector: "memory",
+                    message: "vm_stat timed out or failed".to_string(),
+                }
             })?;
 
         // Parse page size (first line: "Mach Virtual Memory Statistics: (page size of XXXX bytes)")
@@ -133,11 +136,7 @@ impl MemoryCollector {
                 continue;
             }
 
-            let value: u64 = parts[1]
-                .trim()
-                .trim_end_matches('.')
-                .parse()
-                .unwrap_or(0);
+            let value: u64 = parts[1].trim().trim_end_matches('.').parse().unwrap_or(0);
 
             match parts[0].trim() {
                 "Pages free" => pages_free = value,
@@ -174,7 +173,8 @@ impl MemoryCollector {
         metrics.insert("memory.compressed", MetricValue::Counter(compressed));
 
         // Swap info from sysctl (fast, 1s timeout)
-        let swap_output = run_with_timeout_stdout("sysctl", &["-n", "vm.swapusage"], Duration::from_secs(1));
+        let swap_output =
+            run_with_timeout_stdout("sysctl", &["-n", "vm.swapusage"], Duration::from_secs(1));
 
         let (swap_total, swap_used, swap_free) = swap_output
             .map(|content| {
@@ -185,10 +185,7 @@ impl MemoryCollector {
 
                 for part in content.split_whitespace() {
                     if part.ends_with('M') {
-                        let val = part
-                            .trim_end_matches('M')
-                            .parse::<f64>()
-                            .unwrap_or(0.0);
+                        let val = part.trim_end_matches('M').parse::<f64>().unwrap_or(0.0);
                         let bytes = (val * 1024.0 * 1024.0) as u64;
                         if total == 0 {
                             total = bytes;
@@ -199,10 +196,7 @@ impl MemoryCollector {
                             break;
                         }
                     } else if part.ends_with('G') {
-                        let val = part
-                            .trim_end_matches('G')
-                            .parse::<f64>()
-                            .unwrap_or(0.0);
+                        let val = part.trim_end_matches('G').parse::<f64>().unwrap_or(0.0);
                         let bytes = (val * 1024.0 * 1024.0 * 1024.0) as u64;
                         if total == 0 {
                             total = bytes;

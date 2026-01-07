@@ -127,8 +127,9 @@ impl AppleGpuCollector {
         if let Some(content) = ioreg_output {
             // Find all GPU model strings
             for line in content.lines() {
-                if line.contains("\"model\"") &&
-                   (line.contains("Radeon") || line.contains("AMD") || line.contains("Vega")) {
+                if line.contains("\"model\"")
+                    && (line.contains("Radeon") || line.contains("AMD") || line.contains("Vega"))
+                {
                     // Extract model name from: "model" = <"AMD Radeon Pro W5700X">
                     if let Some(start) = line.find("<\"") {
                         if let Some(end) = line.rfind("\">") {
@@ -195,9 +196,13 @@ impl AppleGpuCollector {
     #[cfg(target_os = "macos")]
     fn detect_gpu_cores() -> u32 {
         // Try to get GPU core count from sysctl (fast, 1s timeout)
-        run_with_timeout_stdout("sysctl", &["-n", "hw.perflevel0.gpu_count"], Duration::from_secs(1))
-            .and_then(|s| s.trim().parse().ok())
-            .unwrap_or(0)
+        run_with_timeout_stdout(
+            "sysctl",
+            &["-n", "hw.perflevel0.gpu_count"],
+            Duration::from_secs(1),
+        )
+        .and_then(|s| s.trim().parse().ok())
+        .unwrap_or(0)
     }
 
     /// Detects Metal family support.
@@ -253,7 +258,10 @@ impl AppleGpuCollector {
                     // Parse: "Device Utilization %" = 45
                     if let Some(eq_pos) = line.find('=') {
                         let value_part = line[eq_pos + 1..].trim();
-                        if let Ok(util) = value_part.trim_matches(|c: char| !c.is_ascii_digit() && c != '.').parse::<f64>() {
+                        if let Ok(util) = value_part
+                            .trim_matches(|c: char| !c.is_ascii_digit() && c != '.')
+                            .parse::<f64>()
+                        {
                             return Some(util.clamp(0.0, 100.0));
                         }
                     }
@@ -263,7 +271,10 @@ impl AppleGpuCollector {
                 if line.contains("hardwareUtilization") {
                     if let Some(eq_pos) = line.find('=') {
                         let value_part = line[eq_pos + 1..].trim();
-                        if let Ok(util) = value_part.trim_matches(|c: char| !c.is_ascii_digit() && c != '.').parse::<f64>() {
+                        if let Ok(util) = value_part
+                            .trim_matches(|c: char| !c.is_ascii_digit() && c != '.')
+                            .parse::<f64>()
+                        {
                             // hardwareUtilization is sometimes 0-1 scale
                             let normalized = if util <= 1.0 { util * 100.0 } else { util };
                             return Some(normalized.clamp(0.0, 100.0));

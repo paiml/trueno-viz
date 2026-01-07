@@ -54,10 +54,12 @@ pub use error::{MonitorError, Result};
 
 pub mod debug;
 pub mod ring_buffer;
+pub mod simd;
 pub mod subprocess;
 pub mod types;
 
 pub use ring_buffer::RingBuffer;
+pub use simd::{SimdRingBuffer, SimdStats};
 pub use subprocess::{run_with_timeout, run_with_timeout_stdout, SubprocessResult};
 pub use types::{Collector, MetricValue, Metrics};
 
@@ -138,8 +140,15 @@ pub mod prelude {
     pub use super::config::Config;
     pub use super::error::{MonitorError, Result};
     pub use super::ring_buffer::RingBuffer;
+    pub use super::simd::{SimdRingBuffer, SimdStats};
     pub use super::theme::Theme;
     pub use super::types::{Collector, MetricValue, Metrics};
+
+    // SIMD-accelerated collectors
+    pub use super::collectors::{
+        GpuMetricsSoA, SimdBatterySensorsCollector, SimdCpuCollector, SimdDiskCollector,
+        SimdGpuHistory, SimdMemoryCollector, SimdNetworkCollector, SimdProcessCollector,
+    };
 }
 
 // ============================================================================

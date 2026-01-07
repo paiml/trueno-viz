@@ -75,11 +75,11 @@ impl Level {
 
     fn color_code(&self) -> &'static str {
         match self {
-            Level::Trace => "\x1b[90m",  // Gray
-            Level::Debug => "\x1b[36m",  // Cyan
-            Level::Info => "\x1b[32m",   // Green
-            Level::Warn => "\x1b[33m",   // Yellow
-            Level::Error => "\x1b[31m",  // Red
+            Level::Trace => "\x1b[90m", // Gray
+            Level::Debug => "\x1b[36m", // Cyan
+            Level::Info => "\x1b[32m",  // Green
+            Level::Warn => "\x1b[33m",  // Yellow
+            Level::Error => "\x1b[31m", // Red
         }
     }
 }
@@ -186,7 +186,11 @@ impl Drop for TimingGuard {
             log(
                 Level::Trace,
                 self.component,
-                &format!("<- {} ({:.2}ms)", self.operation, elapsed.as_secs_f64() * 1000.0),
+                &format!(
+                    "<- {} ({:.2}ms)",
+                    self.operation,
+                    elapsed.as_secs_f64() * 1000.0
+                ),
             );
         }
     }

@@ -4,7 +4,7 @@ exclude = ["crates/ttop"]
 
 [package]
 name = "trueno-viz"
-version = "0.1.13"
+version = "0.1.14"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -226,6 +226,10 @@ required-features = ["graph"]
 
 [[example]]
 name = "btop"
+required-features = ["monitor"]
+
+[[example]]
+name = "test_macos_collectors"
 required-features = ["monitor"]
 
 [package.metadata.docs.rs]

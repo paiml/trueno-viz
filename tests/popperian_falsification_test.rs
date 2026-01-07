@@ -5,6 +5,9 @@
 //!
 //! Run: cargo test --features monitor --test popperian_falsification_test
 
+// Only compile these tests when the monitor feature is enabled
+#![cfg(feature = "monitor")]
+
 use std::time::{Duration, Instant};
 
 use ratatui::buffer::Buffer;

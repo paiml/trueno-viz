@@ -508,8 +508,7 @@ mod tests {
 
     #[test]
     fn test_table_render_with_headers() {
-        let table = MonitorTable::new()
-            .headers(vec!["Name".to_string(), "Value".to_string()]);
+        let table = MonitorTable::new().headers(vec!["Name".to_string(), "Value".to_string()]);
         let mut buf = Buffer::empty(Rect::new(0, 0, 40, 10));
         table.render(Rect::new(0, 0, 40, 10), &mut buf);
 
@@ -520,8 +519,7 @@ mod tests {
 
     #[test]
     fn test_table_render_with_rows() {
-        let mut table = MonitorTable::new()
-            .headers(vec!["Col".to_string()]);
+        let mut table = MonitorTable::new().headers(vec!["Col".to_string()]);
         table.add_row(vec!["Row1".to_string()]);
         table.add_row(vec!["Row2".to_string()]);
 
@@ -535,8 +533,7 @@ mod tests {
 
     #[test]
     fn test_table_render_with_selection() {
-        let mut table = MonitorTable::new()
-            .headers(vec!["Col".to_string()]);
+        let mut table = MonitorTable::new().headers(vec!["Col".to_string()]);
         table.add_row(vec!["A".to_string()]);
         table.add_row(vec!["B".to_string()]);
         table.select(Some(1));
@@ -551,8 +548,7 @@ mod tests {
 
     #[test]
     fn test_table_render_with_sort_indicator() {
-        let mut table = MonitorTable::new()
-            .headers(vec!["Name".to_string(), "Value".to_string()]);
+        let mut table = MonitorTable::new().headers(vec!["Name".to_string(), "Value".to_string()]);
         table.add_row(vec!["a".to_string(), "1".to_string()]);
         table.sort_by(0, SortDirection::Ascending);
 
@@ -570,8 +566,7 @@ mod tests {
 
     #[test]
     fn test_table_render_overflow() {
-        let mut table = MonitorTable::new()
-            .headers(vec!["Col".to_string()]);
+        let mut table = MonitorTable::new().headers(vec!["Col".to_string()]);
 
         // Add more rows than visible height
         for i in 0..100 {
