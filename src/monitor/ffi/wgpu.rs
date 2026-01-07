@@ -292,10 +292,7 @@ impl WgpuMonitor {
     /// Returns number of discrete GPUs
     #[must_use]
     pub fn discrete_gpu_count(&self) -> usize {
-        self.adapter_info
-            .iter()
-            .filter(|a| a.is_discrete())
-            .count()
+        self.adapter_info.iter().filter(|a| a.is_discrete()).count()
     }
 
     /// Check if dual AMD GPUs are available (Mac Pro config)
@@ -327,7 +324,9 @@ impl WgpuMonitor {
     pub fn record_buffer_allocation(&mut self, gpu_index: usize, bytes: u64) {
         if let Some(metrics) = self.gpu_metrics.get(gpu_index) {
             metrics.buffer_bytes.fetch_add(bytes, Ordering::Relaxed);
-            metrics.active_buffer_bytes.fetch_add(bytes, Ordering::Relaxed);
+            metrics
+                .active_buffer_bytes
+                .fetch_add(bytes, Ordering::Relaxed);
         }
     }
 

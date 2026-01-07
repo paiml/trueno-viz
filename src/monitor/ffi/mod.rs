@@ -35,4 +35,4 @@ pub mod afterburner;
 
 // Re-exports for convenience
 #[cfg(feature = "gpu-wgpu")]
-pub use self::wgpu::{WgpuMonitor, GpuAdapterInfo, WgpuBackendType, WgpuMetrics, AdapterLimits};
+pub use self::wgpu::{AdapterLimits, GpuAdapterInfo, WgpuBackendType, WgpuMetrics, WgpuMonitor};

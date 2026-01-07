@@ -130,7 +130,11 @@ mod tests {
         let elapsed = start.elapsed();
 
         assert!(result.is_timeout());
-        assert!(elapsed < Duration::from_secs(1), "Should timeout quickly, took {:?}", elapsed);
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "Should timeout quickly, took {:?}",
+            elapsed
+        );
     }
 
     #[test]
@@ -205,6 +209,10 @@ mod tests {
         // Either succeeds quickly or times out - hanging is the bug we're preventing
         assert!(result.is_success() || result.is_timeout());
         // Must complete within reasonable time (timeout + buffer)
-        assert!(elapsed < Duration::from_secs(1), "ioreg took too long: {:?}", elapsed);
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "ioreg took too long: {:?}",
+            elapsed
+        );
     }
 }

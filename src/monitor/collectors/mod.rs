@@ -8,19 +8,33 @@
 
 // Core system collectors
 pub mod battery;
+pub mod battery_sensors_simd;
 pub mod cpu;
+pub mod cpu_simd;
 pub mod disk;
+pub mod disk_simd;
+pub mod gpu_simd;
 pub mod memory;
+pub mod memory_simd;
 pub mod network;
+pub mod network_simd;
 pub mod process;
+pub mod process_simd;
 pub mod sensors;
 
 pub use battery::BatteryCollector;
+pub use battery_sensors_simd::SimdBatterySensorsCollector;
 pub use cpu::{CpuCollector, CpuFrequency, LoadAverage};
+pub use cpu_simd::SimdCpuCollector;
 pub use disk::DiskCollector;
+pub use disk_simd::SimdDiskCollector;
+pub use gpu_simd::{GpuMetricsSoA, SimdGpuHistory};
 pub use memory::MemoryCollector;
+pub use memory_simd::SimdMemoryCollector;
 pub use network::NetworkCollector;
+pub use network_simd::SimdNetworkCollector;
 pub use process::ProcessCollector;
+pub use process_simd::SimdProcessCollector;
 pub use sensors::SensorCollector;
 
 // GPU collectors (feature-gated)

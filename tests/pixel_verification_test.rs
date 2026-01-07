@@ -5,7 +5,8 @@
 //!
 //! Run: cargo test --features monitor --test pixel_verification_test
 
-#![cfg(any(target_os = "linux", target_os = "macos"))]
+// Only compile these tests when the monitor feature is enabled
+#![cfg(all(feature = "monitor", any(target_os = "linux", target_os = "macos")))]
 
 use std::time::Duration;
 
