@@ -64,6 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// View mode for different layouts
 #[derive(Clone, Copy, PartialEq, Default)]
+#[allow(dead_code)]
 enum ViewMode {
     #[default]
     Full, // All panels
@@ -589,7 +590,7 @@ fn draw_cpu_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
     if !app.per_core_percent.is_empty() && chunks[1].height > 0 {
         let cols = 2;
         let col_width = chunks[1].width / cols;
-        let rows_per_col = (app.per_core_percent.len() + cols as usize - 1) / cols as usize;
+        let rows_per_col = app.per_core_percent.len().div_ceil(cols as usize);
 
         for (i, &percent) in app.per_core_percent.iter().enumerate() {
             let col = i / rows_per_col;
@@ -830,7 +831,7 @@ fn draw_process_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
     let count = sorted.len();
 
     let sort_indicator = app.sort_by.name();
-    let direction = if app.sort_desc { "" } else { "" };
+    let direction = if app.sort_desc { "↓" } else { "↑" };
     let filter_info = if !app.filter.is_empty() {
         format!(" | Filter: \"{}\"", app.filter)
     } else {

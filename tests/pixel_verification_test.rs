@@ -7,6 +7,14 @@
 
 // Only compile these tests when the monitor feature is enabled
 #![cfg(all(feature = "monitor", any(target_os = "linux", target_os = "macos")))]
+// Allow common test patterns
+#![allow(
+    clippy::unwrap_used,
+    clippy::approx_constant,
+    clippy::manual_range_contains,
+    unused_variables,
+    dead_code
+)]
 
 use std::time::Duration;
 

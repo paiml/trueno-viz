@@ -305,4 +305,54 @@ mod tests {
         assert!(sparkline.has_trend_indicator());
         assert_eq!(sparkline.trend(), TrendDirection::Falling);
     }
+
+    #[test]
+    fn test_sparkline_default() {
+        let sparkline = Sparkline::default();
+        assert_eq!(sparkline.trend(), TrendDirection::Stable);
+    }
+
+    #[test]
+    fn test_sparkline_clone_debug() {
+        let sparkline = Sparkline::new(&[1.0, 2.0, 3.0]);
+        let cloned = sparkline.clone();
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("Sparkline"));
+    }
+
+    #[test]
+    fn test_trend_direction_debug() {
+        let dirs = [
+            TrendDirection::Rising,
+            TrendDirection::Falling,
+            TrendDirection::Stable,
+        ];
+        for dir in dirs {
+            let debug = format!("{:?}", dir);
+            assert!(!debug.is_empty());
+            let cloned = dir;
+            assert_eq!(dir, cloned);
+        }
+    }
+
+    #[test]
+    fn test_stability_threshold_clamp() {
+        // Test clamping above 1.0
+        let sparkline = Sparkline::new(&[0.0, 1.0]).stability_threshold(2.0);
+        let fb = sparkline.to_framebuffer();
+        assert!(fb.is_ok());
+
+        // Test clamping below 0.0
+        let sparkline = Sparkline::new(&[0.0, 1.0]).stability_threshold(-0.5);
+        let fb = sparkline.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_dimensions_minimum() {
+        // Test that dimensions are clamped to minimums
+        let sparkline = Sparkline::new(&[0.5, 0.6]).dimensions(1, 1);
+        let fb = sparkline.to_framebuffer();
+        assert!(fb.is_ok());
+    }
 }

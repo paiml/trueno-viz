@@ -10,6 +10,7 @@
 //! They are marked #[ignore] by default and should be run manually on systems with GPUs.
 
 #![cfg(feature = "gpu-wgpu")]
+#![allow(unused_macros, unused_imports, unused_variables, unused_mut, dead_code)]
 
 /// Helper macro to mark tests as requiring real GPU
 macro_rules! gpu_test {

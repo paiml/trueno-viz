@@ -422,4 +422,72 @@ mod tests {
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
     }
+
+    #[test]
+    fn test_heatmap_default() {
+        let heatmap = Heatmap::default();
+        let result = heatmap.build();
+        assert!(result.is_err()); // No data
+    }
+
+    #[test]
+    fn test_heatmap_clone_debug() {
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let heatmap = Heatmap::new().data(&data, 2, 2);
+        let cloned = heatmap.clone();
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("Heatmap"));
+    }
+
+    #[test]
+    fn test_heatmap_palette_default() {
+        assert_eq!(HeatmapPalette::default(), HeatmapPalette::Viridis);
+    }
+
+    #[test]
+    fn test_heatmap_palette_debug() {
+        let palettes = [
+            HeatmapPalette::Viridis,
+            HeatmapPalette::Blues,
+            HeatmapPalette::RedBlue,
+            HeatmapPalette::Magma,
+            HeatmapPalette::Heat,
+            HeatmapPalette::Greyscale,
+        ];
+        for p in palettes {
+            let debug = format!("{:?}", p);
+            assert!(!debug.is_empty());
+            let cloned = p;
+            assert_eq!(p, cloned);
+        }
+    }
+
+    #[test]
+    fn test_heatmap_margin() {
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let heatmap = Heatmap::new()
+            .data(&data, 2, 2)
+            .margin(20)
+            .dimensions(100, 100)
+            .build()
+            .unwrap();
+
+        let fb = heatmap.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_heatmap_border_customization() {
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let heatmap = Heatmap::new()
+            .data(&data, 2, 2)
+            .border_color(Rgba::BLACK)
+            .border_width(2)
+            .dimensions(100, 100)
+            .build()
+            .unwrap();
+
+        let fb = heatmap.to_framebuffer();
+        assert!(fb.is_ok());
+    }
 }

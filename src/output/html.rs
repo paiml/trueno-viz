@@ -237,4 +237,78 @@ mod tests {
 
         assert!(display_str.contains("<!DOCTYPE html>"));
     }
+
+    #[test]
+    fn test_html_exporter_from_svg_string() {
+        let svg_str =
+            r#"<svg width="100" height="100"><rect x="0" y="0" width="100" height="100"/></svg>"#;
+        let exporter = HtmlExporter::from_svg_string(svg_str.to_string(), 100, 100);
+
+        let html = exporter.to_html();
+        assert!(html.contains(svg_str));
+    }
+
+    #[test]
+    fn test_html_exporter_dark_mode_disabled() {
+        let svg = SvgEncoder::new(400, 300);
+        let html = HtmlExporter::from_svg(&svg).dark_mode(false).to_html();
+
+        // Should NOT contain dark mode CSS
+        assert!(!html.contains("prefers-color-scheme: dark"));
+    }
+
+    #[test]
+    fn test_html_exporter_responsive_disabled() {
+        let svg = SvgEncoder::new(400, 300);
+        let html = HtmlExporter::from_svg(&svg).responsive(false).to_html();
+
+        // Should NOT contain responsive CSS
+        assert!(!html.contains("max-width: 100%"));
+        assert!(!html.contains("height: auto"));
+    }
+
+    #[test]
+    fn test_html_exporter_save() {
+        let svg = SvgEncoder::new(400, 300);
+        let exporter = HtmlExporter::from_svg(&svg).title("Save Test");
+
+        let temp_path = std::env::temp_dir().join("test_chart.html");
+        let result = exporter.save(&temp_path);
+        assert!(result.is_ok());
+
+        // Verify file was written
+        let content = std::fs::read_to_string(&temp_path).unwrap();
+        assert!(content.contains("Save Test"));
+
+        // Cleanup
+        let _ = std::fs::remove_file(&temp_path);
+    }
+
+    #[test]
+    fn test_html_exporter_clone() {
+        let svg = SvgEncoder::new(400, 300);
+        let exporter = HtmlExporter::from_svg(&svg)
+            .title("Clone Test")
+            .dark_mode(true)
+            .responsive(false);
+
+        let cloned = exporter.clone();
+        assert_eq!(exporter.to_html(), cloned.to_html());
+    }
+
+    #[test]
+    fn test_html_exporter_all_options() {
+        let svg = SvgEncoder::new(800, 600).rect(0.0, 0.0, 800.0, 600.0, Rgba::WHITE);
+
+        let html = HtmlExporter::from_svg(&svg)
+            .title("Full Featured Chart")
+            .dark_mode(true)
+            .responsive(true)
+            .to_html();
+
+        assert!(html.contains("Full Featured Chart"));
+        assert!(html.contains("prefers-color-scheme: dark"));
+        assert!(html.contains("max-width: 100%"));
+        assert!(html.contains("trueno-viz"));
+    }
 }

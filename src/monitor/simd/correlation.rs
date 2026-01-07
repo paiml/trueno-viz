@@ -33,7 +33,7 @@ impl CorrelationResult {
     /// Returns true if the correlation is statistically significant (p < 0.05).
     #[must_use]
     pub fn is_significant(&self) -> bool {
-        self.p_value.map_or(false, |p| p < 0.05)
+        self.p_value.is_some_and(|p| p < 0.05)
     }
 
     /// Returns the correlation strength category.
@@ -227,6 +227,7 @@ pub fn simd_cross_correlation(x: &[f64], y: &[f64], max_lag: usize) -> (i32, f64
 /// Returns a symmetric matrix where entry [i][j] is the correlation
 /// between metric i and metric j.
 #[must_use]
+#[allow(clippy::needless_range_loop)]
 pub fn simd_correlation_matrix(metrics: &[&[f64]]) -> Vec<Vec<f64>> {
     let n = metrics.len();
     let mut matrix = vec![vec![0.0; n]; n];
@@ -246,6 +247,7 @@ pub fn simd_correlation_matrix(metrics: &[&[f64]]) -> Vec<Vec<f64>> {
 
 /// Finds the top N most correlated pairs from a correlation matrix.
 #[must_use]
+#[allow(clippy::needless_range_loop)]
 pub fn top_correlations(
     matrix: &[Vec<f64>],
     metric_names: &[&str],

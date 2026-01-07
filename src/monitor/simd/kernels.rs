@@ -1,5 +1,14 @@
 //! SIMD kernel implementations for metric parsing.
 //!
+//! # Safety
+//!
+//! This module uses `unsafe` for SIMD intrinsics which are inherently safe when:
+//! - Target CPU features are detected at runtime before use
+//! - All memory accesses are bounds-checked before SIMD operations
+//!
+//! SIMD intrinsics cannot be implemented in safe Rust - this is a known limitation.
+#![allow(unsafe_code)]
+
 //! This module provides **real** SIMD implementations using platform intrinsics:
 //! - x86_64: SSE2/AVX2 via `std::arch::x86_64`
 //! - aarch64: NEON via `std::arch::aarch64`
@@ -94,7 +103,7 @@ pub fn simd_parse_integers(bytes: &[u8]) -> Vec<u64> {
     let mut in_number = false;
 
     for &b in bytes {
-        if b >= b'0' && b <= b'9' {
+        if b.is_ascii_digit() {
             current = current.wrapping_mul(10).wrapping_add((b - b'0') as u64);
             in_number = true;
         } else if in_number {

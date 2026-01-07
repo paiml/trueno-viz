@@ -67,7 +67,7 @@ impl SimdRingBuffer {
         assert!(capacity > 0, "SimdRingBuffer capacity must be > 0");
 
         // Round up to multiple of 8 for SIMD-friendly access
-        let aligned_capacity = ((capacity + 7) / 8) * 8;
+        let aligned_capacity = capacity.div_ceil(8) * 8;
 
         // Allocate aligned memory
         let data = vec![0.0f64; aligned_capacity].into_boxed_slice();
@@ -514,5 +514,161 @@ mod tests {
     fn test_default() {
         let buf = SimdRingBuffer::default();
         assert!(buf.capacity() >= 300);
+    }
+
+    #[test]
+    fn test_default_capacity_method() {
+        let buf = SimdRingBuffer::default_capacity();
+        assert!(buf.capacity() >= 300);
+    }
+
+    #[test]
+    fn test_is_full() {
+        let mut buf = SimdRingBuffer::new(8);
+        assert!(!buf.is_full());
+
+        for i in 1..=8 {
+            buf.push(i as f64);
+        }
+        assert!(buf.is_full());
+    }
+
+    #[test]
+    fn test_min_max_mean_std_dev() {
+        let mut buf = SimdRingBuffer::new(16);
+
+        for i in 1..=10 {
+            buf.push(i as f64);
+        }
+
+        assert!((buf.min() - 1.0).abs() < 0.001);
+        assert!((buf.max() - 10.0).abs() < 0.001);
+        assert!((buf.mean() - 5.5).abs() < 0.001);
+        assert!(buf.std_dev() > 0.0);
+    }
+
+    #[test]
+    fn test_to_vec() {
+        let mut buf = SimdRingBuffer::new(8);
+
+        for i in 1..=5 {
+            buf.push(i as f64);
+        }
+
+        let vec = buf.to_vec();
+        assert_eq!(vec, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    }
+
+    #[test]
+    fn test_to_vec_empty() {
+        let buf = SimdRingBuffer::new(8);
+        let vec = buf.to_vec();
+        assert!(vec.is_empty());
+    }
+
+    #[test]
+    fn test_reduce_empty() {
+        let buf = SimdRingBuffer::new(8);
+
+        assert!((buf.reduce(ReductionOp::Sum) - 0.0).abs() < 0.001);
+        assert!((buf.reduce(ReductionOp::Mean) - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_debug_format() {
+        let mut buf = SimdRingBuffer::new(8);
+        buf.push(5.0);
+
+        let debug_str = format!("{:?}", buf);
+        assert!(debug_str.contains("SimdRingBuffer"));
+        assert!(debug_str.contains("capacity"));
+    }
+
+    #[test]
+    fn test_push_batch_empty() {
+        let mut buf = SimdRingBuffer::new(8);
+        buf.push_batch(&[]);
+
+        assert!(buf.is_empty());
+    }
+
+    #[test]
+    fn test_push_batch_wraparound() {
+        let mut buf = SimdRingBuffer::new(8);
+
+        // Push 5 values
+        buf.push_batch(&[1.0, 2.0, 3.0, 4.0, 5.0]);
+
+        // Push 5 more to trigger wraparound
+        buf.push_batch(&[6.0, 7.0, 8.0, 9.0, 10.0]);
+
+        assert_eq!(buf.len(), 8);
+        assert_eq!(buf.latest(), Some(10.0));
+    }
+
+    #[test]
+    fn test_oldest_empty() {
+        let buf = SimdRingBuffer::new(8);
+        assert_eq!(buf.oldest(), None);
+    }
+
+    #[test]
+    fn test_latest_empty() {
+        let buf = SimdRingBuffer::new(8);
+        assert_eq!(buf.latest(), None);
+    }
+
+    #[test]
+    fn test_iter_empty() {
+        let buf = SimdRingBuffer::new(8);
+        let collected: Vec<f64> = buf.iter().collect();
+        assert!(collected.is_empty());
+    }
+
+    #[test]
+    fn test_iter_exact_size() {
+        let mut buf = SimdRingBuffer::new(8);
+        buf.push(1.0);
+        buf.push(2.0);
+
+        // Verify size_hint works
+        let iter = buf.iter();
+        let (lower, upper) = iter.size_hint();
+        assert_eq!(lower, 2);
+        assert_eq!(upper, Some(2));
+    }
+
+    #[test]
+    fn test_reduction_op_debug() {
+        let op = ReductionOp::Sum;
+        let debug_str = format!("{:?}", op);
+        assert!(debug_str.contains("Sum"));
+
+        assert_eq!(op, op.clone());
+    }
+
+    #[test]
+    fn test_iter_wraparound() {
+        let mut buf = SimdRingBuffer::new(8);
+
+        // Fill buffer and overflow
+        for i in 1..=12 {
+            buf.push(i as f64);
+        }
+
+        let collected: Vec<f64> = buf.iter().collect();
+        assert_eq!(collected.len(), 8);
+        // Should be [5, 6, 7, 8, 9, 10, 11, 12]
+        assert_eq!(collected[0], 5.0);
+        assert_eq!(collected[7], 12.0);
+    }
+
+    #[test]
+    fn test_last_n_zero() {
+        let mut buf = SimdRingBuffer::new(8);
+        buf.push(1.0);
+
+        let result = buf.last_n(0);
+        assert!(result.is_empty());
     }
 }

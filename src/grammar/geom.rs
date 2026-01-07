@@ -515,4 +515,58 @@ mod tests {
             _ => panic!("Clone failed"),
         }
     }
+
+    #[test]
+    fn test_smooth_methods_debug() {
+        let methods = [SmoothMethod::Loess, SmoothMethod::Linear];
+        for m in methods {
+            let debug = format!("{:?}", m);
+            assert!(!debug.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_geom_type_debug() {
+        let types = vec![
+            GeomType::Point {
+                shape: PointShape::Circle,
+            },
+            GeomType::Line { width: 1.0 },
+            GeomType::Area { alpha: 0.5 },
+            GeomType::Bar { width: 0.8 },
+            GeomType::Histogram { bins: 30 },
+            GeomType::Boxplot,
+            GeomType::Violin,
+            GeomType::Tile,
+            GeomType::Text,
+            GeomType::Hline { yintercept: 0.0 },
+            GeomType::Vline { xintercept: 0.0 },
+            GeomType::Smooth {
+                method: SmoothMethod::Loess,
+            },
+            GeomType::Smooth {
+                method: SmoothMethod::Linear,
+            },
+        ];
+        for t in types {
+            let debug = format!("{:?}", t);
+            assert!(!debug.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_point_shape_clone_eq() {
+        let shapes = [
+            PointShape::Circle,
+            PointShape::Square,
+            PointShape::Triangle,
+            PointShape::Diamond,
+            PointShape::Cross,
+            PointShape::X,
+        ];
+        for shape in shapes {
+            let cloned = shape;
+            assert_eq!(shape, cloned);
+        }
+    }
 }
