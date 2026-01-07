@@ -747,4 +747,183 @@ mod tests {
 
         assert!((roc.auc() - 0.875).abs() < 0.001);
     }
+
+    #[test]
+    fn test_roc_curve_color() {
+        let y_true = vec![0, 0, 1, 1];
+        let y_scores = vec![0.1, 0.2, 0.8, 0.9];
+
+        let roc = RocCurve::new()
+            .from_predictions(&y_true, &y_scores)
+            .unwrap()
+            .color(Rgba::RED)
+            .dimensions(200, 200)
+            .build()
+            .unwrap();
+
+        let fb = roc.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_roc_curve_diagonal() {
+        let y_true = vec![0, 0, 1, 1];
+        let y_scores = vec![0.1, 0.2, 0.8, 0.9];
+
+        let roc = RocCurve::new()
+            .from_predictions(&y_true, &y_scores)
+            .unwrap()
+            .diagonal(false)
+            .dimensions(200, 200)
+            .build()
+            .unwrap();
+
+        let fb = roc.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_pr_curve_color() {
+        let y_true = vec![0, 0, 1, 1];
+        let y_scores = vec![0.1, 0.2, 0.8, 0.9];
+
+        let pr = PrCurve::new()
+            .from_predictions(&y_true, &y_scores)
+            .unwrap()
+            .color(Rgba::GREEN)
+            .dimensions(200, 200)
+            .build()
+            .unwrap();
+
+        let fb = pr.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_pr_curve_baseline() {
+        let y_true = vec![0, 0, 1, 1];
+        let y_scores = vec![0.1, 0.2, 0.8, 0.9];
+
+        let pr = PrCurve::new()
+            .from_predictions(&y_true, &y_scores)
+            .unwrap()
+            .baseline(false)
+            .dimensions(200, 200)
+            .build()
+            .unwrap();
+
+        let fb = pr.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_pr_curve_with_data() {
+        let pr_data = PrData {
+            points: vec![
+                CurvePoint {
+                    x: 0.0,
+                    y: 1.0,
+                    threshold: 1.0,
+                },
+                CurvePoint {
+                    x: 0.5,
+                    y: 0.8,
+                    threshold: 0.5,
+                },
+                CurvePoint {
+                    x: 1.0,
+                    y: 0.5,
+                    threshold: 0.0,
+                },
+            ],
+            average_precision: 0.75,
+        };
+
+        let pr = PrCurve::new()
+            .data(pr_data)
+            .dimensions(200, 200)
+            .build()
+            .unwrap();
+
+        assert!((pr.average_precision() - 0.75).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_curve_point_clone_debug() {
+        let point = CurvePoint {
+            x: 0.5,
+            y: 0.8,
+            threshold: 0.7,
+        };
+        let cloned = point;
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("CurvePoint"));
+        assert!((point.x - cloned.x).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_roc_data_clone_debug() {
+        let data = RocData {
+            points: vec![CurvePoint {
+                x: 0.0,
+                y: 0.0,
+                threshold: 1.0,
+            }],
+            auc: 0.8,
+        };
+        let cloned = data.clone();
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("RocData"));
+    }
+
+    #[test]
+    fn test_pr_data_clone_debug() {
+        let data = PrData {
+            points: vec![CurvePoint {
+                x: 0.0,
+                y: 1.0,
+                threshold: 1.0,
+            }],
+            average_precision: 0.9,
+        };
+        let cloned = data.clone();
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("PrData"));
+    }
+
+    #[test]
+    fn test_roc_no_negatives() {
+        let y_true = vec![1, 1, 1, 1];
+        let y_scores = vec![0.1, 0.2, 0.8, 0.9];
+
+        let result = compute_roc(&y_true, &y_scores);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pr_empty() {
+        let y_true: Vec<u8> = vec![];
+        let y_scores: Vec<f32> = vec![];
+
+        let result = compute_pr(&y_true, &y_scores);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pr_length_mismatch() {
+        let y_true = vec![0, 1, 1];
+        let y_scores = vec![0.5, 0.6];
+
+        let result = compute_pr(&y_true, &y_scores);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pr_no_positives() {
+        let y_true = vec![0, 0, 0, 0];
+        let y_scores = vec![0.1, 0.2, 0.3, 0.4];
+
+        let result = compute_pr(&y_true, &y_scores);
+        assert!(result.is_err());
+    }
 }

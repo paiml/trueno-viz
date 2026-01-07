@@ -14,7 +14,7 @@
 //! Uses SIMD-accelerated parsing for sysfs files and vectorized statistics
 //! computation for temperature data.
 
-use crate::monitor::error::{MonitorError, Result};
+use crate::monitor::error::Result;
 use crate::monitor::simd::ring_buffer::SimdRingBuffer;
 use crate::monitor::simd::soa::{BatteryMetrics, BatteryStatus, SensorMetricsSoA, TempReading};
 use crate::monitor::simd::{kernels, SimdStats};

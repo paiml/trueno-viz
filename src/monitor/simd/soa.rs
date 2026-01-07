@@ -60,7 +60,7 @@ impl CpuMetricsSoA {
     pub fn new(core_count: usize) -> Self {
         let count = core_count.min(MAX_CORES);
         // Round up to multiple of 8 for SIMD alignment
-        let aligned_count = ((count + 7) / 8) * 8;
+        let aligned_count = count.div_ceil(8) * 8;
 
         Self {
             user: vec![0; aligned_count],
@@ -79,6 +79,7 @@ impl CpuMetricsSoA {
 
     /// Sets metrics for a specific core.
     #[inline]
+    #[allow(clippy::too_many_arguments)]
     pub fn set_core(
         &mut self,
         core: usize,
@@ -294,7 +295,7 @@ impl NetworkMetricsSoA {
     #[must_use]
     pub fn new(interface_count: usize) -> Self {
         let count = interface_count.min(MAX_INTERFACES);
-        let aligned_count = ((count + 7) / 8) * 8;
+        let aligned_count = count.div_ceil(8) * 8;
 
         Self {
             names: Vec::with_capacity(count),
@@ -311,6 +312,7 @@ impl NetworkMetricsSoA {
     }
 
     /// Adds or updates an interface.
+    #[allow(clippy::too_many_arguments)]
     pub fn set_interface(
         &mut self,
         name: &str,
@@ -406,7 +408,7 @@ impl DiskMetricsSoA {
     #[must_use]
     pub fn new(disk_count: usize) -> Self {
         let count = disk_count.min(MAX_DISKS);
-        let aligned_count = ((count + 7) / 8) * 8;
+        let aligned_count = count.div_ceil(8) * 8;
 
         Self {
             names: Vec::with_capacity(count),
@@ -728,7 +730,7 @@ mod tests {
         assert!((battery.health_pct - 83.33).abs() < 0.1);
         assert!(battery.time_to_empty.is_some());
         // 40 Wh / 10 W = 4 hours = 14400 seconds
-        assert_eq!(battery.time_to_empty.map(|t| t), Some(14400));
+        assert_eq!(battery.time_to_empty, Some(14400));
     }
 
     #[test]

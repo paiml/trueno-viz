@@ -220,4 +220,58 @@ mod tests {
         let fb = plot.to_framebuffer();
         assert!(fb.is_ok());
     }
+
+    #[test]
+    fn test_scatter_plot_default() {
+        let plot = ScatterPlot::default();
+        assert_eq!(plot.point_count(), 0);
+    }
+
+    #[test]
+    fn test_scatter_plot_alpha() {
+        let plot = ScatterPlot::new()
+            .x(&[1.0, 2.0, 3.0])
+            .y(&[4.0, 5.0, 6.0])
+            .alpha(0.5)
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_scatter_plot_alpha_clamp() {
+        // Test alpha clamping
+        let plot = ScatterPlot::new()
+            .x(&[1.0, 2.0])
+            .y(&[3.0, 4.0])
+            .alpha(1.5) // Should clamp to 1.0
+            .build()
+            .unwrap();
+
+        assert!(plot.to_framebuffer().is_ok());
+    }
+
+    #[test]
+    fn test_scatter_plot_clone_debug() {
+        let plot = ScatterPlot::new().x(&[1.0]).y(&[2.0]);
+        let cloned = plot.clone();
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("ScatterPlot"));
+    }
+
+    #[test]
+    fn test_scatter_plot_large_points() {
+        let plot = ScatterPlot::new()
+            .x(&[0.0, 10.0, 20.0])
+            .y(&[0.0, 10.0, 20.0])
+            .size(10.0)
+            .dimensions(200, 200)
+            .build()
+            .unwrap();
+
+        let fb = plot.to_framebuffer();
+        assert!(fb.is_ok());
+    }
 }

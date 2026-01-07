@@ -438,10 +438,7 @@ impl DiskCollector {
             Duration::from_secs(2),
         );
 
-        let stdout = match result.stdout_string() {
-            Some(s) => s,
-            None => return None, // Timeout or error
-        };
+        let stdout = result.stdout_string()?;
 
         if !result.is_success() {
             return None;
@@ -471,10 +468,7 @@ impl DiskCollector {
         // Wrap in timeout to prevent hangs on NFS/network mounts
         let result = run_with_timeout("df", &["-k", path], Duration::from_secs(5));
 
-        let stdout = match result.stdout_string() {
-            Some(s) => s,
-            None => return None, // Timeout or error
-        };
+        let stdout = result.stdout_string()?;
 
         if !result.is_success() {
             return None;
@@ -847,7 +841,7 @@ mod tests {
         let _ = collector.collect();
 
         // History should have at least one entry
-        assert!(collector.read_history().len() >= 1);
-        assert!(collector.write_history().len() >= 1);
+        assert!(!collector.read_history().is_empty());
+        assert!(!collector.write_history().is_empty());
     }
 }

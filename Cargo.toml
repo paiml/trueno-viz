@@ -4,7 +4,7 @@ exclude = ["crates/ttop"]
 
 [package]
 name = "trueno-viz"
-version = "0.1.15"
+version = "0.1.16"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -30,7 +30,7 @@ base64 = "0.22"
 thiserror = "2.0"
 
 # Optional: ML integration
-aprender = { version = "0.23", optional = true }
+aprender = { version = "0.24", optional = true }
 
 # Optional: Graph integration
 trueno-graph = { version = "0.1", optional = true }
@@ -239,6 +239,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 [lints.rust]
 unsafe_code = "warn"
 missing_docs = "warn"
+deprecated = "allow"  # criterion::black_box -> std::hint::black_box migration pending
 
 [lints.clippy]
 # Base warning level
@@ -258,3 +259,6 @@ cast_precision_loss = "allow"
 many_single_char_names = "allow"  # h, s, l, r, g, b are standard color notation
 suboptimal_flops = "allow"        # Clarity over micro-optimization initially
 lint_groups_priority = "allow"    # Cargo.toml lint config warning
+
+# Allow in tests/benchmarks
+useless_vec = "allow"             # Vec used for test clarity

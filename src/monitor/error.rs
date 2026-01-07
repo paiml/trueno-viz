@@ -198,4 +198,72 @@ mod tests {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<MonitorError>();
     }
+
+    #[test]
+    fn test_config_not_found() {
+        let err = MonitorError::ConfigNotFound("/etc/trueno.toml".to_string());
+        let display = err.to_string();
+
+        assert!(
+            display.contains("/etc/trueno.toml"),
+            "Error should include path: {}",
+            display
+        );
+    }
+
+    #[test]
+    fn test_theme_error() {
+        let err = MonitorError::ThemeError("invalid color format".to_string());
+        let display = err.to_string();
+
+        assert!(
+            display.contains("invalid color format"),
+            "Error should include message: {}",
+            display
+        );
+    }
+
+    #[test]
+    fn test_process_not_found() {
+        let err = MonitorError::ProcessNotFound(12345);
+        let display = err.to_string();
+
+        assert!(
+            display.contains("12345"),
+            "Error should include PID: {}",
+            display
+        );
+    }
+
+    #[test]
+    fn test_permission_denied() {
+        let err = MonitorError::PermissionDenied("cannot send signal to init".to_string());
+        let display = err.to_string();
+
+        assert!(
+            display.contains("cannot send signal"),
+            "Error should include reason: {}",
+            display
+        );
+    }
+
+    #[test]
+    fn test_terminal_error_display() {
+        let io_err = io::Error::new(io::ErrorKind::PermissionDenied, "access denied");
+        let err: MonitorError = io_err.into();
+        let display = err.to_string();
+
+        assert!(
+            display.contains("access denied"),
+            "Error should include IO error: {}",
+            display
+        );
+    }
+
+    #[test]
+    fn test_error_debug_format() {
+        let err = MonitorError::CollectorUnavailable("test");
+        let debug = format!("{:?}", err);
+        assert!(debug.contains("CollectorUnavailable"));
+    }
 }

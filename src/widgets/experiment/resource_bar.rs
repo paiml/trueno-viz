@@ -302,4 +302,38 @@ mod tests {
         assert!((bar.actual() - 75.0).abs() < f64::EPSILON);
         assert_eq!(bar.unit(), "hours");
     }
+
+    #[test]
+    fn test_resource_bar_default() {
+        let bar = ResourceBar::default();
+        assert_eq!(bar.label(), "");
+        assert_eq!(bar.unit(), "");
+    }
+
+    #[test]
+    fn test_resource_bar_clone_debug() {
+        let bar = ResourceBar::new("Test", 10.0, 5.0, "units");
+        let cloned = bar.clone();
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("ResourceBar"));
+    }
+
+    #[test]
+    fn test_resource_bar_custom_colors() {
+        let bar = ResourceBar::new("Test", 100.0, 50.0, "units")
+            .under_budget_color(Rgba::BLUE)
+            .over_budget_color(Rgba::RED)
+            .background_color(Rgba::WHITE);
+
+        let fb = bar.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_resource_bar_dimensions_minimum() {
+        // Test dimension clamping to minimums
+        let bar = ResourceBar::new("Test", 10.0, 5.0, "units").dimensions(1, 1);
+        let fb = bar.to_framebuffer();
+        assert!(fb.is_ok());
+    }
 }

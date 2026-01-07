@@ -532,8 +532,6 @@ mod tests {
         );
 
         let tree = collector.build_tree();
-        assert!(tree
-            .get(&1)
-            .map_or(false, |children| children.contains(&100)));
+        assert!(tree.get(&1).is_some_and(|children| children.contains(&100)));
     }
 }

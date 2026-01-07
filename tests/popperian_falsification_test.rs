@@ -7,6 +7,17 @@
 
 // Only compile these tests when the monitor feature is enabled
 #![cfg(feature = "monitor")]
+// Allow common test patterns
+#![allow(
+    clippy::needless_range_loop,
+    clippy::needless_borrows_for_generic_args,
+    clippy::single_match_else,
+    clippy::for_kv_map,
+    clippy::approx_constant,
+    clippy::unwrap_used,
+    clippy::manual_range_contains,
+    unused_variables
+)]
 
 use std::time::{Duration, Instant};
 

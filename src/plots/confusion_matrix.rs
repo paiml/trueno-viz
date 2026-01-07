@@ -651,4 +651,116 @@ mod tests {
         let fb = cm.to_framebuffer();
         assert!(fb.is_ok());
     }
+
+    #[test]
+    fn test_normalization_all() {
+        let data = vec![50, 10, 5, 35];
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .normalize(Normalization::All)
+            .build()
+            .unwrap();
+
+        let normalized = cm.normalized_values();
+        // Total = 100, so each cell is divided by 100
+        assert!((normalized[0] - 0.50).abs() < 0.001);
+        assert!((normalized[1] - 0.10).abs() < 0.001);
+        assert!((normalized[2] - 0.05).abs() < 0.001);
+        assert!((normalized[3] - 0.35).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_normalization_none() {
+        let data = vec![50, 10, 5, 35];
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .normalize(Normalization::None)
+            .build()
+            .unwrap();
+
+        let normalized = cm.normalized_values();
+        // No normalization - values should be as-is (converted to f64)
+        assert!((normalized[0] - 50.0).abs() < 0.001);
+        assert!((normalized[1] - 10.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_confusion_matrix_border_options() {
+        let data = vec![50, 10, 5, 35];
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .borders(false)
+            .build()
+            .unwrap();
+
+        let fb = cm.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_confusion_matrix_color_scale() {
+        let data = vec![50, 10, 5, 35];
+        let scale = ColorScale::viridis((0.0, 100.0)).unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .color_scale(scale)
+            .build()
+            .unwrap();
+
+        let fb = cm.to_framebuffer();
+        assert!(fb.is_ok());
+    }
+
+    #[test]
+    fn test_normalization_default() {
+        assert_eq!(Normalization::default(), Normalization::None);
+    }
+
+    #[test]
+    fn test_confusion_matrix_default() {
+        let cm = ConfusionMatrix::default();
+        // Default should have empty data
+        let result = cm.build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_confusion_matrix_clone_debug() {
+        let data = vec![50, 10, 5, 35];
+        let cm = ConfusionMatrix::new().data(&data, 2);
+        let cloned = cm.clone();
+        let debug = format!("{:?}", cloned);
+        assert!(debug.contains("ConfusionMatrix"));
+    }
+
+    #[test]
+    fn test_normalization_debug_clone_eq() {
+        let norm = Normalization::Row;
+        let cloned = norm;
+        assert_eq!(norm, cloned);
+
+        let debug = format!("{:?}", norm);
+        assert!(debug.contains("Row"));
+    }
+
+    #[test]
+    fn test_predictions_valid() {
+        let y_true = vec![0, 1, 2, 0, 1];
+        let y_pred = vec![0, 1, 2, 1, 1];
+
+        let cm = ConfusionMatrix::new()
+            .from_predictions(&y_true, &y_pred, 3)
+            .build()
+            .unwrap();
+
+        assert_eq!(cm.num_classes(), 3);
+        assert_eq!(cm.total(), 5);
+    }
+
+    #[test]
+    fn test_empty_2d_matrix() {
+        let matrix: Vec<Vec<u32>> = vec![];
+        let result = ConfusionMatrix::new().data_2d(&matrix).build();
+        assert!(result.is_err());
+    }
 }

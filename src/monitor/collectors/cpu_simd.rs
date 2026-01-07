@@ -126,7 +126,10 @@ impl SimdCpuCollector {
                     message: format!("Failed to read /proc/stat: {}", e),
                 })?;
 
-        self.parse_stat_buffer(&self.read_buffer[..bytes_read].to_vec())
+        // Copy to local buffer to avoid borrow conflict (self.read_buffer vs &mut self)
+        #[allow(clippy::unnecessary_to_owned)]
+        let buffer = self.read_buffer[..bytes_read].to_vec();
+        self.parse_stat_buffer(&buffer)
     }
 
     /// Parses the stat buffer content.

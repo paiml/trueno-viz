@@ -324,7 +324,9 @@ mod tests {
 
         // Verify some braille characters are present
         assert!(
-            content.chars().any(|c| c >= '\u{2800}' && c <= '\u{28FF}'),
+            content
+                .chars()
+                .any(|c| ('\u{2800}'..='\u{28FF}').contains(&c)),
             "Should contain braille characters"
         );
     }
@@ -388,5 +390,156 @@ mod tests {
     #[test]
     fn test_graph_mode_default() {
         assert_eq!(GraphMode::default(), GraphMode::Braille);
+    }
+
+    #[test]
+    fn test_graph_block_rendering() {
+        let mut terminal = create_test_terminal();
+        let data = vec![0.0, 0.25, 0.5, 0.75, 1.0];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data).mode(GraphMode::Block);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Failed to draw block graph");
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer
+            .content()
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
+
+        // Block mode should use block characters
+        assert!(content.chars().any(|c| c == '█' || c == '▇' || c == '▆'));
+    }
+
+    #[test]
+    fn test_graph_tty_rendering() {
+        let mut terminal = create_test_terminal();
+        let data = vec![0.1, 0.5, 0.9, 0.5, 0.1];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data).mode(GraphMode::Tty);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Failed to draw TTY graph");
+
+        // Should complete without panic
+    }
+
+    #[test]
+    fn test_graph_inverted_braille() {
+        let mut terminal = create_test_terminal();
+        let data = vec![0.3, 0.6, 0.9];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data).mode(GraphMode::Braille).inverted(true);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Failed to draw inverted braille graph");
+    }
+
+    #[test]
+    fn test_graph_inverted_block() {
+        let mut terminal = create_test_terminal();
+        let data = vec![0.2, 0.4, 0.8];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data).mode(GraphMode::Block).inverted(true);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Failed to draw inverted block graph");
+    }
+
+    #[test]
+    fn test_graph_inverted_tty() {
+        let mut terminal = create_test_terminal();
+        let data = vec![0.5, 0.5, 0.5];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data).mode(GraphMode::Tty).inverted(true);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Failed to draw inverted TTY graph");
+    }
+
+    #[test]
+    fn test_graph_full_values() {
+        let mut terminal = create_test_terminal();
+        let data = vec![1.0; 20];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Failed to draw full graph");
+    }
+
+    #[test]
+    fn test_graph_zero_values() {
+        let mut terminal = create_test_terminal();
+        let data = vec![0.0; 20];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Failed to draw zero graph");
+    }
+
+    #[test]
+    fn test_graph_out_of_range_clamping() {
+        let mut terminal = create_test_terminal();
+        // Values outside 0-1 should be clamped
+        let data = vec![-0.5, 1.5, 2.0, -1.0];
+
+        terminal
+            .draw(|frame| {
+                let graph = Graph::new(&data);
+                frame.render_widget(graph, frame.area());
+            })
+            .expect("Should handle out of range values");
+    }
+
+    #[test]
+    fn test_graph_mode_clone_debug() {
+        let mode = GraphMode::Block;
+        let cloned = mode;
+        assert_eq!(mode, cloned);
+
+        let debug_str = format!("{:?}", GraphMode::Tty);
+        assert!(debug_str.contains("Tty"));
+    }
+
+    #[test]
+    fn test_graph_clone() {
+        let data = vec![0.5; 5];
+        let graph = Graph::new(&data).color(Color::Yellow);
+        let cloned = graph.clone();
+
+        assert_eq!(graph.color, cloned.color);
+    }
+
+    #[test]
+    fn test_graph_various_colors() {
+        let mut terminal = create_test_terminal();
+        let data = vec![0.5; 10];
+
+        for color in [Color::Red, Color::Green, Color::Blue, Color::Yellow] {
+            terminal
+                .draw(|frame| {
+                    let graph = Graph::new(&data).color(color);
+                    frame.render_widget(graph, frame.area());
+                })
+                .expect("Should render with different colors");
+        }
     }
 }

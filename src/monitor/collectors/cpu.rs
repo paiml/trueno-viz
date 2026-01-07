@@ -647,6 +647,8 @@ mod tests {
     fn test_cpu_collector_new() {
         let collector = CpuCollector::new();
         assert!(collector.core_count >= 1);
+        assert_eq!(collector.history.len(), 0);
+        assert_eq!(collector.core_history.len(), collector.core_count);
     }
 
     #[test]
@@ -664,6 +666,13 @@ mod tests {
 
         assert_eq!(stats.total(), 1000);
         assert_eq!(stats.idle_time(), 820);
+    }
+
+    #[test]
+    fn test_cpu_stats_default() {
+        let stats = CpuStats::default();
+        assert_eq!(stats.total(), 0);
+        assert_eq!(stats.idle_time(), 0);
     }
 
     #[test]
@@ -696,6 +705,51 @@ mod tests {
     }
 
     #[test]
+    fn test_calculate_percentage_zero_delta() {
+        let prev = CpuStats {
+            user: 100,
+            nice: 0,
+            system: 0,
+            idle: 900,
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0,
+        };
+        // Same as prev - zero delta
+        let percent = CpuCollector::calculate_percentage(&prev, &prev);
+        assert!((percent - 0.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_calculate_percentage_full_cpu() {
+        let prev = CpuStats {
+            user: 0,
+            nice: 0,
+            system: 0,
+            idle: 1000,
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0,
+        };
+
+        let curr = CpuStats {
+            user: 1000,
+            nice: 0,
+            system: 0,
+            idle: 1000, // No change in idle
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0,
+        };
+
+        let percent = CpuCollector::calculate_percentage(&prev, &curr);
+        assert!((percent - 100.0).abs() < 0.1);
+    }
+
+    #[test]
     fn test_parse_cpu_line() {
         let line = "cpu0 100 10 50 800 20 5 5 10 0 0";
         let stats = CpuCollector::parse_cpu_line(line).unwrap();
@@ -704,6 +758,47 @@ mod tests {
         assert_eq!(stats.nice, 10);
         assert_eq!(stats.system, 50);
         assert_eq!(stats.idle, 800);
+        assert_eq!(stats.iowait, 20);
+        assert_eq!(stats.irq, 5);
+        assert_eq!(stats.softirq, 5);
+        assert_eq!(stats.steal, 10);
+    }
+
+    #[test]
+    fn test_parse_cpu_line_total() {
+        let line = "cpu  12345 678 9012 345678 901 23 45 67 0 0";
+        let stats = CpuCollector::parse_cpu_line(line).unwrap();
+
+        assert_eq!(stats.user, 12345);
+        assert_eq!(stats.nice, 678);
+        assert_eq!(stats.system, 9012);
+        assert_eq!(stats.idle, 345678);
+    }
+
+    #[test]
+    fn test_parse_cpu_line_minimal() {
+        // Minimal line with just enough fields
+        let line = "cpu0 1 2 3 4 5 6 7 8";
+        let stats = CpuCollector::parse_cpu_line(line).unwrap();
+
+        assert_eq!(stats.user, 1);
+        assert_eq!(stats.nice, 2);
+        assert_eq!(stats.system, 3);
+        assert_eq!(stats.idle, 4);
+    }
+
+    #[test]
+    fn test_parse_cpu_line_invalid() {
+        let line = "not a cpu line";
+        let result = CpuCollector::parse_cpu_line(line);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_cpu_line_too_few_fields() {
+        let line = "cpu0 1 2 3"; // Not enough fields
+        let result = CpuCollector::parse_cpu_line(line);
+        assert!(result.is_err());
     }
 
     #[cfg(target_os = "linux")]
@@ -717,5 +812,292 @@ mod tests {
     fn test_cpu_collector_interval() {
         let collector = CpuCollector::new();
         assert_eq!(collector.interval_hint(), Duration::from_millis(1000));
+    }
+
+    #[test]
+    fn test_cpu_collector_display_name() {
+        let collector = CpuCollector::new();
+        assert_eq!(collector.display_name(), "CPU");
+    }
+
+    #[test]
+    fn test_load_average_default() {
+        let load = LoadAverage::default();
+        assert_eq!(load.one, 0.0);
+        assert_eq!(load.five, 0.0);
+        assert_eq!(load.fifteen, 0.0);
+    }
+
+    #[test]
+    fn test_cpu_frequency_default() {
+        let freq = CpuFrequency::default();
+        assert_eq!(freq.current_mhz, 0);
+        assert_eq!(freq.min_mhz, 0);
+        assert_eq!(freq.max_mhz, 0);
+    }
+
+    #[test]
+    fn test_cpu_collector_history() {
+        let mut collector = CpuCollector::new();
+        // First collection initializes prev stats
+        let _ = collector.collect();
+        // Second collection should produce percentage
+        std::thread::sleep(Duration::from_millis(50));
+        let _ = collector.collect();
+
+        // History should have at least one entry
+        assert!(!collector.history.is_empty());
+    }
+
+    #[test]
+    fn test_cpu_collector_core_count() {
+        let collector = CpuCollector::new();
+        assert_eq!(collector.core_count(), collector.core_count);
+        assert!(collector.core_count() >= 1);
+    }
+
+    #[test]
+    fn test_cpu_collector_core_history() {
+        let mut collector = CpuCollector::new();
+        let _ = collector.collect();
+        std::thread::sleep(Duration::from_millis(50));
+        let _ = collector.collect();
+
+        // Core 0 should have history
+        let core_hist = collector.core_history(0);
+        assert!(core_hist.is_some());
+
+        // Invalid core should return None
+        let invalid = collector.core_history(9999);
+        assert!(invalid.is_none());
+    }
+
+    #[test]
+    fn test_cpu_stats_all_fields() {
+        let stats = CpuStats {
+            user: 1000,
+            nice: 200,
+            system: 300,
+            idle: 5000,
+            iowait: 100,
+            irq: 50,
+            softirq: 30,
+            steal: 20,
+        };
+
+        // Total should be sum of all fields
+        assert_eq!(stats.total(), 6700);
+        // Idle time is idle + iowait
+        assert_eq!(stats.idle_time(), 5100);
+    }
+
+    #[test]
+    fn test_cpu_collector_load_average() {
+        let mut collector = CpuCollector::new();
+        let _ = collector.collect();
+
+        let load = collector.load_average();
+        // Load average should be non-negative
+        assert!(load.one >= 0.0);
+        assert!(load.five >= 0.0);
+        assert!(load.fifteen >= 0.0);
+    }
+
+    #[test]
+    fn test_cpu_collector_uptime() {
+        let mut collector = CpuCollector::new();
+        let _ = collector.collect();
+
+        let uptime = collector.uptime_secs();
+        assert!(uptime >= 0.0);
+    }
+
+    #[test]
+    fn test_cpu_collector_history_accessor() {
+        let mut collector = CpuCollector::new();
+        let _ = collector.collect();
+        std::thread::sleep(Duration::from_millis(50));
+        let _ = collector.collect();
+
+        let history = collector.history();
+        assert!(!history.is_empty());
+    }
+
+    #[test]
+    fn test_cpu_collector_frequencies() {
+        let mut collector = CpuCollector::new();
+        let _ = collector.collect();
+
+        let freqs = collector.frequencies();
+        assert_eq!(freqs.len(), collector.core_count());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_parse_proc_stat() {
+        let result = CpuCollector::parse_proc_stat();
+        assert!(result.is_ok());
+        let (total, cores) = result.expect("should parse");
+        assert!(total.total() > 0);
+        assert!(!cores.is_empty());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_read_load_average() {
+        let load = CpuCollector::read_load_average();
+        assert!(load.one >= 0.0);
+        assert!(load.five >= 0.0);
+        assert!(load.fifteen >= 0.0);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_read_uptime() {
+        let uptime = CpuCollector::read_uptime();
+        assert!(uptime > 0.0);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_read_frequency() {
+        let freq = CpuCollector::read_frequency(0);
+        // Just verify we got a valid frequency structure (values are always non-negative for u64)
+        let _ = freq.current_mhz;
+        let _ = freq.min_mhz;
+        let _ = freq.max_mhz;
+    }
+
+    #[test]
+    fn test_cpu_collector_collect_twice() {
+        let mut collector = CpuCollector::new();
+
+        // First collect
+        let result1 = collector.collect();
+        assert!(result1.is_ok());
+
+        std::thread::sleep(Duration::from_millis(50));
+
+        // Second collect - should calculate percentages
+        let result2 = collector.collect();
+        assert!(result2.is_ok());
+
+        let metrics = result2.expect("should collect");
+        assert!(metrics.get_gauge("cpu.total").is_some());
+    }
+
+    #[test]
+    fn test_cpu_collector_metrics_structure() {
+        let mut collector = CpuCollector::new();
+        let _ = collector.collect();
+        std::thread::sleep(Duration::from_millis(50));
+        let result = collector.collect();
+
+        assert!(result.is_ok());
+        let metrics = result.expect("should collect");
+
+        // Check expected metrics exist
+        assert!(metrics.get_gauge("cpu.total").is_some());
+        assert!(metrics.get_gauge("cpu.load.1").is_some());
+        assert!(metrics.get_gauge("cpu.load.5").is_some());
+        assert!(metrics.get_gauge("cpu.load.15").is_some());
+        assert!(metrics.get_counter("cpu.cores").is_some());
+    }
+
+    #[test]
+    fn test_calculate_percentage_high_usage() {
+        let prev = CpuStats {
+            user: 0,
+            nice: 0,
+            system: 0,
+            idle: 1000,
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0,
+        };
+
+        let curr = CpuStats {
+            user: 800,
+            nice: 50,
+            system: 100,
+            idle: 1050, // Only 50 more idle ticks
+            iowait: 0,
+            irq: 0,
+            softirq: 0,
+            steal: 0,
+        };
+
+        let percent = CpuCollector::calculate_percentage(&prev, &curr);
+        // 950 used out of 1000 delta = 95%
+        assert!((percent - 95.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_parse_cpu_line_with_extra_fields() {
+        // Some systems have extra fields beyond steal
+        let line = "cpu0 100 10 50 800 20 5 5 10 100 200";
+        let stats = CpuCollector::parse_cpu_line(line).unwrap();
+
+        assert_eq!(stats.user, 100);
+        assert_eq!(stats.steal, 10);
+    }
+
+    #[test]
+    fn test_cpu_collector_id() {
+        let collector = CpuCollector::new();
+        assert_eq!(collector.id(), "cpu");
+    }
+
+    #[test]
+    fn test_cpu_stats_clone() {
+        let stats = CpuStats {
+            user: 100,
+            nice: 10,
+            system: 50,
+            idle: 800,
+            iowait: 20,
+            irq: 5,
+            softirq: 5,
+            steal: 10,
+        };
+
+        let cloned = stats.clone();
+        assert_eq!(stats.total(), cloned.total());
+        assert_eq!(stats.idle_time(), cloned.idle_time());
+    }
+
+    #[test]
+    fn test_load_average_values() {
+        let load = LoadAverage {
+            one: 1.5,
+            five: 2.0,
+            fifteen: 1.8,
+        };
+
+        assert!((load.one - 1.5).abs() < f64::EPSILON);
+        assert!((load.five - 2.0).abs() < f64::EPSILON);
+        assert!((load.fifteen - 1.8).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cpu_frequency_values() {
+        let freq = CpuFrequency {
+            current_mhz: 2400,
+            min_mhz: 800,
+            max_mhz: 3600,
+        };
+
+        assert_eq!(freq.current_mhz, 2400);
+        assert_eq!(freq.min_mhz, 800);
+        assert_eq!(freq.max_mhz, 3600);
+    }
+
+    #[test]
+    fn test_cpu_collector_default() {
+        let collector1 = CpuCollector::new();
+        let collector2 = CpuCollector::default();
+
+        assert_eq!(collector1.core_count(), collector2.core_count());
     }
 }

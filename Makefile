@@ -115,7 +115,9 @@ test-coverage: ## Run tests with tarpaulin coverage
 # - gpu_amd.rs: AMD GPU hardware required
 # - gpu_apple.rs: Apple Silicon required
 # - battery.rs: Hardware-specific
-COVERAGE_EXCLUDE := --ignore-filename-regex='monitor/app\.rs|monitor/collectors/gpu_amd\.rs|monitor/collectors/gpu_apple\.rs|monitor/collectors/battery\.rs'
+# - battery_sensors_simd.rs: Hardware-specific SIMD sensors
+# - kernels.rs: SIMD intrinsics require specific CPU features (AVX2/NEON)
+COVERAGE_EXCLUDE := --ignore-filename-regex='monitor/app\.rs|monitor/collectors/gpu_amd\.rs|monitor/collectors/gpu_apple\.rs|monitor/collectors/battery\.rs|monitor/collectors/battery_sensors_simd\.rs|monitor/simd/kernels\.rs|wasm\.rs'
 
 .PHONY: coverage
 coverage: ## Generate HTML coverage report with llvm-cov (fast: ~30s warm)

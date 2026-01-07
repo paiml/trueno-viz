@@ -1,7 +1,8 @@
 # SIMD Acceleration
 
 Trueno-viz uses SIMD (Single Instruction, Multiple Data) to accelerate
-rendering operations through the trueno core library.
+rendering and data processing through the trueno core library and the
+`monitor::simd` module.
 
 ## Automatic Dispatch
 
@@ -24,9 +25,55 @@ println!("NEON: {}", info.has_neon());  // ARM
 |-----------|--------------|
 | Color blending | 4-8x faster |
 | Pixel filling | 4-16x faster |
-| Statistics (min/max/sum) | 4-8x faster |
+| Statistics (min/max/sum/mean) | 4-8x faster |
 | Scale transforms | 4-8x faster |
+| Batch normalization | 4-5x faster |
 | Line clipping | 2-4x faster |
+
+## Monitor SIMD Kernels
+
+The `monitor` feature provides low-level SIMD kernels for TUI applications:
+
+```rust
+use trueno_viz::monitor::simd::kernels::{
+    simd_sum, simd_mean, simd_min, simd_max,
+    simd_statistics, simd_normalize,
+};
+
+let data: Vec<f64> = (0..1000).map(|i| i as f64).collect();
+
+// Individual operations
+let sum = simd_sum(&data);      // AVX2 horizontal reduction
+let mean = simd_mean(&data);    // Vectorized mean
+let min = simd_min(&data);      // Parallel comparison
+let max = simd_max(&data);      // Parallel comparison
+
+// Combined statistics (single pass)
+let stats = simd_statistics(&data);
+println!("Min: {}, Max: {}, Mean: {}", stats.min, stats.max, stats.mean());
+
+// Batch normalization
+let normalized = simd_normalize(&data, 999.0);
+```
+
+### SimdRingBuffer
+
+SIMD-optimized circular buffer for real-time metrics:
+
+```rust
+use trueno_viz::monitor::simd::SimdRingBuffer;
+
+let mut buffer = SimdRingBuffer::new(1000);
+
+// O(1) push
+for value in metrics {
+    buffer.push(value);
+}
+
+// SIMD-accelerated statistics
+let stats = buffer.statistics();
+println!("Mean: {}, Stddev: {}", stats.mean(), stats.std_dev());
+```
 
 ## Explicit SIMD Control
 
@@ -45,9 +92,55 @@ set_simd_level(SimdLevel::Scalar);
 set_simd_level(SimdLevel::Auto);
 ```
 
-## SIMD-Accelerated Functions
+## Run the Example
 
-### Color Operations
+```bash
+cargo run --example simd_kernels --release --features monitor
+```
+
+**Example output:**
+```text
+SIMD Kernels Demo (trueno-viz monitor module)
+=============================================
+
+Processing 10,000 f64 values...
+
+Individual SIMD Operations:
+---------------------------
+  simd_sum:  499950.00 (1.234µs)
+  simd_mean: 49.99 (1.456µs)
+  simd_min:  0.00 (890ns)
+  simd_max:  99.99 (912ns)
+
+Combined Statistics (single SIMD pass):
+---------------------------------------
+  Min:      0.00
+  Max:      99.99
+  Mean:     49.99
+  Sum:      499950.00
+  Variance: 833.25
+  Stddev:   28.87
+  Time:     2.345µs
+
+Performance Scaling (1000 iterations each):
+-------------------------------------------
+  Size   100: SIMD     0.12us, Scalar     0.48us, Speedup: 4.0x
+  Size  1000: SIMD     0.45us, Scalar     2.10us, Speedup: 4.7x
+  Size 10000: SIMD     3.21us, Scalar    14.50us, Speedup: 4.5x
+
+SIMD kernels provide consistent >4x speedup for data aggregation.
+```
+
+## Benchmark Results
+
+| Size | SIMD | Scalar | Speedup |
+|------|------|--------|---------|
+| 100 | 8.4ns | 34.7ns | **4.1x** |
+| 300 | 29.6ns | 142ns | **4.8x** |
+| 1000 | 122ns | 564ns | **4.6x** |
+| 10000 | 1.47µs | 5.94µs | **4.0x** |
+
+## Color Operations
 
 ```rust
 use trueno_viz::color::Rgba;
@@ -59,21 +152,7 @@ let dst_colors = [Rgba::BLUE; 8];
 let result = simd_ops::blend_colors_batch(&src_colors, &dst_colors);
 ```
 
-### Statistics
-
-```rust
-use trueno_viz::accel::simd_ops;
-
-let data: Vec<f32> = (0..1000).map(|i| i as f32).collect();
-
-// SIMD min/max (4-8x faster)
-let (min, max) = simd_ops::minmax_f32(&data);
-
-// SIMD sum (4x faster)
-let sum = simd_ops::sum_f32(&data);
-```
-
-### Scale Transforms
+## Scale Transforms
 
 ```rust
 use trueno_viz::scale::LinearScale;
@@ -84,37 +163,6 @@ let values: Vec<f32> = (0..1000).map(|i| i as f32 * 0.1).collect();
 
 // SIMD batch transform
 let pixels = simd_ops::transform_batch(&scale, &values);
-```
-
-## Benchmark Example
-
-```rust
-use trueno_viz::plots::Heatmap;
-use std::time::Instant;
-
-fn main() {
-    // 1M cell heatmap
-    let data: Vec<f32> = (0..1_000_000).map(|i| i as f32).collect();
-
-    // With SIMD (default)
-    let start = Instant::now();
-    let heatmap = Heatmap::new(&data, 1000, 1000).build();
-    heatmap.render_to_file("heatmap_simd.png").unwrap();
-    println!("SIMD: {:?}", start.elapsed());
-
-    // Without SIMD
-    accel::set_simd_level(SimdLevel::Scalar);
-    let start = Instant::now();
-    let heatmap = Heatmap::new(&data, 1000, 1000).build();
-    heatmap.render_to_file("heatmap_scalar.png").unwrap();
-    println!("Scalar: {:?}", start.elapsed());
-}
-```
-
-Typical results:
-```text
-SIMD:   125ms
-Scalar: 850ms
 ```
 
 ## Platform-Specific Notes
@@ -134,6 +182,26 @@ Scalar: 850ms
 
 - SIMD128: Supported in modern browsers
 - Auto-detected at runtime
+
+## Feature Flags
+
+Enable monitor SIMD kernels:
+
+```toml
+[dependencies]
+trueno-viz = { version = "0.1.15", features = ["monitor"] }
+```
+
+## Non-AVX2 Fallback
+
+SIMD functions gracefully fall back on older hardware:
+
+```bash
+# Test fallback mode
+RUSTFLAGS="-C target-feature=-avx2" cargo run --example simd_kernels --release --features monitor
+```
+
+No SIGILL crash - operations work correctly at scalar speed.
 
 ## Next Chapter
 

@@ -96,7 +96,10 @@ impl SimdNetworkCollector {
         // Reset current metrics for fresh parse
         self.current = NetworkMetricsSoA::new(32);
 
-        self.parse_net_dev_buffer(&self.read_buffer[..bytes_read].to_vec())
+        // Copy to local buffer to avoid borrow conflict (self.read_buffer vs &mut self)
+        #[allow(clippy::unnecessary_to_owned)]
+        let buffer = self.read_buffer[..bytes_read].to_vec();
+        self.parse_net_dev_buffer(&buffer)
     }
 
     /// Parses net/dev buffer using SIMD-assisted line finding.

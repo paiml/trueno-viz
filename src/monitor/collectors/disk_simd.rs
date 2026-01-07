@@ -14,7 +14,7 @@
 //! per-disk statistics. Delta calculations and rate computations
 //! use vectorized operations.
 
-use crate::monitor::error::{MonitorError, Result};
+use crate::monitor::error::Result;
 use crate::monitor::simd::ring_buffer::SimdRingBuffer;
 use crate::monitor::simd::soa::DiskMetricsSoA;
 use crate::monitor::simd::{kernels, SimdStats};
@@ -67,8 +67,9 @@ pub struct SimdDiskCollector {
     sector_size: u64,
     /// Maximum throughput for normalization.
     max_throughput: f64,
-    /// Pre-allocated read buffer (16KB).
+    /// Pre-allocated read buffer (16KB) for future SIMD parsing.
     #[cfg(target_os = "linux")]
+    #[allow(dead_code)]
     read_buffer: Vec<u8>,
     /// Whether we have previous data for delta calculation.
     has_previous: bool,

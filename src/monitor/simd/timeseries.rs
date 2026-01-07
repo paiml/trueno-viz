@@ -20,7 +20,7 @@
 //! - Aggregations (sum, min, max, mean via AVX2/NEON)
 //! - Filtering (predicate evaluation on value columns)
 
-use super::compressed::{now_micros, CompressedBlock, CompressedMetricStore, Timestamp};
+use super::compressed::{now_micros, CompressedMetricStore, Timestamp};
 use super::kernels;
 use super::ring_buffer::SimdRingBuffer;
 use std::collections::HashMap;
@@ -28,7 +28,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::RwLock;
 
 /// Configuration for tier boundaries.
 #[derive(Debug, Clone)]
@@ -745,5 +745,216 @@ mod tests {
 
         // Cleanup
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_timeseries_table_insert_now() {
+        let mut table = TimeSeriesTable::new("insert_now_test");
+
+        table.insert_now(42.0);
+        table.insert_now(43.0);
+        table.insert_now(44.0);
+
+        let stats = table.stats();
+        assert!(stats.hot_samples > 0);
+    }
+
+    #[test]
+    fn test_timeseries_table_name() {
+        let table = TimeSeriesTable::new("my_metric");
+        assert_eq!(table.name(), "my_metric");
+    }
+
+    #[test]
+    fn test_table_stats_total_samples() {
+        let mut table = TimeSeriesTable::new("total_test");
+
+        for i in 0..10 {
+            table.insert(i as u64 * 1000, i as f64);
+        }
+
+        let stats = table.stats();
+        assert!(stats.total_samples() > 0);
+    }
+
+    #[test]
+    fn test_aggregations_merge_empty() {
+        let mut agg1 = Aggregations::default();
+        let agg2 = Aggregations {
+            count: 5,
+            sum: 25.0,
+            min: 1.0,
+            max: 9.0,
+            mean: 5.0,
+            std_dev: 2.0,
+        };
+
+        agg1.merge(&agg2);
+        assert_eq!(agg1.count, 5);
+        assert!((agg1.sum - 25.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_aggregations_merge_into_empty() {
+        let mut agg1 = Aggregations {
+            count: 3,
+            sum: 9.0,
+            min: 1.0,
+            max: 5.0,
+            mean: 3.0,
+            std_dev: 1.5,
+        };
+        let agg2 = Aggregations::default();
+
+        agg1.merge(&agg2);
+        // Should remain unchanged
+        assert_eq!(agg1.count, 3);
+    }
+
+    #[test]
+    fn test_aggregations_from_empty_samples() {
+        let samples: Vec<(Timestamp, f64)> = vec![];
+        let agg = Aggregations::from_samples(&samples);
+        assert_eq!(agg.count, 0);
+    }
+
+    #[test]
+    fn test_timeseries_db_default() {
+        let db = TimeSeriesDb::default();
+        assert!(db.table_names().is_empty());
+    }
+
+    #[test]
+    fn test_timeseries_db_table_method() {
+        let db = TimeSeriesDb::new();
+
+        // Create table
+        assert!(db.table("cpu").is_some());
+
+        // Table should exist
+        db.insert("cpu", 1000, 50.0);
+        let result = db.query("cpu", 0, 2000);
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_timeseries_db_flush() {
+        let db = TimeSeriesDb::new();
+        db.insert("metric1", 1000, 10.0);
+        db.insert("metric2", 2000, 20.0);
+
+        // Flush should complete without panic
+        db.flush();
+    }
+
+    #[test]
+    fn test_timeseries_db_with_persistence() {
+        let temp_dir = std::env::temp_dir().join("tsdb_persist_test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
+
+        let db = TimeSeriesDb::with_persistence(&temp_dir);
+        assert!(db.is_ok());
+
+        let db = db.unwrap();
+        db.insert("persisted_metric", 1000, 100.0);
+        db.flush();
+
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_custom_tier_config() {
+        let config = TierConfig {
+            hot_duration_us: 60_000_000,   // 1 minute
+            warm_duration_us: 300_000_000, // 5 minutes
+            fsync_interval_us: 500_000,    // 0.5 seconds
+            block_size: 128,
+        };
+
+        let table = TimeSeriesTable::with_config("custom_config", config);
+        assert_eq!(table.name(), "custom_config");
+    }
+
+    #[test]
+    fn test_aggregate_windows_empty() {
+        let table = TimeSeriesTable::new("empty_windows");
+        let windows = table.aggregate_windows(0, 100_000, 10_000);
+        assert!(windows.is_empty());
+    }
+
+    #[test]
+    fn test_aggregate_windows_zero_size() {
+        let mut table = TimeSeriesTable::new("zero_window");
+        table.insert(1000, 10.0);
+
+        let windows = table.aggregate_windows(0, 100_000, 0);
+        assert!(windows.is_empty());
+    }
+
+    #[test]
+    fn test_query_result_default() {
+        let result = QueryResult::default();
+        assert!(result.samples.is_empty());
+        assert_eq!(result.aggregations.count, 0);
+        assert_eq!(result.tiers_scanned, 0);
+    }
+
+    #[test]
+    fn test_tier_config_clone() {
+        let config = TierConfig::default();
+        let cloned = config.clone();
+        assert_eq!(config.hot_duration_us, cloned.hot_duration_us);
+        assert_eq!(config.warm_duration_us, cloned.warm_duration_us);
+    }
+
+    #[test]
+    fn test_aggregations_clone() {
+        let agg = Aggregations {
+            count: 10,
+            sum: 100.0,
+            min: 5.0,
+            max: 15.0,
+            mean: 10.0,
+            std_dev: 2.5,
+        };
+        let cloned = agg.clone();
+        assert_eq!(agg.count, cloned.count);
+        assert!((agg.sum - cloned.sum).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_table_stats_clone() {
+        let stats = TableStats {
+            name: "test".to_string(),
+            hot_samples: 100,
+            warm_samples: 500,
+            cold_samples: 1000,
+            warm_compression_ratio: 3.5,
+            cold_enabled: true,
+        };
+
+        let cloned = stats.clone();
+        assert_eq!(stats.name, cloned.name);
+        assert_eq!(stats.total_samples(), cloned.total_samples());
+    }
+
+    #[test]
+    fn test_query_nonexistent_table() {
+        let db = TimeSeriesDb::new();
+        let result = db.query("nonexistent", 0, 1000);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_query_range_outside_data() {
+        let mut table = TimeSeriesTable::new("range_test");
+
+        table.insert(5000, 10.0);
+        table.insert(6000, 20.0);
+
+        // Query outside the data range
+        let result = table.query(1000, 2000);
+        assert!(result.samples.is_empty() || result.aggregations.count == 0);
     }
 }

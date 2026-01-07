@@ -118,8 +118,9 @@ pub struct SimdProcessCollector {
     mem_history: SimdRingBuffer,
     /// Process count history.
     count_history: SimdRingBuffer,
-    /// Pre-allocated buffer for batch parsing.
+    /// Pre-allocated buffer for batch parsing (reserved for future use).
     #[cfg(target_os = "linux")]
+    #[allow(dead_code)]
     parse_buffer: Vec<u8>,
 }
 
@@ -241,7 +242,7 @@ impl SimdProcessCollector {
         // Parse stat file using SIMD
         let (name, state, fields) = Self::parse_stat_simd(&stat)?;
 
-        let ppid: u32 = fields.get(0).copied().unwrap_or(0) as u32;
+        let ppid: u32 = fields.first().copied().unwrap_or(0) as u32;
         let utime: u64 = fields.get(10).copied().unwrap_or(0);
         let stime: u64 = fields.get(11).copied().unwrap_or(0);
         let threads: u32 = fields.get(16).copied().unwrap_or(1) as u32;
@@ -319,7 +320,7 @@ impl SimdProcessCollector {
 
         // Parse remaining fields using SIMD
         let fields_start = after_name.find(' ').map(|i| i + 1).unwrap_or(0);
-        let fields = kernels::simd_parse_integers(after_name[fields_start..].as_bytes());
+        let fields = kernels::simd_parse_integers(&after_name.as_bytes()[fields_start..]);
 
         Ok((name, state, fields))
     }
@@ -584,9 +585,7 @@ mod tests {
         );
 
         let tree = collector.build_tree();
-        assert!(tree
-            .get(&1)
-            .map_or(false, |children| children.contains(&100)));
+        assert!(tree.get(&1).is_some_and(|children| children.contains(&100)));
     }
 
     #[test]

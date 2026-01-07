@@ -53,7 +53,7 @@ impl GpuMetricsSoA {
     #[must_use]
     pub fn new(gpu_count: usize) -> Self {
         let count = gpu_count.min(MAX_GPUS);
-        let aligned_count = ((count + 7) / 8) * 8;
+        let aligned_count = count.div_ceil(8) * 8;
 
         Self {
             gpu_util: vec![0.0; aligned_count],
