@@ -18,6 +18,10 @@ pub struct GpuProcess {
     pub sm_util: u8,
     /// Memory utilization percentage
     pub mem_util: u8,
+    /// Encoder (NVENC) utilization percentage
+    pub enc_util: u8,
+    /// Decoder (NVDEC) utilization percentage
+    pub dec_util: u8,
     /// Command name
     pub command: String,
 }
@@ -150,6 +154,9 @@ fn parse_pmon_output(output: &str) -> Vec<GpuProcess> {
         // SM and mem utilization (may be "-" if not available)
         let sm_util = parts[3].parse::<u8>().unwrap_or(0);
         let mem_util = parts[4].parse::<u8>().unwrap_or(0);
+        // Encoder and decoder utilization (may be "-" if not available)
+        let enc_util = parts[5].parse::<u8>().unwrap_or(0);
+        let dec_util = parts[6].parse::<u8>().unwrap_or(0);
 
         // Command is the last field
         let command = parts[9].to_string();
@@ -160,6 +167,8 @@ fn parse_pmon_output(output: &str) -> Vec<GpuProcess> {
             proc_type,
             sm_util,
             mem_util,
+            enc_util,
+            dec_util,
             command,
         });
     }
@@ -237,14 +246,26 @@ mod tests {
     fn test_top_processes() {
         let mut analyzer = GpuProcessAnalyzer::new();
         analyzer.processes = vec![
-            GpuProcess { gpu_idx: 0, pid: 1, proc_type: GpuProcType::Graphics, sm_util: 10, mem_util: 5, command: "a".into() },
-            GpuProcess { gpu_idx: 0, pid: 2, proc_type: GpuProcType::Graphics, sm_util: 30, mem_util: 5, command: "b".into() },
-            GpuProcess { gpu_idx: 0, pid: 3, proc_type: GpuProcType::Compute, sm_util: 20, mem_util: 5, command: "c".into() },
+            GpuProcess { gpu_idx: 0, pid: 1, proc_type: GpuProcType::Graphics, sm_util: 10, mem_util: 5, enc_util: 0, dec_util: 0, command: "a".into() },
+            GpuProcess { gpu_idx: 0, pid: 2, proc_type: GpuProcType::Graphics, sm_util: 30, mem_util: 5, enc_util: 0, dec_util: 0, command: "b".into() },
+            GpuProcess { gpu_idx: 0, pid: 3, proc_type: GpuProcType::Compute, sm_util: 20, mem_util: 5, enc_util: 0, dec_util: 0, command: "c".into() },
         ];
 
         let top2 = analyzer.top_processes(2);
         assert_eq!(top2.len(), 2);
         assert_eq!(top2[0].command, "b"); // 30%
         assert_eq!(top2[1].command, "c"); // 20%
+    }
+
+    #[test]
+    fn test_parse_pmon_with_encoder() {
+        let output = r#"# gpu         pid   type     sm    mem    enc    dec    jpg    ofa    command
+# Idx           #    C/G      %      %      %      %      %      %    name
+    0       1234     G     15      8     50     25      -      -    ffmpeg
+"#;
+        let procs = parse_pmon_output(output);
+        assert_eq!(procs.len(), 1);
+        assert_eq!(procs[0].enc_util, 50);
+        assert_eq!(procs[0].dec_util, 25);
     }
 }
