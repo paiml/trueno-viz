@@ -653,4 +653,104 @@ mod tests {
         let p50 = estimate_p50_latency_ms(avg);
         assert!((p50 - 6.93).abs() < 0.1);
     }
+
+    #[test]
+    fn test_p99_latency_calculation() {
+        // P99 should be ~4.6x average
+        let avg = 10.0;
+        let p99 = estimate_p99_latency_ms(avg);
+        assert!((p99 - 46.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_latency_estimation_high_queue_depth() {
+        // High queue depth should increase latency
+        let low_qd = estimate_latency_ms(1.0, 1000.0);
+        let high_qd = estimate_latency_ms(32.0, 1000.0);
+        assert!(high_qd > low_qd);
+    }
+
+    #[test]
+    fn test_workload_sequential() {
+        // High throughput, moderate IOPS = sequential
+        assert_eq!(classify_workload(200.0, 400.0), IoWorkloadType::Sequential);
+    }
+
+    #[test]
+    fn test_workload_sequential_high_throughput() {
+        // High throughput = sequential
+        let workload = classify_workload(500.0, 600.0);
+        assert!(workload == IoWorkloadType::Sequential || workload == IoWorkloadType::Mixed);
+    }
+
+    #[test]
+    fn test_workload_random() {
+        // High IOPS, low throughput = random
+        assert_eq!(classify_workload(10000.0, 50.0), IoWorkloadType::Random);
+    }
+
+    #[test]
+    fn test_analyzer_primary_device_empty() {
+        let analyzer = DiskIoAnalyzer::new();
+        assert!(analyzer.primary_device().is_none());
+    }
+
+    #[test]
+    fn test_analyzer_device_histories_empty() {
+        let analyzer = DiskIoAnalyzer::new();
+        assert!(analyzer.device_read_history("nonexistent").is_none());
+        assert!(analyzer.device_write_history("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_analyzer_estimated_latency_missing() {
+        let analyzer = DiskIoAnalyzer::new();
+        let latency = analyzer.estimated_latency_ms("nonexistent");
+        assert!(latency < 0.001);
+    }
+
+    #[test]
+    fn test_analyzer_workload_type_missing() {
+        let analyzer = DiskIoAnalyzer::new();
+        let workload = analyzer.workload_type("nonexistent");
+        assert_eq!(workload, IoWorkloadType::Idle);
+    }
+
+    #[test]
+    fn test_device_io_stats_nvme() {
+        let stats = DeviceIoStats {
+            device: "nvme0n1".to_string(),
+            is_nvme: true,
+            is_rotational: false,
+            ..Default::default()
+        };
+        assert!(stats.is_nvme);
+        assert!(!stats.is_rotational);
+    }
+
+    #[test]
+    fn test_device_io_stats_rotational() {
+        let stats = DeviceIoStats {
+            device: "sda".to_string(),
+            is_nvme: false,
+            is_rotational: true,
+            ..Default::default()
+        };
+        assert!(!stats.is_nvme);
+        assert!(stats.is_rotational);
+    }
+
+    #[test]
+    fn test_io_workload_type_all_descriptions() {
+        let types = [
+            IoWorkloadType::Idle,
+            IoWorkloadType::Sequential,
+            IoWorkloadType::Random,
+            IoWorkloadType::Mixed,
+        ];
+        for t in types {
+            let desc = t.description();
+            assert!(!desc.is_empty());
+        }
+    }
 }
