@@ -33,24 +33,24 @@ fn buffer_to_string(buf: &Buffer) -> String {
     output
 }
 
-/// EVIDENCE: Memory panel includes ZRAM and thrashing indicators in title
+/// EVIDENCE: Memory panel includes ZRAM and PSI pressure indicators
 #[test]
 fn evidence_memory_panel_has_zram_thrashing_code() {
-    // The memory panel code now includes thrashing and ZRAM detection
+    // The memory panel code now includes PSI pressure and ZRAM detection
     // We verify by checking the source contains the right patterns
 
     let source = include_str!("../src/panels.rs");
 
-    // Evidence 1: Memory panel references ThrashingSeverity
+    // Evidence 1: Memory panel references PressureLevel for PSI display
     assert!(
-        source.contains("ThrashingSeverity"),
-        "EVIDENCE FAILED: Memory panel does not reference ThrashingSeverity"
+        source.contains("PressureLevel"),
+        "EVIDENCE FAILED: Memory panel does not reference PressureLevel"
     );
 
-    // Evidence 2: Memory panel formats thrashing indicator (now shows as PSI)
+    // Evidence 2: Memory panel shows PSI pressure row
     assert!(
-        source.contains("PSI:"),
-        "EVIDENCE FAILED: Memory panel does not show PSI indicator"
+        source.contains("Pressure:") || source.contains("psi_analyzer"),
+        "EVIDENCE FAILED: Memory panel does not show PSI pressure"
     );
 
     // Evidence 3: Memory panel shows ZRAM ratio
@@ -59,10 +59,10 @@ fn evidence_memory_panel_has_zram_thrashing_code() {
         "EVIDENCE FAILED: Memory panel does not show ZRAM indicator"
     );
 
-    // Evidence 4: Memory panel calls thrashing_severity()
+    // Evidence 4: Memory panel accesses psi_analyzer for pressure levels
     assert!(
-        source.contains("thrashing_severity()"),
-        "EVIDENCE FAILED: Memory panel does not call thrashing_severity()"
+        source.contains("psi_analyzer.is_available()") || source.contains("psi.cpu_level()"),
+        "EVIDENCE FAILED: Memory panel does not access PSI analyzer"
     );
 
     // Evidence 5: Memory panel calls has_zram() and zram_ratio()
