@@ -3,6 +3,14 @@
 //! These tests verify that all panels render correctly with expected content.
 //! Uses deterministic mode to ensure reproducible frame output.
 //!
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::assertions_on_constants)]
+#![allow(clippy::for_kv_map)]
+#![allow(clippy::manual_range_contains)]
+#![allow(clippy::useless_vec)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
 //! Pixel-level tests verify:
 //! - Border characters render correctly (╭ ╮ ╰ ╯ ─ │)
 //! - Graph characters render (block chars: █▓▒░ or braille: ⡀⡄⡆⡇)

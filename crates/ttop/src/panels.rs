@@ -1659,13 +1659,15 @@ pub fn draw_treemap(f: &mut Frame, app: &App, area: Rect) {
         let (fill, border, text_color) = pareto_colors(rank_ratio);
 
         // Fill rectangle
-        for y in y1..y2.min(inner.height as usize) {
-            for x in x1..x2.min(inner.width as usize) {
-                let is_edge = x == x1 || y == y1;
+        let y_end = y2.min(inner.height as usize);
+        let x_end = x2.min(inner.width as usize);
+        for (row_idx, row) in grid.iter_mut().enumerate().take(y_end).skip(y1) {
+            for (col_idx, cell) in row.iter_mut().enumerate().take(x_end).skip(x1) {
+                let is_edge = col_idx == x1 || row_idx == y1;
                 if is_edge {
-                    grid[y][x] = ('▌', border, Color::Rgb(20, 20, 25));
+                    *cell = ('▌', border, Color::Rgb(20, 20, 25));
                 } else {
-                    grid[y][x] = (' ', fill, fill);
+                    *cell = (' ', fill, fill);
                 }
             }
         }

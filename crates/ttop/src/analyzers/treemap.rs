@@ -56,7 +56,7 @@ impl TreemapAnalyzer {
 
         // Check if already scanning
         {
-            let scanning = self.scanning.lock().unwrap();
+            let scanning = self.scanning.lock().expect("scanning lock poisoned");
             if *scanning {
                 return;
             }
@@ -65,19 +65,19 @@ impl TreemapAnalyzer {
         let files = Arc::clone(&self.files);
         let scanning = Arc::clone(&self.scanning);
 
-        *scanning.lock().unwrap() = true;
+        *scanning.lock().expect("scanning lock poisoned") = true;
         self.last_scan = Instant::now();
 
         thread::spawn(move || {
             let found = find_large_files();
-            *files.lock().unwrap() = found;
-            *scanning.lock().unwrap() = false;
+            *files.lock().expect("files lock poisoned") = found;
+            *scanning.lock().expect("scanning lock poisoned") = false;
         });
     }
 
     /// Get treemap layout for rendering
     pub fn layout(&self, width: f64, height: f64) -> Vec<(TreeRect, String)> {
-        let files = self.files.lock().unwrap();
+        let files = self.files.lock().expect("files lock poisoned");
         if files.is_empty() {
             return Vec::new();
         }
@@ -86,12 +86,12 @@ impl TreemapAnalyzer {
 
     /// Check if currently scanning
     pub fn is_scanning(&self) -> bool {
-        *self.scanning.lock().unwrap()
+        *self.scanning.lock().expect("scanning lock poisoned")
     }
 
     /// Get total size of all large files
     pub fn total_size(&self) -> u64 {
-        self.files.lock().unwrap().iter().map(|f| f.size).sum()
+        self.files.lock().expect("files lock poisoned").iter().map(|f| f.size).sum()
     }
 }
 

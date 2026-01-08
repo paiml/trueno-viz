@@ -2,6 +2,9 @@
 //!
 //! These tests verify that the macOS-specific collection code handles
 //! all edge cases correctly using proptest strategies.
+#![allow(clippy::unwrap_used)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
 #[cfg(target_os = "macos")]
 mod macos_property_tests {

@@ -2,6 +2,10 @@
 //!
 //! These tests attempt to BREAK the implementation using edge cases,
 //! stress tests, and logic traps as specified in the falsification protocol.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::redundant_pattern_matching)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
 use std::path::PathBuf;
 
