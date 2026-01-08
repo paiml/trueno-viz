@@ -194,13 +194,7 @@ impl LargeFileDetector {
         // Calculate MAD (Median Absolute Deviation)
         let mut deviations: Vec<u64> = values
             .iter()
-            .map(|&x| {
-                if x > self.median {
-                    x - self.median
-                } else {
-                    self.median - x
-                }
-            })
+            .map(|&x| x.abs_diff(self.median))
             .collect();
         deviations.sort_unstable();
 
@@ -416,10 +410,12 @@ impl StorageAnalyzer {
 
                 if let Ok(path_cstr) = CString::new(mount_point) {
                     let mut stat = MaybeUninit::<libc::statvfs>::uninit();
+                    // SAFETY: statvfs is a POSIX syscall that initializes the stat buffer
+                    #[allow(unsafe_code)]
                     unsafe {
                         if libc::statvfs(path_cstr.as_ptr(), stat.as_mut_ptr()) == 0 {
                             let stat = stat.assume_init();
-                            let block_size = stat.f_frsize as u64;
+                            let block_size = stat.f_frsize;
                             mount_info.total_bytes = stat.f_blocks * block_size;
                             mount_info.free_bytes = stat.f_bfree * block_size;
                             mount_info.available_bytes = stat.f_bavail * block_size;
@@ -483,6 +479,7 @@ pub fn format_bytes(bytes: u64) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 

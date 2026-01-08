@@ -2,6 +2,10 @@
 //!
 //! This test provides EVIDENCE that the Memory panel shows ZRAM info
 //! and the Disk panel shows latency estimates.
+#![allow(clippy::unwrap_used)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
 
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;

@@ -6,6 +6,9 @@
 //! - Falsifiability Gates (Popperian methodology)
 //! - Wilson Score confidence intervals
 //! - Score bars and combined coverage reports
+#![allow(clippy::unwrap_used)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
 use jugar_probar::pixel_coverage::{
     ConfidenceInterval, FalsifiabilityGate, FalsifiableHypothesis, OutputMode, PixelCoverageTracker,

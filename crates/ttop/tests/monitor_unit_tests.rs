@@ -2,6 +2,9 @@
 //!
 //! These tests verify the correct behavior of each collector,
 //! ensuring proper initialization, metric collection, and data validation.
+#![allow(clippy::unwrap_used)]
+#![allow(clippy::for_kv_map)]
+#![allow(clippy::manual_range_contains)]
 
 use trueno_viz::monitor::collectors::{
     CpuCollector, DiskCollector, MemoryCollector, NetworkCollector, ProcessCollector,

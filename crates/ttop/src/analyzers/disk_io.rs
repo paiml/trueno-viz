@@ -132,24 +132,25 @@ impl DeviceIoStats {
 }
 
 /// Raw diskstats data from /proc/diskstats
+#[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 struct RawDiskStats {
     reads_completed: u64,
-    reads_merged: u64,
+    _reads_merged: u64,
     sectors_read: u64,
-    read_time_ms: u64,
+    _read_time_ms: u64,
     writes_completed: u64,
-    writes_merged: u64,
+    _writes_merged: u64,
     sectors_written: u64,
-    write_time_ms: u64,
+    _write_time_ms: u64,
     ios_in_progress: u64,
     io_time_ms: u64,
     weighted_io_time_ms: u64,
     // Discard stats (kernel 4.18+)
     discards_completed: u64,
-    discards_merged: u64,
+    _discards_merged: u64,
     sectors_discarded: u64,
-    discard_time_ms: u64,
+    _discard_time_ms: u64,
     // Flush stats (kernel 5.5+)
     flushes_completed: u64,
     flush_time_ms: u64,
@@ -235,20 +236,20 @@ impl DiskIoAnalyzer {
             // Parse raw stats (fields 4-20 in /proc/diskstats)
             let raw = RawDiskStats {
                 reads_completed: parts[3].parse().unwrap_or(0),
-                reads_merged: parts[4].parse().unwrap_or(0),
+                _reads_merged: parts[4].parse().unwrap_or(0),
                 sectors_read: parts[5].parse().unwrap_or(0),
-                read_time_ms: parts[6].parse().unwrap_or(0),
+                _read_time_ms: parts[6].parse().unwrap_or(0),
                 writes_completed: parts[7].parse().unwrap_or(0),
-                writes_merged: parts[8].parse().unwrap_or(0),
+                _writes_merged: parts[8].parse().unwrap_or(0),
                 sectors_written: parts[9].parse().unwrap_or(0),
-                write_time_ms: parts[10].parse().unwrap_or(0),
+                _write_time_ms: parts[10].parse().unwrap_or(0),
                 ios_in_progress: parts[11].parse().unwrap_or(0),
                 io_time_ms: parts[12].parse().unwrap_or(0),
                 weighted_io_time_ms: parts[13].parse().unwrap_or(0),
                 discards_completed: parts.get(14).and_then(|s| s.parse().ok()).unwrap_or(0),
-                discards_merged: parts.get(15).and_then(|s| s.parse().ok()).unwrap_or(0),
+                _discards_merged: parts.get(15).and_then(|s| s.parse().ok()).unwrap_or(0),
                 sectors_discarded: parts.get(16).and_then(|s| s.parse().ok()).unwrap_or(0),
-                discard_time_ms: parts.get(17).and_then(|s| s.parse().ok()).unwrap_or(0),
+                _discard_time_ms: parts.get(17).and_then(|s| s.parse().ok()).unwrap_or(0),
                 flushes_completed: parts.get(18).and_then(|s| s.parse().ok()).unwrap_or(0),
                 flush_time_ms: parts.get(19).and_then(|s| s.parse().ok()).unwrap_or(0),
             };
@@ -310,7 +311,7 @@ impl DiskIoAnalyzer {
                 if stats.total_iops() > 0.0
                     || stats.total_throughput_mbps() > 0.0
                     || stats.queue_depth > 0.0
-                    || !device.chars().last().map_or(false, |c| c.is_ascii_digit())
+                    || !device.chars().last().is_some_and(|c| c.is_ascii_digit())
                 {
                     total_read += read_bytes_per_sec;
                     total_write += write_bytes_per_sec;

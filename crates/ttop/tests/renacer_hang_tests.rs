@@ -5,6 +5,9 @@
 //! - Profile I/O bottlenecks in collectors
 //! - Validate performance baselines for regression detection
 //! - Generate distributed traces for debugging
+#![allow(clippy::unwrap_used)]
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
 use std::process::Command;
 use std::time::{Duration, Instant};
