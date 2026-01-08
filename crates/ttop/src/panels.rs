@@ -970,6 +970,41 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
         }
     }
 
+    // macOS fallback: detect AMD/Intel GPUs via system_profiler when Apple GPU collector fails
+    #[cfg(target_os = "macos")]
+    if gpus.is_empty() {
+        if let Ok(output) = std::process::Command::new("system_profiler")
+            .args(["SPDisplaysDataType", "-json"])
+            .output()
+        {
+            if output.status.success() {
+                if let Ok(json) = String::from_utf8(output.stdout) {
+                    // Parse GPU names and VRAM from JSON output
+                    for line in json.lines() {
+                        let line = line.trim();
+                        if line.contains("\"sppci_model\"") {
+                            if let Some(name) = line.split(':').nth(1) {
+                                let name = name.trim().trim_matches('"').trim_matches(',');
+                                gpus.push(GpuDisplay {
+                                    name: name.to_string(),
+                                    gpu_util: 0.0,
+                                    vram_used: 0,
+                                    vram_total: 0,
+                                    vram_pct: 0.0,
+                                    temp: 0.0,
+                                    power: 0,
+                                    power_limit: 0,
+                                    clock_mhz: 0,
+                                    history: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     // Build title showing GPU name and key stats
     let title = if gpus.len() > 1 {
         format!(" GPU ({} devices) ", gpus.len())
