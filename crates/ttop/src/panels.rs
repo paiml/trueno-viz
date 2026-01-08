@@ -1233,10 +1233,32 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                     String::new()
                 };
 
+                // GPU index for multi-GPU systems
+                let gpu_str = if gpus.len() > 1 {
+                    format!("{}", proc.gpu_idx)
+                } else {
+                    String::new()
+                };
+
                 // Build process line with columnar layout
                 let mut spans = vec![
                     // Type badge (◼C or ◼G)
-                    Span::styled(format!("◼{} ", proc.proc_type), Style::default().fg(type_color)),
+                    Span::styled(format!("◼{}", proc.proc_type), Style::default().fg(type_color)),
+                ];
+
+                // GPU index for multi-GPU
+                if !gpu_str.is_empty() {
+                    spans.push(Span::styled(
+                        format!("{} ", gpu_str),
+                        Style::default().fg(Color::DarkGray),
+                    ));
+                } else {
+                    spans.push(Span::styled(" ", Style::default()));
+                }
+
+                spans.extend(vec![
+                    // PID
+                    Span::styled(format!("{:>5} ", proc.pid), Style::default().fg(Color::DarkGray)),
                     // SM utilization
                     Span::styled(format!("{:>2}%", proc.sm_util), Style::default().fg(sm_color)),
                     Span::styled(" ", Style::default()),
@@ -1245,7 +1267,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                     Span::styled("░".repeat(mem_empty), Style::default().fg(Color::DarkGray)),
                     Span::styled(format!("{:>2}%", proc.mem_util), Style::default().fg(mem_color)),
                     Span::styled(" ", Style::default()),
-                ];
+                ]);
 
                 // Add encoder/decoder if present
                 if !enc_dec.is_empty() {
@@ -1256,7 +1278,8 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 }
 
                 // Calculate remaining space for command
-                let fixed_width = 3 + 3 + 1 + mem_bar_width + 3 + 1 + enc_dec.len() + if enc_dec.is_empty() { 0 } else { 1 };
+                let gpu_width = if gpu_str.is_empty() { 0 } else { 2 };
+                let fixed_width = 3 + gpu_width + 6 + 3 + 1 + mem_bar_width + 3 + 1 + enc_dec.len() + if enc_dec.is_empty() { 0 } else { 1 };
                 let cmd_width = (inner.width as usize).saturating_sub(fixed_width);
 
                 // Command name
