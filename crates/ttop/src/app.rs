@@ -18,6 +18,7 @@ use trueno_viz::monitor::collectors::AmdGpuCollector;
 #[cfg(target_os = "macos")]
 use trueno_viz::monitor::collectors::AppleGpuCollector;
 
+use crate::analyzers::{ContainerAnalyzer, DiskIoAnalyzer, GpuProcessAnalyzer, PsiAnalyzer, StorageAnalyzer, SwapAnalyzer, ThrashingSeverity};
 use crate::state::ProcessSortColumn;
 
 /// Panel visibility state
@@ -68,6 +69,16 @@ pub struct App {
     #[cfg(target_os = "macos")]
     pub apple_gpu: AppleGpuCollector,
 
+    // Advanced analyzers (ttop-improve.md spec)
+    pub swap_analyzer: SwapAnalyzer,
+    pub disk_io_analyzer: DiskIoAnalyzer,
+    pub storage_analyzer: StorageAnalyzer,
+    pub connection_analyzer: crate::analyzers::ConnectionAnalyzer,
+    pub treemap_analyzer: crate::analyzers::TreemapAnalyzer,
+    pub gpu_process_analyzer: GpuProcessAnalyzer,
+    pub psi_analyzer: PsiAnalyzer,
+    pub container_analyzer: ContainerAnalyzer,
+
     // History buffers (normalized 0-1)
     pub cpu_history: Vec<f64>,
     pub mem_history: Vec<f64>,
@@ -113,6 +124,23 @@ pub struct App {
 
     // Mode flags
     pub deterministic: bool,
+}
+
+impl App {
+    /// Get current swap thrashing severity
+    pub fn thrashing_severity(&self) -> ThrashingSeverity {
+        self.swap_analyzer.detect_thrashing()
+    }
+
+    /// Check if system has ZRAM configured
+    pub fn has_zram(&self) -> bool {
+        self.swap_analyzer.has_zram()
+    }
+
+    /// Get ZRAM compression ratio (combined across all devices)
+    pub fn zram_ratio(&self) -> f64 {
+        self.swap_analyzer.zram_compression_ratio()
+    }
 }
 
 impl App {
@@ -185,6 +213,16 @@ impl App {
 
             #[cfg(target_os = "macos")]
             apple_gpu,
+
+            // Initialize advanced analyzers
+            swap_analyzer: SwapAnalyzer::default(),
+            disk_io_analyzer: DiskIoAnalyzer::default(),
+            storage_analyzer: StorageAnalyzer::default(),
+            connection_analyzer: crate::analyzers::ConnectionAnalyzer::default(),
+            treemap_analyzer: crate::analyzers::TreemapAnalyzer::new("/"),
+            gpu_process_analyzer: GpuProcessAnalyzer::default(),
+            psi_analyzer: PsiAnalyzer::default(),
+            container_analyzer: ContainerAnalyzer::default(),
 
             cpu_history: Vec::with_capacity(300),
             mem_history: Vec::with_capacity(300),
@@ -378,6 +416,31 @@ impl App {
         if self.apple_gpu.is_available() {
             let _ = self.apple_gpu.collect();
         }
+
+        // Advanced analyzers (ttop-improve.md spec)
+        if is_first { debug::log(Level::Trace, "collect", "swap_analyzer..."); }
+        self.swap_analyzer.collect();
+
+        if is_first { debug::log(Level::Trace, "collect", "disk_io_analyzer..."); }
+        self.disk_io_analyzer.collect();
+
+        if is_first { debug::log(Level::Trace, "collect", "storage_analyzer..."); }
+        self.storage_analyzer.collect();
+
+        if is_first { debug::log(Level::Trace, "collect", "connection_analyzer..."); }
+        self.connection_analyzer.collect();
+
+        if is_first { debug::log(Level::Trace, "collect", "treemap_analyzer..."); }
+        self.treemap_analyzer.collect();
+
+        if is_first { debug::log(Level::Trace, "collect", "gpu_process_analyzer..."); }
+        self.gpu_process_analyzer.collect();
+
+        if is_first { debug::log(Level::Trace, "collect", "psi_analyzer..."); }
+        self.psi_analyzer.collect();
+
+        if is_first { debug::log(Level::Trace, "collect", "container_analyzer..."); }
+        self.container_analyzer.collect();
 
         self.last_collect = Instant::now();
     }
