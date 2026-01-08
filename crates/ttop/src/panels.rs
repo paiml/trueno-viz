@@ -882,6 +882,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
         temp: f64,
         power: u32,
         power_limit: u32,
+        clock_mhz: u32,
         history: Option<Vec<f64>>,
     }
 
@@ -910,6 +911,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 temp: gpu.temperature,
                 power: gpu.power_mw / 1000,
                 power_limit: gpu.power_limit_mw / 1000,
+                clock_mhz: gpu.gpu_clock_mhz,
                 history,
             });
         }
@@ -938,6 +940,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 temp: gpu.temperature,
                 power: gpu.power_watts as u32,
                 power_limit: if gpu.power_cap_watts > 0.0 { gpu.power_cap_watts as u32 } else { 300 },
+                clock_mhz: gpu.gpu_clock_mhz as u32,
                 history,
             });
         }
@@ -961,6 +964,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 temp: 0.0,
                 power: 0,
                 power_limit: 0,
+                clock_mhz: 0, // Apple doesn't expose clock via IOKit
                 history,
             });
         }
@@ -1145,9 +1149,16 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
             );
             x += bar_width + 1;
 
-            // Col 3: Temp + Power values
-            let values = if gpu.power_limit > 0 {
+            // Col 3: Temp + Power + Clock values
+            let values = if gpu.clock_mhz > 0 && gpu.power_limit > 0 {
+                format!(
+                    "{}°C {:>3}W/{:>3}W {:>4}MHz",
+                    gpu.temp as u32, gpu.power, gpu.power_limit, gpu.clock_mhz
+                )
+            } else if gpu.power_limit > 0 {
                 format!("{}°C {:>3}W/{:>3}W", gpu.temp as u32, gpu.power, gpu.power_limit)
+            } else if gpu.clock_mhz > 0 {
+                format!("{}°C {:>3}W {:>4}MHz", gpu.temp as u32, gpu.power, gpu.clock_mhz)
             } else {
                 format!("{}°C {:>3}W", gpu.temp as u32, gpu.power)
             };
