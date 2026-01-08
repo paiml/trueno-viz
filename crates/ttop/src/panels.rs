@@ -508,10 +508,16 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
         };
 
         // Find I/O rate for this device
+        // Mount device: /dev/disk3s1 (macOS) or /dev/sda1 (Linux) or /dev/nvme0n1p1
         let device_name = mount.device.rsplit('/').next().unwrap_or("");
         let base_device: String = if device_name.contains("nvme") {
+            // nvme0n1p1 -> nvme0n1 (strip partition)
             device_name.split('p').next().unwrap_or(device_name).to_string()
+        } else if device_name.starts_with("disk") && device_name.contains('s') {
+            // macOS: disk3s1 -> disk3 (strip slice suffix)
+            device_name.split('s').next().unwrap_or(device_name).to_string()
         } else {
+            // Linux: sda1 -> sda (strip partition number)
             device_name.chars().take_while(|c| !c.is_ascii_digit()).collect()
         };
 
