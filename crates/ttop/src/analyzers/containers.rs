@@ -298,4 +298,117 @@ mod tests {
         assert_eq!(containers[1].name, "db");
         assert_eq!(containers[2].name, "cache");
     }
+
+    #[test]
+    fn test_container_status_all_variants() {
+        assert_eq!(ContainerStatus::Running.symbol(), "▶");
+        assert_eq!(ContainerStatus::Paused.symbol(), "⏸");
+        assert_eq!(ContainerStatus::Restarting.symbol(), "↻");
+        assert_eq!(ContainerStatus::Exited.symbol(), "□");
+        assert_eq!(ContainerStatus::Unknown.symbol(), "?");
+    }
+
+    #[test]
+    fn test_analyzer_default() {
+        let analyzer = ContainerAnalyzer::default();
+        assert!(analyzer.containers().is_empty());
+        assert_eq!(analyzer.total_count(), 0);
+        assert_eq!(analyzer.running_count(), 0);
+    }
+
+    #[test]
+    fn test_top_containers_empty() {
+        let analyzer = ContainerAnalyzer::new();
+        let top = analyzer.top_containers(5);
+        assert!(top.is_empty());
+    }
+
+    #[test]
+    fn test_parse_mem_usage_invalid() {
+        let (used, limit) = parse_mem_usage("invalid");
+        assert_eq!(used, 0);
+        assert_eq!(limit, 0);
+    }
+
+    #[test]
+    fn test_parse_mem_value_edge_cases() {
+        assert_eq!(parse_mem_value("0B"), 0);
+        assert_eq!(parse_mem_value("1TB"), 1024 * 1024 * 1024 * 1024);
+        assert_eq!(parse_mem_value("1TiB"), 1024 * 1024 * 1024 * 1024);
+        assert_eq!(parse_mem_value("100kB"), 100 * 1024);
+        assert_eq!(parse_mem_value("100MB"), 100 * 1024 * 1024);
+        assert_eq!(parse_mem_value("100GB"), 100 * 1024 * 1024 * 1024);
+    }
+
+    #[test]
+    fn test_parse_mem_value_unknown_unit() {
+        // Unknown unit should default to bytes
+        assert_eq!(parse_mem_value("100XYZ"), 100);
+    }
+
+    #[test]
+    fn test_parse_docker_stats_invalid_line() {
+        // Line with too few parts should be skipped
+        let output = "invalid\tline\n";
+        let containers = parse_docker_stats(output);
+        assert!(containers.is_empty());
+    }
+
+    #[test]
+    fn test_parse_docker_stats_whitespace() {
+        let output = "   \n\t\n";
+        let containers = parse_docker_stats(output);
+        assert!(containers.is_empty());
+    }
+
+    #[test]
+    fn test_container_stats_struct() {
+        let stats = ContainerStats {
+            name: "test".to_string(),
+            cpu_pct: 5.5,
+            mem_used: 1024 * 1024,
+            mem_limit: 8 * 1024 * 1024 * 1024,
+            mem_pct: 0.01,
+            status: ContainerStatus::Running,
+        };
+
+        assert_eq!(stats.name, "test");
+        assert_eq!(stats.cpu_pct, 5.5);
+        assert_eq!(stats.status, ContainerStatus::Running);
+    }
+
+    #[test]
+    fn test_container_stats_clone() {
+        let stats = ContainerStats {
+            name: "test".to_string(),
+            cpu_pct: 5.5,
+            mem_used: 1024,
+            mem_limit: 8192,
+            mem_pct: 12.5,
+            status: ContainerStatus::Paused,
+        };
+
+        let cloned = stats.clone();
+        assert_eq!(cloned.name, stats.name);
+        assert_eq!(cloned.cpu_pct, stats.cpu_pct);
+        assert_eq!(cloned.status, stats.status);
+    }
+
+    #[test]
+    fn test_parse_docker_stats_invalid_cpu() {
+        // Invalid CPU percentage should default to 0
+        let output = "test\tinvalid%\t512MiB / 8GiB\t6.25%\n";
+        let containers = parse_docker_stats(output);
+        assert_eq!(containers.len(), 1);
+        assert_eq!(containers[0].cpu_pct, 0.0);
+    }
+
+    #[test]
+    fn test_parse_docker_stats_invalid_mem_pct() {
+        // Invalid memory percentage should default to 0
+        let output = "test\t5.0%\t512MiB / 8GiB\tinvalid\n";
+        let containers = parse_docker_stats(output);
+        assert_eq!(containers.len(), 1);
+        assert_eq!(containers[0].mem_pct, 0.0);
+    }
 }
