@@ -4326,4 +4326,157 @@ mod panel_render_tests {
         terminal.draw(|f| { draw_treemap(f, &app, area); }).ok();
         terminal.draw(|f| { draw_files(f, &app, area); }).ok();
     }
+
+    // === Helper Function Tests ===
+
+    #[test]
+    fn test_truncate_str_no_truncation() {
+        assert_eq!(truncate_str("hello", 10), "hello");
+    }
+
+    #[test]
+    fn test_truncate_str_exact_length() {
+        assert_eq!(truncate_str("hello", 5), "hello");
+    }
+
+    #[test]
+    fn test_truncate_str_with_truncation() {
+        assert_eq!(truncate_str("hello world", 8), "hello...");
+    }
+
+    #[test]
+    fn test_truncate_str_very_short() {
+        assert_eq!(truncate_str("hello", 3), "hel");
+    }
+
+    #[test]
+    fn test_truncate_str_min_for_ellipsis() {
+        assert_eq!(truncate_str("hello world", 4), "h...");
+    }
+
+    #[test]
+    fn test_mount_marker_nvme() {
+        let (c, color, label) = mount_marker("/mnt/nvme-raid0/data");
+        assert_eq!(c, 'N');
+        assert_eq!(label, "nvme");
+        assert_eq!(color, (100, 220, 140));
+    }
+
+    #[test]
+    fn test_mount_marker_hdd() {
+        let (c, _, label) = mount_marker("/mnt/storage/archive");
+        assert_eq!(c, 'D');
+        assert_eq!(label, "hdd");
+    }
+
+    #[test]
+    fn test_mount_marker_home() {
+        let (c, _, label) = mount_marker("/home/user/documents");
+        assert_eq!(c, 'h');
+        assert_eq!(label, "home");
+    }
+
+    #[test]
+    fn test_mount_marker_root() {
+        let (c, _, label) = mount_marker("/");
+        assert_eq!(c, '/');
+        assert_eq!(label, "sys");
+    }
+
+    #[test]
+    fn test_mount_marker_var() {
+        let (c, _, label) = mount_marker("/var/log");
+        assert_eq!(c, '/');
+        assert_eq!(label, "sys");
+    }
+
+    #[test]
+    fn test_mount_marker_usr() {
+        let (c, _, label) = mount_marker("/usr/bin");
+        assert_eq!(c, '/');
+        assert_eq!(label, "sys");
+    }
+
+    #[test]
+    fn test_mount_marker_other_mnt() {
+        let (c, _, label) = mount_marker("/mnt/usb");
+        assert_eq!(c, 'M');
+        assert_eq!(label, "mnt");
+    }
+
+    #[test]
+    fn test_mount_marker_media() {
+        let (c, _, label) = mount_marker("/media/cdrom");
+        assert_eq!(c, 'M');
+        assert_eq!(label, "mnt");
+    }
+
+    #[test]
+    fn test_mount_marker_unknown() {
+        let (c, _, label) = mount_marker("/some/other/path");
+        assert_eq!(c, '?');
+        assert_eq!(label, "unk");
+    }
+
+    #[test]
+    fn test_mount_legend_str() {
+        let legend = mount_legend_str();
+        assert!(legend.contains("N:nvme"));
+        assert!(legend.contains("D:hdd"));
+        assert!(legend.contains("h:home"));
+        assert!(legend.contains("/:sys"));
+    }
+
+    #[test]
+    fn test_format_dir_path_short() {
+        assert_eq!(format_dir_path("/home/user", 20), "/home/user");
+    }
+
+    #[test]
+    fn test_format_dir_path_very_small_width() {
+        let result = format_dir_path("/home/user/very/long/path", 8);
+        assert_eq!(result.len(), 8);
+    }
+
+    #[test]
+    fn test_format_dir_path_truncation() {
+        let result = format_dir_path("/mnt/nvme-raid0/targets/trueno-viz/debug", 25);
+        assert!(result.len() <= 25);
+        assert!(result.contains("..."));
+    }
+
+    #[test]
+    fn test_format_dir_path_empty_parts() {
+        assert_eq!(format_dir_path("/", 10), "/");
+    }
+
+    #[test]
+    fn test_format_dir_path_single_part() {
+        let result = format_dir_path("/root", 10);
+        assert!(result.starts_with("/"));
+    }
+
+    #[test]
+    fn test_entropy_heatmap_high_entropy() {
+        let (_, r, g, b) = entropy_heatmap(0.9);
+        assert_eq!((r, g, b), (80, 200, 100)); // Green
+    }
+
+    #[test]
+    fn test_entropy_heatmap_medium_entropy() {
+        let (_, r, g, b) = entropy_heatmap(0.6);
+        assert_eq!((r, g, b), (200, 200, 80)); // Yellow
+    }
+
+    #[test]
+    fn test_entropy_heatmap_low_entropy() {
+        let (_, r, g, b) = entropy_heatmap(0.3);
+        assert_eq!((r, g, b), (220, 140, 60)); // Orange
+    }
+
+    #[test]
+    fn test_entropy_heatmap_very_low_entropy() {
+        let (_, r, g, b) = entropy_heatmap(0.1);
+        assert_eq!((r, g, b), (220, 80, 80)); // Red
+    }
 }
