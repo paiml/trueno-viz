@@ -390,6 +390,7 @@ impl StorageAnalyzer {
             }
 
             // Get statvfs info
+            #[cfg_attr(not(target_os = "linux"), allow(unused_mut))]
             let mut mount_info = MountInfo {
                 mount_point: mount_point.to_string(),
                 device: device.to_string(),
