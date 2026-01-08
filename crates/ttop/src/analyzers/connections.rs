@@ -30,6 +30,7 @@ pub enum ConnState {
 }
 
 impl ConnState {
+    #[cfg(target_os = "linux")]
     fn from_hex(hex: &str) -> Self {
         match hex {
             "01" => Self::Established,
@@ -426,6 +427,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_conn_state_from_hex() {
         assert_eq!(ConnState::from_hex("01"), ConnState::Established);
         assert_eq!(ConnState::from_hex("0A"), ConnState::Listen);
@@ -433,6 +435,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn test_parse_addr() {
         // 127.0.0.1:631 in hex (little endian)
         let result = ConnectionAnalyzer::parse_addr("0100007F:0277");
