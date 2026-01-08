@@ -521,9 +521,26 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
             device_name.chars().take_while(|c| !c.is_ascii_digit()).collect()
         };
 
-        let io_info = rates.get(device_name).or_else(|| {
-            rates.get(&base_device)
-        });
+        // macOS APFS: synthesized disk1 backed by physical disk0, disk3 backed by disk2
+        // Try exact match, then base device, then physical backing disk
+        let io_info = rates.get(device_name)
+            .or_else(|| rates.get(&base_device))
+            .or_else(|| {
+                // macOS: disk1 -> disk0, disk3 -> disk2 (synthesized -> physical)
+                if base_device.starts_with("disk") {
+                    let disk_num: u32 = base_device[4..].parse().unwrap_or(0);
+                    if disk_num > 0 {
+                        // Synthesized containers (odd: 1,3,5) map to physical (even: 0,2,4)
+                        let physical = format!("disk{}", disk_num.saturating_sub(1));
+                        rates.get(&physical)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .or_else(|| rates.get("disk0")); // Final fallback to primary disk
 
         let color = percent_color(used_pct);
 
