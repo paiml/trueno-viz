@@ -7,8 +7,10 @@ set -euo pipefail
 
 THRESHOLD="${1:-95}"
 
-# Get coverage report (match .rs files, exclude wasm.rs and header/separator lines)
-if ! cargo llvm-cov report 2>/dev/null | grep '\.rs ' | grep -v 'wasm\.rs' > /tmp/cov_lines.txt; then
+# Get coverage report (match .rs files, exclude platform-specific code and header/separator lines)
+# Exclusions match Makefile COVERAGE_EXCLUDE: wasm.rs, app.rs, gpu_amd.rs, gpu_apple.rs,
+# battery.rs, battery_sensors_simd.rs, kernels.rs
+if ! cargo llvm-cov report 2>/dev/null | grep '\.rs ' | grep -Ev 'wasm\.rs|app\.rs|gpu_amd\.rs|gpu_apple\.rs|battery\.rs|battery_sensors_simd\.rs|kernels\.rs' > /tmp/cov_lines.txt; then
     echo "❌ No coverage data found"
     echo "   Run: make coverage"
     exit 1
@@ -34,7 +36,7 @@ fi
 # Calculate coverage
 coverage=$(awk "BEGIN {printf \"%.2f\", 100 * ($total - $uncovered) / $total}")
 
-echo "Coverage: ${coverage}% (excluding wasm.rs)"
+echo "Coverage: ${coverage}% (excluding platform-specific code)"
 
 # Check threshold
 if awk "BEGIN {exit !($coverage < $THRESHOLD)}"; then

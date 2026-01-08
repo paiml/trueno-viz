@@ -1,6 +1,8 @@
 //! ttop library - Terminal Top system monitor
 //!
 //! This module exposes the core components for testing and embedding.
+#![cfg_attr(test, allow(clippy::unwrap_used))]
+#![cfg_attr(test, allow(clippy::field_reassign_with_default))]
 //!
 //! ## Architecture
 //!
