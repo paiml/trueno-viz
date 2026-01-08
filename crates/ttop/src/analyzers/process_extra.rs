@@ -414,4 +414,98 @@ mod tests {
         let extra = analyzer.get(1234).unwrap();
         assert!(extra.cpu_history.is_empty()); // No history added
     }
+
+    #[test]
+    fn test_analyzer_default() {
+        let analyzer = ProcessExtraAnalyzer::default();
+        assert!(analyzer.get(1).is_none());
+    }
+
+    #[test]
+    fn test_cpu_history_limit() {
+        let mut analyzer = ProcessExtraAnalyzer::new();
+        let pids = vec![1234];
+
+        // Add 100 samples (more than the 60 limit)
+        for i in 0..100 {
+            let mut cpu_percents = HashMap::new();
+            cpu_percents.insert(1234, i as f64);
+            analyzer.collect(&pids, &cpu_percents);
+        }
+
+        let extra = analyzer.get(1234).unwrap();
+        // History should be limited to history_len (60)
+        assert!(extra.cpu_history.len() <= 60);
+    }
+
+    #[test]
+    fn test_process_extra_all_fields() {
+        let extra = ProcessExtra {
+            container: Some("docker-abc123".to_string()),
+            fd_count: 500,
+            fd_limit: 1024,
+            cpu_history: vec![10.0, 20.0, 30.0],
+            ancestors: vec![(1, "init".to_string())],
+        };
+
+        assert_eq!(extra.container, Some("docker-abc123".to_string()));
+        assert_eq!(extra.fd_count, 500);
+        assert_eq!(extra.fd_limit, 1024);
+        assert_eq!(extra.cpu_history.len(), 3);
+        assert_eq!(extra.ancestors.len(), 1);
+    }
+
+    #[test]
+    fn test_container_badge_short() {
+        let mut extra = ProcessExtra::default();
+        extra.container = Some("short".to_string());
+        assert_eq!(extra.container_badge(), Some("[short]".to_string()));
+    }
+
+    #[test]
+    fn test_container_badge_long() {
+        let mut extra = ProcessExtra::default();
+        extra.container = Some("verylongcontainername123".to_string());
+        let badge = extra.container_badge().unwrap();
+        assert!(badge.contains("…")); // Should be truncated
+        // Format: [11chars…] = 14 chars max
+    }
+
+    #[test]
+    fn test_fd_percent_50() {
+        let mut extra = ProcessExtra::default();
+        extra.fd_count = 500;
+        extra.fd_limit = 1000;
+        assert!((extra.fd_percent() - 50.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_fd_warning_under_threshold() {
+        let mut extra = ProcessExtra::default();
+        extra.fd_count = 700;
+        extra.fd_limit = 1000;
+        assert!(!extra.fd_warning()); // 70% < 80%
+    }
+
+    #[test]
+    fn test_process_extra_clone() {
+        let extra = ProcessExtra {
+            container: Some("test".to_string()),
+            fd_count: 100,
+            fd_limit: 1000,
+            cpu_history: vec![1.0, 2.0],
+            ancestors: vec![(1, "init".to_string())],
+        };
+
+        let cloned = extra.clone();
+        assert_eq!(cloned.container, extra.container);
+        assert_eq!(cloned.fd_count, extra.fd_count);
+        assert_eq!(cloned.cpu_history.len(), extra.cpu_history.len());
+    }
+
+    #[test]
+    fn test_analyzer_get_nonexistent() {
+        let analyzer = ProcessExtraAnalyzer::new();
+        assert!(analyzer.get(99999).is_none());
+    }
 }
