@@ -6,6 +6,7 @@
 #![allow(clippy::redundant_pattern_matching)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 
 use std::path::PathBuf;
 

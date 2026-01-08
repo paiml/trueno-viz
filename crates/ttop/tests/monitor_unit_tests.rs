@@ -5,6 +5,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(clippy::for_kv_map)]
 #![allow(clippy::manual_range_contains)]
+#![allow(unused_imports)]
 
 use trueno_viz::monitor::collectors::{
     CpuCollector, DiskCollector, MemoryCollector, NetworkCollector, ProcessCollector,

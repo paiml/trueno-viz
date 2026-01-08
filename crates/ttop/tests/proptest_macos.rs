@@ -5,6 +5,7 @@
 #![allow(clippy::unwrap_used)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
+#![allow(unused_imports)]
 
 #[cfg(target_os = "macos")]
 mod macos_property_tests {
