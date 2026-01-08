@@ -867,71 +867,106 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-/// Draw GPU panel - supports multiple GPUs
+/// Draw GPU panel - enhanced with sparklines, thermal gauges, and process info
 pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
     use trueno_viz::monitor::ratatui::style::Color;
+    use trueno_viz::monitor::ratatui::text::{Line, Span};
 
     // Collect GPU info into a unified structure
     struct GpuDisplay {
         name: String,
         gpu_util: f64,
+        vram_used: u64,
+        vram_total: u64,
         vram_pct: f64,
         temp: f64,
         power: u32,
+        power_limit: u32,
+        history: Option<Vec<f64>>,
     }
 
     let mut gpus: Vec<GpuDisplay> = Vec::new();
 
     #[cfg(feature = "nvidia")]
     if app.nvidia_gpu.is_available() {
-        for gpu in app.nvidia_gpu.gpus() {
+        for (i, gpu) in app.nvidia_gpu.gpus().iter().enumerate() {
             let vram_pct = if gpu.mem_total > 0 {
                 gpu.mem_used as f64 / gpu.mem_total as f64
             } else {
                 0.0
             };
+            let history = app.nvidia_gpu.gpu_history(i).map(|h| {
+                let (a, b) = h.as_slices();
+                let mut v = a.to_vec();
+                v.extend_from_slice(b);
+                v
+            });
             gpus.push(GpuDisplay {
                 name: gpu.name.clone(),
                 gpu_util: gpu.gpu_util,
+                vram_used: gpu.mem_used,
+                vram_total: gpu.mem_total,
                 vram_pct,
                 temp: gpu.temperature,
                 power: gpu.power_mw / 1000,
+                power_limit: gpu.power_limit_mw / 1000,
+                history,
             });
         }
     }
 
     #[cfg(target_os = "linux")]
     if app.amd_gpu.is_available() {
-        for gpu in app.amd_gpu.gpus() {
+        for (i, gpu) in app.amd_gpu.gpus().iter().enumerate() {
             let vram_pct = if gpu.vram_total > 0 {
                 gpu.vram_used as f64 / gpu.vram_total as f64
             } else {
                 0.0
             };
+            let history = app.amd_gpu.gpu_history(i).map(|h| {
+                let (a, b) = h.as_slices();
+                let mut v = a.to_vec();
+                v.extend_from_slice(b);
+                v
+            });
             gpus.push(GpuDisplay {
                 name: gpu.name.clone(),
                 gpu_util: gpu.gpu_util,
+                vram_used: gpu.vram_used,
+                vram_total: gpu.vram_total,
                 vram_pct,
                 temp: gpu.temperature,
                 power: gpu.power_watts as u32,
+                power_limit: if gpu.power_cap_watts > 0.0 { gpu.power_cap_watts as u32 } else { 300 },
+                history,
             });
         }
     }
 
     #[cfg(target_os = "macos")]
     if app.apple_gpu.is_available() {
-        for gpu in app.apple_gpu.gpus() {
+        for (i, gpu) in app.apple_gpu.gpus().iter().enumerate() {
+            let history = app.apple_gpu.util_history(i).map(|h| {
+                let (a, b) = h.as_slices();
+                let mut v = a.to_vec();
+                v.extend_from_slice(b);
+                v
+            });
             gpus.push(GpuDisplay {
                 name: gpu.name.clone(),
                 gpu_util: gpu.gpu_util,
-                vram_pct: 0.0, // Apple GPUs don't report VRAM via IOKit
+                vram_used: 0,
+                vram_total: 0,
+                vram_pct: 0.0, // Apple uses unified memory
                 temp: 0.0,
                 power: 0,
+                power_limit: 0,
+                history,
             });
         }
     }
 
-    // Build title showing GPU count
+    // Build title showing GPU name and key stats
     let title = if gpus.len() > 1 {
         format!(" GPU ({} devices) ", gpus.len())
     } else if let Some(gpu) = gpus.first() {
@@ -952,115 +987,156 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    // Calculate rows per GPU: util + vram + info = 3 rows each (or 2 if tight)
-    let rows_per_gpu = if inner.height as usize >= gpus.len() * 3 {
-        3
-    } else if inner.height as usize >= gpus.len() * 2 {
-        2
-    } else {
-        1
-    };
+    let mut y = inner.y;
 
-    let mut y_offset = 0u16;
+    // Reserve space for GPU processes at bottom
+    let reserved_bottom = if app.gpu_process_analyzer.is_available() { 3u16 } else { 0 };
+    let gpu_area_height = inner.height.saturating_sub(reserved_bottom);
 
     for (i, gpu) in gpus.iter().enumerate() {
-        if y_offset >= inner.height {
+        if y >= inner.y + gpu_area_height {
             break;
         }
 
-        // GPU label for multi-GPU systems
+        // === ROW 1: GPU utilization with sparkline ===
         let label = if gpus.len() > 1 {
             format!("GPU{}", i)
         } else {
             "GPU".to_string()
         };
 
-        // GPU utilization meter
         let gpu_color = percent_color(gpu.gpu_util);
+
+        // Split: meter on left, sparkline on right
+        let meter_width = inner.width.saturating_sub(20).min(inner.width / 2);
+        let sparkline_width = inner.width.saturating_sub(meter_width + 1);
+
+        // GPU meter
         let gpu_meter = Meter::new(gpu.gpu_util / 100.0)
             .label(&label)
             .color(gpu_color);
         f.render_widget(
             gpu_meter,
-            Rect {
-                x: inner.x,
-                y: inner.y + y_offset,
-                width: inner.width,
-                height: 1,
-            },
+            Rect { x: inner.x, y, width: meter_width, height: 1 },
         );
-        y_offset += 1;
 
-        // VRAM meter (if space and VRAM data available)
-        if rows_per_gpu >= 2 && y_offset < inner.height && gpu.vram_pct > 0.0 {
-            let vram_label = if gpus.len() > 1 {
-                format!("VRM{}", i)
-            } else {
-                "VRAM".to_string()
-            };
+        // GPU sparkline (if history available)
+        if let Some(ref hist) = gpu.history {
+            if !hist.is_empty() && sparkline_width > 5 {
+                let sparkline = MonitorSparkline::new(hist)
+                    .color(gpu_color)
+                    .show_trend(true);
+                f.render_widget(
+                    sparkline,
+                    Rect { x: inner.x + meter_width + 1, y, width: sparkline_width, height: 1 },
+                );
+            }
+        }
+        y += 1;
+
+        // === ROW 2: VRAM bar (if available) ===
+        if y < inner.y + gpu_area_height && gpu.vram_total > 0 {
+            let vram_gb_used = gpu.vram_used as f64 / (1024.0 * 1024.0 * 1024.0);
+            let vram_gb_total = gpu.vram_total as f64 / (1024.0 * 1024.0 * 1024.0);
+
             let vram_color = percent_color(gpu.vram_pct * 100.0);
-            let vram_meter = Meter::new(gpu.vram_pct)
-                .label(&vram_label)
-                .color(vram_color);
+            let bar_width = inner.width.saturating_sub(18) as usize;
+            let filled = ((gpu.vram_pct) * bar_width as f64) as usize;
+            let empty = bar_width.saturating_sub(filled);
+
+            let vram_line = Line::from(vec![
+                Span::styled("VRAM ", Style::default().fg(Color::DarkGray)),
+                Span::styled("█".repeat(filled), Style::default().fg(vram_color)),
+                Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!(" {:.1}/{:.0}G", vram_gb_used, vram_gb_total),
+                    Style::default().fg(Color::White),
+                ),
+            ]);
             f.render_widget(
-                vram_meter,
-                Rect {
-                    x: inner.x,
-                    y: inner.y + y_offset,
-                    width: inner.width,
-                    height: 1,
-                },
+                Paragraph::new(vram_line),
+                Rect { x: inner.x, y, width: inner.width, height: 1 },
             );
-            y_offset += 1;
+            y += 1;
         }
 
-        // Temperature and power info (if space)
-        if rows_per_gpu >= 3 && y_offset < inner.height && gpu.temp > 0.0 {
-            let info = if gpus.len() > 1 {
-                format!("GPU{}: {}°C │ {}W", i, gpu.temp as u32, gpu.power)
+        // === ROW 3: Thermal gauge + Power (if available) ===
+        if y < inner.y + gpu_area_height && gpu.temp > 0.0 {
+            let temp_color = temp_color(gpu.temp);
+
+            // Thermal bar (0-100°C scale)
+            let temp_pct = (gpu.temp / 100.0).min(1.0);
+            let temp_bar_width = 15usize;
+            let temp_filled = (temp_pct * temp_bar_width as f64) as usize;
+            let temp_empty = temp_bar_width.saturating_sub(temp_filled);
+
+            // Power percentage
+            let power_pct = if gpu.power_limit > 0 {
+                (gpu.power as f64 / gpu.power_limit as f64 * 100.0).min(100.0)
             } else {
-                format!("Temp: {}°C │ Power: {}W", gpu.temp as u32, gpu.power)
+                0.0
             };
-            let info_para = Paragraph::new(info).style(Style::default().fg(temp_color(gpu.temp)));
-            f.render_widget(
-                info_para,
-                Rect {
-                    x: inner.x,
-                    y: inner.y + y_offset,
-                    width: inner.width,
-                    height: 1,
+            let power_color = if power_pct > 90.0 {
+                Color::Red
+            } else if power_pct > 70.0 {
+                Color::Yellow
+            } else {
+                Color::Green
+            };
+
+            let thermal_line = Line::from(vec![
+                Span::styled("Temp ", Style::default().fg(Color::DarkGray)),
+                Span::styled("█".repeat(temp_filled), Style::default().fg(temp_color)),
+                Span::styled("░".repeat(temp_empty), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!(" {:>2}°C", gpu.temp as u32), Style::default().fg(temp_color)),
+                Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
+                Span::styled("Power ", Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!("{:>3}W", gpu.power),
+                    Style::default().fg(power_color),
+                ),
+                if gpu.power_limit > 0 {
+                    Span::styled(
+                        format!("/{:>3}W", gpu.power_limit),
+                        Style::default().fg(Color::DarkGray),
+                    )
+                } else {
+                    Span::raw("")
                 },
+            ]);
+            f.render_widget(
+                Paragraph::new(thermal_line),
+                Rect { x: inner.x, y, width: inner.width, height: 1 },
             );
-            y_offset += 1;
+            y += 1;
+        }
+
+        // Add spacing between GPUs if multiple
+        if gpus.len() > 1 && i < gpus.len() - 1 && y < inner.y + gpu_area_height {
+            y += 1;
         }
     }
 
-    // GPU Processes (if space available)
-    if y_offset < inner.height && app.gpu_process_analyzer.is_available() {
-        let procs = app.gpu_process_analyzer.top_processes(4);
+    // === GPU Processes Section (bottom) ===
+    if y < inner.y + inner.height && app.gpu_process_analyzer.is_available() {
+        let procs = app.gpu_process_analyzer.top_processes(3);
         if !procs.is_empty() {
-            // Add a divider line if we have room
-            if y_offset + 1 < inner.height {
+            // Divider
+            if y < inner.y + inner.height {
                 let divider = "─".repeat(inner.width as usize);
                 f.render_widget(
                     Paragraph::new(divider).style(Style::default().fg(Color::DarkGray)),
-                    Rect {
-                        x: inner.x,
-                        y: inner.y + y_offset,
-                        width: inner.width,
-                        height: 1,
-                    },
+                    Rect { x: inner.x, y, width: inner.width, height: 1 },
                 );
-                y_offset += 1;
+                y += 1;
             }
 
             // Show top GPU processes
             for proc in procs {
-                if y_offset >= inner.height {
+                if y >= inner.y + inner.height {
                     break;
                 }
 
-                // Color based on SM utilization
                 let color = if proc.sm_util >= 50 {
                     Color::LightRed
                 } else if proc.sm_util >= 20 {
@@ -1069,25 +1145,23 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                     Color::DarkGray
                 };
 
-                // Type indicator and process info
-                let proc_line = format!(
-                    "{} {:>3}% {:>3}% {}",
-                    proc.proc_type,
-                    proc.sm_util,
-                    proc.mem_util,
-                    truncate_str(&proc.command, (inner.width as usize).saturating_sub(12))
-                );
+                let proc_line = Line::from(vec![
+                    Span::styled(format!("{} ", proc.proc_type), Style::default().fg(Color::Cyan)),
+                    Span::styled(format!("{:>3}%", proc.sm_util), Style::default().fg(color)),
+                    Span::styled(" SM ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(format!("{:>3}%", proc.mem_util), Style::default().fg(Color::Magenta)),
+                    Span::styled(" Mem ", Style::default().fg(Color::DarkGray)),
+                    Span::styled(
+                        truncate_str(&proc.command, (inner.width as usize).saturating_sub(22)),
+                        Style::default().fg(Color::White),
+                    ),
+                ]);
 
                 f.render_widget(
-                    Paragraph::new(proc_line).style(Style::default().fg(color)),
-                    Rect {
-                        x: inner.x,
-                        y: inner.y + y_offset,
-                        width: inner.width,
-                        height: 1,
-                    },
+                    Paragraph::new(proc_line),
+                    Rect { x: inner.x, y, width: inner.width, height: 1 },
                 );
-                y_offset += 1;
+                y += 1;
             }
         }
     }
