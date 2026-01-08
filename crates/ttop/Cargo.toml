@@ -22,7 +22,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core monitoring library (re-exports ratatui for trait compatibility)
-trueno-viz = { version = "0.1.12", path = "../..", features = ["monitor"] }
+trueno-viz = { version = "0.1.17", features = ["monitor"] }
 
 # TUI framework - use crossterm directly, ratatui comes from trueno-viz
 crossterm = "0.28"
