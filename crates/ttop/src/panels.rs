@@ -1189,34 +1189,84 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 y += 1;
             }
 
-            // Show top GPU processes
+            // Show top GPU processes with enhanced display
             for proc in procs {
                 if y >= inner.y + inner.height {
                     break;
                 }
 
-                let color = if proc.sm_util >= 50 {
+                // SM utilization color
+                let sm_color = if proc.sm_util >= 50 {
                     Color::LightRed
                 } else if proc.sm_util >= 20 {
-                    Color::LightYellow
+                    Color::Yellow
                 } else {
-                    Color::DarkGray
+                    Color::Green
                 };
 
-                let proc_line = Line::from(vec![
-                    Span::styled(format!("{} ", proc.proc_type), Style::default().fg(Color::Cyan)),
-                    Span::styled(format!("{:>3}%", proc.sm_util), Style::default().fg(color)),
-                    Span::styled(" SM ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(format!("{:>3}%", proc.mem_util), Style::default().fg(Color::Magenta)),
-                    Span::styled(" Mem ", Style::default().fg(Color::DarkGray)),
-                    Span::styled(
-                        truncate_str(&proc.command, (inner.width as usize).saturating_sub(22)),
-                        Style::default().fg(Color::White),
-                    ),
-                ]);
+                // Type badge color: Compute=Cyan, Graphics=Magenta
+                let type_color = match proc.proc_type {
+                    crate::analyzers::GpuProcType::Compute => Color::Cyan,
+                    crate::analyzers::GpuProcType::Graphics => Color::Magenta,
+                };
+
+                // Memory bar (6 chars based on mem_util)
+                let mem_bar_width = 6usize;
+                let mem_filled = ((proc.mem_util as f64 / 100.0) * mem_bar_width as f64) as usize;
+                let mem_empty = mem_bar_width.saturating_sub(mem_filled);
+                let mem_color = if proc.mem_util >= 80 {
+                    Color::Red
+                } else if proc.mem_util >= 50 {
+                    Color::Yellow
+                } else {
+                    Color::Green
+                };
+
+                // Encoder/Decoder indicators
+                let enc_dec = if proc.enc_util > 0 && proc.dec_util > 0 {
+                    format!("[E{}D{}]", proc.enc_util, proc.dec_util)
+                } else if proc.enc_util > 0 {
+                    format!("[E{}]", proc.enc_util)
+                } else if proc.dec_util > 0 {
+                    format!("[D{}]", proc.dec_util)
+                } else {
+                    String::new()
+                };
+
+                // Build process line with columnar layout
+                let mut spans = vec![
+                    // Type badge (◼C or ◼G)
+                    Span::styled(format!("◼{} ", proc.proc_type), Style::default().fg(type_color)),
+                    // SM utilization
+                    Span::styled(format!("{:>2}%", proc.sm_util), Style::default().fg(sm_color)),
+                    Span::styled(" ", Style::default()),
+                    // Memory bar
+                    Span::styled("█".repeat(mem_filled), Style::default().fg(mem_color)),
+                    Span::styled("░".repeat(mem_empty), Style::default().fg(Color::DarkGray)),
+                    Span::styled(format!("{:>2}%", proc.mem_util), Style::default().fg(mem_color)),
+                    Span::styled(" ", Style::default()),
+                ];
+
+                // Add encoder/decoder if present
+                if !enc_dec.is_empty() {
+                    spans.push(Span::styled(
+                        format!("{} ", enc_dec),
+                        Style::default().fg(Color::Yellow),
+                    ));
+                }
+
+                // Calculate remaining space for command
+                let fixed_width = 3 + 3 + 1 + mem_bar_width + 3 + 1 + enc_dec.len() + if enc_dec.is_empty() { 0 } else { 1 };
+                let cmd_width = (inner.width as usize).saturating_sub(fixed_width);
+
+                // Command name
+                spans.push(Span::styled(
+                    truncate_str(&proc.command, cmd_width),
+                    Style::default().fg(Color::White),
+                ));
 
                 f.render_widget(
-                    Paragraph::new(proc_line),
+                    Paragraph::new(Line::from(spans)),
                     Rect { x: inner.x, y, width: inner.width, height: 1 },
                 );
                 y += 1;
