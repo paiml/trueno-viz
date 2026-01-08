@@ -27,3 +27,4 @@ wasm-pkg/node_modules/
 wasm-pkg/test-results/
 wasm-pkg/playwright-report/
 .pmat-gates.toml
+.cargo/config.local.toml

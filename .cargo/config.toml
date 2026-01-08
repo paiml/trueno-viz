@@ -1,3 +1,6 @@
-# ZRAM build acceleration
+# Cargo configuration
+# Local overrides (like target-dir) should go in .cargo/config.local.toml
+
 [build]
-target-dir = "/mnt/zram/targets/trueno-viz"
+# Uncomment for ZRAM acceleration on Linux:
+# target-dir = "/mnt/zram/targets/trueno-viz"

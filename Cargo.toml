@@ -4,7 +4,7 @@ exclude = ["crates/ttop"]
 
 [package]
 name = "trueno-viz"
-version = "0.1.16"
+version = "0.1.17"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
