@@ -54,14 +54,27 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         draw_top_panels(f, app, main_chunks[0]);
     }
 
-    // Draw process panel
+    // Draw bottom row: Processes | Network Connections | File Treemap
     if has_process {
-        let proc_area = if top_panel_count > 0 {
+        let bottom_area = if top_panel_count > 0 {
             main_chunks[1]
         } else {
             main_chunks[0]
         };
-        panels::draw_process(f, app, proc_area);
+
+        // Split bottom into 3 columns
+        let bottom_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Percentage(40), // Processes
+                Constraint::Percentage(30), // Network connections
+                Constraint::Percentage(30), // File treemap
+            ])
+            .split(bottom_area);
+
+        panels::draw_process(f, app, bottom_chunks[0]);
+        panels::draw_connections(f, app, bottom_chunks[1]);
+        panels::draw_treemap(f, app, bottom_chunks[2]);
     }
 
     // FPS overlay
@@ -100,7 +113,7 @@ fn count_top_panels(app: &App) -> u32 {
     if app.panels.battery && app.battery.is_available() {
         count += 1;
     }
-    if app.panels.sensors && app.sensors.is_available() {
+    if app.panels.sensors && (app.sensors.is_available() || app.psi_analyzer.is_available() || app.container_analyzer.is_available()) {
         count += 1;
     }
     count
@@ -146,8 +159,8 @@ fn draw_top_panels(f: &mut Frame, app: &App, area: Rect) {
     if app.panels.battery && app.battery.is_available() {
         panels_to_draw.push((panels::draw_battery, app));
     }
-    if app.panels.sensors && app.sensors.is_available() {
-        panels_to_draw.push((panels::draw_sensors, app));
+    if app.panels.sensors && (app.sensors.is_available() || app.psi_analyzer.is_available() || app.container_analyzer.is_available()) {
+        panels_to_draw.push((panels::draw_system, app));
     }
 
     // Draw panels in grid

@@ -20,19 +20,6 @@ exclude = ["tests/", "target/"]
 name = "ttop"
 path = "src/main.rs"
 
-[[example]]
-name = "headless"
-path = "examples/headless.rs"
-
-[[example]]
-name = "collectors"
-path = "examples/collectors.rs"
-
-[[example]]
-name = "apple_accelerators"
-path = "examples/apple_accelerators.rs"
-required-features = ["apple-hardware"]
-
 [dependencies]
 # Core monitoring library (re-exports ratatui for trait compatibility)
 trueno-viz = { version = "0.1.12", path = "../..", features = ["monitor"] }
