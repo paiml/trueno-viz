@@ -181,15 +181,41 @@ impl App {
 
         frame.render_widget(Paragraph::new(cpu_content).block(cpu_block), chunks[0]);
 
-        // Render memory panel
+        // Render memory panel with detailed swap info
         let mem_block = Block::default()
             .title(" Memory ")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Green));
 
         let mem_content = if let Some(metrics) = self.state.latest("memory") {
-            let percent = metrics.get_gauge("memory.used.percent").unwrap_or(0.0);
-            format!("Memory Usage: {:.1}%", percent)
+            let total = metrics.get_counter("memory.total").unwrap_or(0);
+            let used = metrics.get_counter("memory.used").unwrap_or(0);
+            let swap_total = metrics.get_counter("memory.swap.total").unwrap_or(0);
+            let swap_used = metrics.get_counter("memory.swap.used").unwrap_or(0);
+
+            let total_gb = total as f64 / (1024.0 * 1024.0 * 1024.0);
+            let used_gb = used as f64 / (1024.0 * 1024.0 * 1024.0);
+            let swap_total_gb = swap_total as f64 / (1024.0 * 1024.0 * 1024.0);
+            let swap_used_gb = swap_used as f64 / (1024.0 * 1024.0 * 1024.0);
+
+            // macOS-specific: show compressed memory
+            #[cfg(target_os = "macos")]
+            let extra = {
+                let compressed = metrics.get_counter("memory.compressed").unwrap_or(0);
+                let compressed_gb = compressed as f64 / (1024.0 * 1024.0 * 1024.0);
+                if compressed_gb > 0.1 {
+                    format!(" | Compressed: {:.1}G", compressed_gb)
+                } else {
+                    String::new()
+                }
+            };
+            #[cfg(not(target_os = "macos"))]
+            let extra = String::new();
+
+            format!(
+                "RAM: {:.0}/{:.0}G | Swap: {:.0}/{:.0}G{}",
+                used_gb, total_gb, swap_used_gb, swap_total_gb, extra
+            )
         } else {
             "Memory: collecting...".to_string()
         };
