@@ -1,10 +1,16 @@
 //! Network connection tracking - Little Snitch style.
 //!
-//! Parses /proc/net/tcp and /proc/net/udp for active connections.
+//! On Linux: Parses /proc/net/tcp and /proc/net/udp for active connections.
+//! On macOS: Uses netstat -anp tcp/udp for connections.
 
 use std::collections::HashMap;
-use std::fs;
 use std::net::Ipv4Addr;
+
+#[cfg(target_os = "linux")]
+use std::fs;
+
+#[cfg(target_os = "macos")]
+use std::process::Command;
 
 /// Connection state
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -122,20 +128,139 @@ impl ConnectionAnalyzer {
     pub fn collect(&mut self) {
         self.connections.clear();
 
-        // Parse TCP connections
-        if let Ok(content) = fs::read_to_string("/proc/net/tcp") {
-            self.parse_proc_net(&content, Protocol::Tcp);
+        #[cfg(target_os = "linux")]
+        {
+            // Parse TCP connections
+            if let Ok(content) = fs::read_to_string("/proc/net/tcp") {
+                self.parse_proc_net(&content, Protocol::Tcp);
+            }
+
+            // Parse UDP connections
+            if let Ok(content) = fs::read_to_string("/proc/net/udp") {
+                self.parse_proc_net(&content, Protocol::Udp);
+            }
+
+            // Build inode -> pid mapping (expensive, do periodically)
+            self.build_inode_map();
         }
 
-        // Parse UDP connections
-        if let Ok(content) = fs::read_to_string("/proc/net/udp") {
-            self.parse_proc_net(&content, Protocol::Udp);
+        #[cfg(target_os = "macos")]
+        {
+            self.collect_macos();
         }
-
-        // Build inode -> pid mapping (expensive, do periodically)
-        self.build_inode_map();
     }
 
+    /// Collect connections on macOS using netstat
+    #[cfg(target_os = "macos")]
+    fn collect_macos(&mut self) {
+        // netstat -anp tcp gives us TCP connections
+        if let Ok(output) = Command::new("netstat")
+            .args(["-anp", "tcp"])
+            .output()
+        {
+            if output.status.success() {
+                let content = String::from_utf8_lossy(&output.stdout);
+                self.parse_netstat_macos(&content, Protocol::Tcp);
+            }
+        }
+
+        // netstat -anp udp gives us UDP connections
+        if let Ok(output) = Command::new("netstat")
+            .args(["-anp", "udp"])
+            .output()
+        {
+            if output.status.success() {
+                let content = String::from_utf8_lossy(&output.stdout);
+                self.parse_netstat_macos(&content, Protocol::Udp);
+            }
+        }
+    }
+
+    /// Parse macOS netstat output
+    #[cfg(target_os = "macos")]
+    fn parse_netstat_macos(&mut self, content: &str, protocol: Protocol) {
+        // macOS netstat format:
+        // Proto Recv-Q Send-Q  Local Address          Foreign Address        (state)
+        // tcp4       0      0  192.168.1.100.443      10.0.0.1.52134         ESTABLISHED
+        for line in content.lines().skip(2) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 5 {
+                continue;
+            }
+
+            // Parse local address (ip.port format)
+            let (local_ip, local_port) = match Self::parse_macos_addr(parts[3]) {
+                Some(a) => a,
+                None => continue,
+            };
+
+            // Parse remote address
+            let (remote_ip, remote_port) = match Self::parse_macos_addr(parts[4]) {
+                Some(a) => a,
+                None => continue,
+            };
+
+            // Parse state (TCP only)
+            let state = if parts.len() > 5 {
+                Self::parse_macos_state(parts[5])
+            } else {
+                ConnState::Unknown
+            };
+
+            self.connections.push(Connection {
+                protocol,
+                local_ip,
+                local_port,
+                remote_ip,
+                remote_port,
+                state,
+                inode: 0,
+                uid: 0,
+                tx_queue: 0,
+                rx_queue: 0,
+            });
+        }
+    }
+
+    /// Parse macOS address format: ip.port or *.port
+    #[cfg(target_os = "macos")]
+    fn parse_macos_addr(addr: &str) -> Option<(Ipv4Addr, u16)> {
+        // Find the last dot (port separator)
+        let last_dot = addr.rfind('.')?;
+        let ip_str = &addr[..last_dot];
+        let port_str = &addr[last_dot + 1..];
+
+        let port = port_str.parse().ok()?;
+
+        let ip = if ip_str == "*" {
+            Ipv4Addr::new(0, 0, 0, 0)
+        } else {
+            ip_str.parse().unwrap_or(Ipv4Addr::new(0, 0, 0, 0))
+        };
+
+        Some((ip, port))
+    }
+
+    /// Parse macOS connection state
+    #[cfg(target_os = "macos")]
+    fn parse_macos_state(state: &str) -> ConnState {
+        match state {
+            "ESTABLISHED" => ConnState::Established,
+            "LISTEN" => ConnState::Listen,
+            "TIME_WAIT" => ConnState::TimeWait,
+            "CLOSE_WAIT" => ConnState::CloseWait,
+            "SYN_SENT" => ConnState::SynSent,
+            "SYN_RECEIVED" => ConnState::SynRecv,
+            "FIN_WAIT_1" => ConnState::FinWait1,
+            "FIN_WAIT_2" => ConnState::FinWait2,
+            "CLOSING" => ConnState::Closing,
+            "LAST_ACK" => ConnState::LastAck,
+            "CLOSED" => ConnState::Close,
+            _ => ConnState::Unknown,
+        }
+    }
+
+    #[cfg(target_os = "linux")]
     fn parse_proc_net(&mut self, content: &str, protocol: Protocol) {
         for line in content.lines().skip(1) {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -180,6 +305,7 @@ impl ConnectionAnalyzer {
         }
     }
 
+    #[cfg(target_os = "linux")]
     fn parse_addr(hex_addr: &str) -> Option<(Ipv4Addr, u16)> {
         let parts: Vec<&str> = hex_addr.split(':').collect();
         if parts.len() != 2 {
@@ -200,6 +326,7 @@ impl ConnectionAnalyzer {
         Some((ip, port))
     }
 
+    #[cfg(target_os = "linux")]
     fn build_inode_map(&mut self) {
         self.inode_to_pid.clear();
 

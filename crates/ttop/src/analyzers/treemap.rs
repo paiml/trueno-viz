@@ -106,6 +106,16 @@ fn find_large_files() -> Vec<LargeFile> {
     let mut files = Vec::new();
 
     // Scan common directories for large files
+    #[cfg(target_os = "macos")]
+    let scan_dirs = [
+        "/Users",
+        "/Applications",
+        "/Library",
+        "/opt",
+        "/tmp",
+    ];
+
+    #[cfg(not(target_os = "macos"))]
     let scan_dirs = [
         "/home",
         "/var",
