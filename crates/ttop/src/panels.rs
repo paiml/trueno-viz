@@ -135,13 +135,13 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
 }
 
 /// Draw Memory panel - btop style, adaptive to available space
-/// Enhanced with swap thrashing detection (Denning 1968) and ZRAM monitoring
+/// Enhanced with swap thrashing detection (Denning 1968), ZRAM monitoring, and PSI
 pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
-    use crate::analyzers::ThrashingSeverity;
+    use crate::analyzers::PressureLevel;
 
     let total_gb = app.mem_total as f64 / (1024.0 * 1024.0 * 1024.0);
     let used_gb = app.mem_used as f64 / (1024.0 * 1024.0 * 1024.0);
-    let available_gb = app.mem_available as f64 / (1024.0 * 1024.0 * 1024.0);
+    let _available_gb = app.mem_available as f64 / (1024.0 * 1024.0 * 1024.0);
     let cached_gb = app.mem_cached as f64 / (1024.0 * 1024.0 * 1024.0);
     let free_gb = app.mem_free as f64 / (1024.0 * 1024.0 * 1024.0);
     let swap_used_gb = app.swap_used as f64 / (1024.0 * 1024.0 * 1024.0);
@@ -152,7 +152,7 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
     } else {
         0.0
     };
-    let avail_pct = if app.mem_total > 0 {
+    let _avail_pct = if app.mem_total > 0 {
         (app.mem_available as f64 / app.mem_total as f64) * 100.0
     } else {
         0.0
@@ -173,15 +173,6 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
         0.0
     };
 
-    // Thrashing detection (Denning's Working Set Model)
-    let thrashing = app.thrashing_severity();
-    let thrashing_indicator = match thrashing {
-        ThrashingSeverity::None => " │ PSI:OK",
-        ThrashingSeverity::Mild => " │ PSI:Mild",
-        ThrashingSeverity::Moderate => " │ PSI:WARN",
-        ThrashingSeverity::Severe => " │ PSI:CRIT",
-    };
-
     // ZRAM info if available
     let zram_info = if app.has_zram() {
         format!(" │ ZRAM:{:.1}x", app.zram_ratio())
@@ -190,7 +181,7 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let title = format!(
-        " Memory │ {used_gb:.1}G / {total_gb:.1}G ({used_pct:.0}%){thrashing_indicator}{zram_info} "
+        " Memory │ {used_gb:.1}G / {total_gb:.1}G ({used_pct:.0}%){zram_info} "
     );
 
     let block = btop_block(&title, borders::MEMORY);
@@ -202,69 +193,8 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    // Adaptive layout based on available height
-    // Priority: Used/Available/Cached/Free/Swap rows with sparklines
-
-    struct MemRow<'a> {
-        label: &'static str,
-        value_gb: f64,
-        pct: f64,
-        history: &'a [f64],
-        color: trueno_viz::monitor::ratatui::style::Color,
-    }
-
-    let mut rows: Vec<MemRow> = vec![
-        MemRow {
-            label: "Used",
-            value_gb: used_gb,
-            pct: used_pct,
-            history: &app.mem_history,
-            color: percent_color(used_pct),
-        },
-        MemRow {
-            label: "Available",
-            value_gb: available_gb,
-            pct: avail_pct,
-            history: &app.mem_available_history,
-            color: trueno_viz::monitor::ratatui::style::Color::Green,
-        },
-        MemRow {
-            label: "Cached",
-            value_gb: cached_gb,
-            pct: cached_pct,
-            history: &app.mem_cached_history,
-            color: trueno_viz::monitor::ratatui::style::Color::Cyan,
-        },
-        MemRow {
-            label: "Free",
-            value_gb: free_gb,
-            pct: free_pct,
-            history: &app.mem_free_history,
-            color: trueno_viz::monitor::ratatui::style::Color::Blue,
-        },
-    ];
-
-    // Add swap if exists
-    if app.swap_total > 0 {
-        let swap_color = if swap_pct > 50.0 {
-            trueno_viz::monitor::ratatui::style::Color::Red
-        } else if swap_pct > 10.0 {
-            trueno_viz::monitor::ratatui::style::Color::Yellow
-        } else {
-            trueno_viz::monitor::ratatui::style::Color::Green
-        };
-        rows.push(MemRow {
-            label: "Swap",
-            value_gb: swap_used_gb,
-            pct: swap_pct,
-            history: &app.swap_history,
-            color: swap_color,
-        });
-    }
-
-    // Calculate how many rows we can show
-    let available_rows = inner.height as usize;
-    let rows_to_show = rows.len().min(available_rows);
+    use trueno_viz::monitor::ratatui::style::Color;
+    use trueno_viz::monitor::ratatui::text::{Line, Span};
 
     // For very small panels, just show a meter
     if inner.height < 3 {
@@ -276,40 +206,200 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
     }
 
     let mut y = inner.y;
+
+    // === LINE 1: Stacked memory bar ===
+    // [████████████░░░░░░░░░░░░░░░] Used|Cached|Free
+    {
+        let bar_width = inner.width as usize;
+
+        // Calculate segment widths (used includes buffers, then cached, then free)
+        let used_actual_pct = if app.mem_total > 0 {
+            ((app.mem_total - app.mem_available) as f64 / app.mem_total as f64) * 100.0
+        } else { 0.0 };
+
+        let used_chars = ((used_actual_pct / 100.0) * bar_width as f64) as usize;
+        let cached_chars = ((cached_pct / 100.0) * bar_width as f64) as usize;
+        let free_chars = bar_width.saturating_sub(used_chars + cached_chars);
+
+        let mut bar_spans = Vec::new();
+
+        // Used segment (red/yellow based on pressure)
+        let used_color = percent_color(used_actual_pct);
+        if used_chars > 0 {
+            bar_spans.push(Span::styled("█".repeat(used_chars), Style::default().fg(used_color)));
+        }
+
+        // Cached segment (cyan)
+        if cached_chars > 0 {
+            bar_spans.push(Span::styled("█".repeat(cached_chars), Style::default().fg(Color::Cyan)));
+        }
+
+        // Free segment (dark/dim)
+        if free_chars > 0 {
+            bar_spans.push(Span::styled("░".repeat(free_chars), Style::default().fg(Color::DarkGray)));
+        }
+
+        f.render_widget(
+            Paragraph::new(Line::from(bar_spans)),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+    }
+
+    // === LINES 2+: Memory rows ===
+    struct MemRow<'a> {
+        label: &'static str,
+        value_gb: f64,
+        total_gb: Option<f64>,
+        pct: f64,
+        history: &'a [f64],
+        color: Color,
+    }
+
+    let mut rows: Vec<MemRow> = vec![
+        MemRow {
+            label: "Used",
+            value_gb: used_gb,
+            total_gb: None,
+            pct: used_pct,
+            history: &app.mem_history,
+            color: percent_color(used_pct),
+        },
+        MemRow {
+            label: "Cached",
+            value_gb: cached_gb,
+            total_gb: None,
+            pct: cached_pct,
+            history: &app.mem_cached_history,
+            color: Color::Cyan,
+        },
+        MemRow {
+            label: "Free",
+            value_gb: free_gb,
+            total_gb: None,
+            pct: free_pct,
+            history: &app.mem_free_history,
+            color: Color::Blue,
+        },
+    ];
+
+    // Insert swap after Used (position 1) if exists
+    if app.swap_total > 0 {
+        let swap_total_gb = app.swap_total as f64 / (1024.0 * 1024.0 * 1024.0);
+        let swap_color = if swap_pct > 50.0 {
+            Color::Red
+        } else if swap_pct > 10.0 {
+            Color::Yellow
+        } else {
+            Color::Green
+        };
+        rows.insert(1, MemRow {
+            label: "Swap",
+            value_gb: swap_used_gb,
+            total_gb: Some(swap_total_gb),
+            pct: swap_pct,
+            history: &app.swap_history,
+            color: swap_color,
+        });
+    }
+
+    // Reserve lines for PSI (1) and Top consumers (1) at bottom
+    let reserved_bottom = 2;
+    let available_for_rows = (inner.y + inner.height).saturating_sub(y + reserved_bottom) as usize;
+    let rows_to_show = rows.len().min(available_for_rows);
+
     for row in rows.iter().take(rows_to_show) {
-        // Compact format: "Used: 85.4G 68 ▁▂▃▄▅▆▇█→"
-        let label_part = format!("{:>9}: {:>5.1}G {:>2.0}", row.label, row.value_gb, row.pct);
+        let label_part = if let Some(total) = row.total_gb {
+            format!("{:>6}: {:>3.0}/{:.0}G {:>2.0}", row.label, row.value_gb, total, row.pct)
+        } else {
+            format!("{:>6}: {:>5.1}G {:>2.0}", row.label, row.value_gb, row.pct)
+        };
         let label_width = label_part.len() as u16 + 1;
         let sparkline_width = inner.width.saturating_sub(label_width);
 
-        // Draw label
         f.render_widget(
             Paragraph::new(label_part).style(Style::default().fg(row.color)),
-            Rect {
-                x: inner.x,
-                y,
-                width: label_width,
-                height: 1,
-            },
+            Rect { x: inner.x, y, width: label_width, height: 1 },
         );
 
-        // Draw sparkline
         if sparkline_width > 3 && !row.history.is_empty() {
             let sparkline = MonitorSparkline::new(row.history)
                 .color(row.color)
                 .show_trend(true);
             f.render_widget(
                 sparkline,
-                Rect {
-                    x: inner.x + label_width,
-                    y,
-                    width: sparkline_width,
-                    height: 1,
-                },
+                Rect { x: inner.x + label_width, y, width: sparkline_width, height: 1 },
             );
         }
-
         y += 1;
+    }
+
+    // === PSI Row ===
+    if y < inner.y + inner.height && app.psi_analyzer.is_available() {
+        let psi = &app.psi_analyzer;
+        let level_color = |level: PressureLevel| -> Color {
+            match level {
+                PressureLevel::None => Color::DarkGray,
+                PressureLevel::Low => Color::Green,
+                PressureLevel::Medium => Color::Yellow,
+                PressureLevel::High => Color::LightRed,
+                PressureLevel::Critical => Color::Red,
+            }
+        };
+
+        let cpu_lvl = psi.cpu_level();
+        let mem_lvl = psi.memory_level();
+        let io_lvl = psi.io_level();
+
+        let pressure_line = Line::from(vec![
+            Span::styled("PSI ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}{:>4.1}", cpu_lvl.symbol(), psi.cpu.some_avg10),
+                         Style::default().fg(level_color(cpu_lvl))),
+            Span::styled(" cpu ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}{:>4.1}", mem_lvl.symbol(), psi.memory.some_avg10),
+                         Style::default().fg(level_color(mem_lvl))),
+            Span::styled(" mem ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}{:>4.1}", io_lvl.symbol(), psi.io.some_avg10),
+                         Style::default().fg(level_color(io_lvl))),
+            Span::styled(" io", Style::default().fg(Color::DarkGray)),
+        ]);
+
+        f.render_widget(
+            Paragraph::new(pressure_line),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+    }
+
+    // === Top Memory Consumers Row ===
+    if y < inner.y + inner.height {
+        // Get top 3 processes by memory
+        let mut procs: Vec<_> = app.process.processes().values().collect();
+        procs.sort_by(|a, b| b.mem_bytes.cmp(&a.mem_bytes));
+
+        let mut spans = vec![Span::styled("Top:", Style::default().fg(Color::DarkGray))];
+
+        for proc in procs.iter().take(3) {
+            let mem_gb = proc.mem_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+            let name: String = proc.name.chars().take(10).collect();
+            spans.push(Span::raw(" "));
+            spans.push(Span::styled(name, Style::default().fg(Color::White)));
+            spans.push(Span::styled(
+                format!(" {:.1}G", mem_gb),
+                Style::default().fg(Color::Magenta),
+            ));
+            spans.push(Span::styled(" │", Style::default().fg(Color::DarkGray)));
+        }
+
+        // Remove trailing separator
+        if !procs.is_empty() {
+            spans.pop();
+        }
+
+        f.render_widget(
+            Paragraph::new(Line::from(spans)),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
     }
 }
 
@@ -1147,26 +1237,22 @@ pub fn draw_psi(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-/// Draw combined System panel: Sensors + PSI + Containers stacked vertically
+/// Draw combined System panel: Sensors + Containers stacked vertically
+/// (PSI is now shown in the Memory panel)
 pub fn draw_system(f: &mut Frame, app: &App, area: Rect) {
     use trueno_viz::monitor::ratatui::layout::{Layout, Direction, Constraint};
 
     // Determine what components are available
     let has_sensors = app.sensors.is_available();
-    let has_psi = app.psi_analyzer.is_available();
     let has_containers = app.container_analyzer.is_available();
 
     // Calculate heights
     let sensor_height = if has_sensors { 3 } else { 0 }; // border + 1 line
-    let psi_height = if has_psi { 4 } else { 0 }; // border + 2 lines
-    let container_height = area.height.saturating_sub(sensor_height + psi_height);
+    let container_height = area.height.saturating_sub(sensor_height);
 
     let mut constraints = Vec::new();
     if has_sensors {
         constraints.push(Constraint::Length(sensor_height));
-    }
-    if has_psi {
-        constraints.push(Constraint::Length(psi_height));
     }
     if has_containers && container_height > 2 {
         constraints.push(Constraint::Min(3));
@@ -1186,12 +1272,6 @@ pub fn draw_system(f: &mut Frame, app: &App, area: Rect) {
     // Sensors (compact)
     if has_sensors && chunk_idx < chunks.len() {
         draw_sensors_compact(f, app, chunks[chunk_idx]);
-        chunk_idx += 1;
-    }
-
-    // PSI
-    if has_psi && chunk_idx < chunks.len() {
-        draw_psi(f, app, chunks[chunk_idx]);
         chunk_idx += 1;
     }
 
