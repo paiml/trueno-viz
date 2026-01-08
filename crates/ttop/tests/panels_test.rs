@@ -8,9 +8,12 @@
 #![allow(clippy::for_kv_map)]
 #![allow(clippy::manual_range_contains)]
 #![allow(clippy::useless_vec)]
+#![allow(clippy::field_reassign_with_default)]
+#![allow(clippy::needless_update)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
 #![allow(unused_imports)]
+#![allow(unused_mut)]
 //! Pixel-level tests verify:
 //! - Border characters render correctly (╭ ╮ ╰ ╯ ─ │)
 //! - Graph characters render (block chars: █▓▒░ or braille: ⡀⡄⡆⡇)
@@ -1547,15 +1550,17 @@ mod app_brick_tests {
     #[test]
     fn brick_app_panel_visibility() {
         let app = App::new(true, false);
-        // Test all panel visibility accessors
-        assert!(app.panels.cpu || !app.panels.cpu);
-        assert!(app.panels.memory || !app.panels.memory);
-        assert!(app.panels.disk || !app.panels.disk);
-        assert!(app.panels.network || !app.panels.network);
-        assert!(app.panels.gpu || !app.panels.gpu);
-        assert!(app.panels.battery || !app.panels.battery);
-        assert!(app.panels.sensors || !app.panels.sensors);
-        assert!(app.panels.process || !app.panels.process);
+        // Test all panel visibility accessors (default visibility)
+        let _ = app.panels.cpu;
+        let _ = app.panels.memory;
+        let _ = app.panels.disk;
+        let _ = app.panels.network;
+        let _ = app.panels.gpu;
+        let _ = app.panels.battery;
+        let _ = app.panels.sensors;
+        let _ = app.panels.process;
+        // Verify at least one core panel is visible by default
+        assert!(app.panels.cpu || app.panels.memory || app.panels.process);
     }
 
     #[test]
@@ -2192,7 +2197,7 @@ mod ring_buffer_tests {
 
     #[test]
     fn brick_ring_buffer_basic() {
-        let mut buf: RingBuffer<i32> = RingBuffer::new(3);
+        let buf: RingBuffer<i32> = RingBuffer::new(3);
         assert!(buf.is_empty());
         assert_eq!(buf.len(), 0);
         assert_eq!(buf.capacity(), 3);
@@ -2797,13 +2802,12 @@ mod analyzer_tests {
         analyzer.collect();
 
         // Test device-specific methods if any devices exist
-        for (device_name, _) in analyzer.device_stats().iter() {
+        if let Some((device_name, _)) = analyzer.device_stats().iter().next() {
             let _dev = analyzer.device(device_name);
             let _latency = analyzer.estimated_latency_ms(device_name);
             let _workload = analyzer.workload_type(device_name);
             let _read = analyzer.device_read_history(device_name);
             let _write = analyzer.device_write_history(device_name);
-            break; // Just test first device
         }
     }
 
@@ -2893,5 +2897,525 @@ mod theme_branch_tests {
         let _mins = format_uptime(300.0);         // < 1 hour
         let _hours = format_uptime(7200.0);       // 2 hours
         let _days = format_uptime(100000.0);      // > 1 day
+    }
+}
+
+// ============================================================================
+// NetworkStatsAnalyzer Tests (Linux-only)
+// ============================================================================
+
+#[cfg(target_os = "linux")]
+mod network_stats_tests {
+    use ttop::analyzers::{NetworkStatsAnalyzer, ProtocolStats, TcpPerformance, QueueStats};
+
+    #[test]
+    fn brick_network_stats_analyzer_new() {
+        let analyzer = NetworkStatsAnalyzer::new();
+        assert!(analyzer.interface_errors.is_empty());
+        assert_eq!(analyzer.protocol_stats.tcp_established, 0);
+    }
+
+    #[test]
+    fn brick_network_stats_analyzer_collect() {
+        let mut analyzer = NetworkStatsAnalyzer::new();
+
+        // First collection
+        analyzer.collect();
+
+        // TCP stats should be populated (will be 0+ depending on system)
+        let _total_tcp = analyzer.protocol_stats.tcp_total(); // Can be 0 on isolated systems
+
+        // Second collection for delta tracking
+        analyzer.collect();
+    }
+
+    #[test]
+    fn brick_protocol_stats_tcp_total() {
+        let stats = ProtocolStats {
+            tcp_established: 10,
+            tcp_syn_sent: 1,
+            tcp_syn_recv: 0,
+            tcp_fin_wait1: 2,
+            tcp_fin_wait2: 1,
+            tcp_time_wait: 5,
+            tcp_close: 0,
+            tcp_close_wait: 3,
+            tcp_last_ack: 0,
+            tcp_listen: 8,
+            tcp_closing: 0,
+            udp_sockets: 15,
+            icmp_sockets: 2,
+        };
+
+        // Should sum all TCP states
+        assert_eq!(stats.tcp_total(), 30);
+    }
+
+    #[test]
+    fn brick_network_stats_total_errors() {
+        let mut analyzer = NetworkStatsAnalyzer::new();
+        analyzer.collect();
+
+        let (rx_errs, tx_errs) = analyzer.total_errors();
+        // Just verify it returns something (can be 0 on healthy systems)
+        let _ = rx_errs;
+        let _ = tx_errs;
+    }
+
+    #[test]
+    fn brick_network_stats_error_deltas() {
+        let mut analyzer = NetworkStatsAnalyzer::new();
+
+        // Collect twice to have delta
+        analyzer.collect();
+        analyzer.collect();
+
+        let (rx_delta, tx_delta) = analyzer.total_error_deltas();
+        // Deltas should be 0 or positive in short time window (unsigned types)
+        let _ = rx_delta;
+        let _ = tx_delta;
+    }
+
+    #[test]
+    fn brick_network_stats_has_recent_errors() {
+        let mut analyzer = NetworkStatsAnalyzer::new();
+        analyzer.collect();
+        analyzer.collect();
+
+        // Just verify the method works (likely false on healthy systems)
+        let _has_errs = analyzer.has_recent_errors();
+    }
+
+    #[test]
+    fn brick_network_stats_latency_gauge() {
+        let mut analyzer = NetworkStatsAnalyzer::new();
+        analyzer.collect();
+
+        let gauge = analyzer.latency_gauge();
+
+        // Should be one of the gauge strings
+        let valid_gauges = ["●●●●●", "●●●●○", "●●●○○", "●●○○○", "●○○○○"];
+        assert!(
+            valid_gauges.contains(&gauge),
+            "Invalid gauge: {}", gauge
+        );
+    }
+
+    #[test]
+    fn brick_latency_gauge_thresholds() {
+        // Test gauge returns appropriate value for different RTT values
+        let mut analyzer = NetworkStatsAnalyzer::new();
+
+        // Set low RTT - should be excellent
+        analyzer.tcp_perf.rtt_ms = 5.0;
+        assert_eq!(analyzer.latency_gauge(), "●●●●●");
+
+        // Set medium RTT - should be good
+        analyzer.tcp_perf.rtt_ms = 15.0;
+        assert_eq!(analyzer.latency_gauge(), "●●●●○");
+
+        // Set fair RTT
+        analyzer.tcp_perf.rtt_ms = 35.0;
+        assert_eq!(analyzer.latency_gauge(), "●●●○○");
+
+        // Set poor RTT
+        analyzer.tcp_perf.rtt_ms = 75.0;
+        assert_eq!(analyzer.latency_gauge(), "●●○○○");
+
+        // Set bad RTT
+        analyzer.tcp_perf.rtt_ms = 150.0;
+        assert_eq!(analyzer.latency_gauge(), "●○○○○");
+    }
+
+    #[test]
+    fn brick_tcp_performance_default() {
+        let perf = TcpPerformance::default();
+        assert_eq!(perf.rtt_ms, 0.0);
+        assert_eq!(perf.retrans_rate, 0.0);
+        assert_eq!(perf.retrans_segs, 0);
+        assert_eq!(perf.total_segs_out, 0);
+    }
+
+    #[test]
+    fn brick_queue_stats_default() {
+        let stats = QueueStats::default();
+        assert_eq!(stats.total_rx_queue, 0);
+        assert_eq!(stats.total_tx_queue, 0);
+        assert_eq!(stats.max_rx_queue, 0);
+        assert_eq!(stats.max_tx_queue, 0);
+        assert_eq!(stats.rx_queue_count, 0);
+        assert_eq!(stats.tx_queue_count, 0);
+        assert!(!stats.syn_backlog_pressure);
+    }
+
+    #[test]
+    fn brick_network_stats_queue_stats() {
+        let mut analyzer = NetworkStatsAnalyzer::new();
+        analyzer.collect();
+
+        // Queue stats should be populated (typically 0 on idle systems)
+        let queues = &analyzer.queue_stats;
+        let _ = queues.total_rx_queue; // unsigned, always valid
+        let _ = queues.total_tx_queue;
+    }
+
+    #[test]
+    fn brick_network_stats_interface_errors() {
+        let mut analyzer = NetworkStatsAnalyzer::new();
+        analyzer.collect();
+
+        // Should have at least some interfaces (unless truly isolated)
+        // On most systems there's at least loopback, but we skip lo
+        // Just verify it doesn't panic
+        for (iface, errors) in &analyzer.interface_errors {
+            assert!(!iface.is_empty());
+            let _ = errors.rx_errors; // unsigned, always valid
+            let _ = errors.tx_errors;
+        }
+    }
+
+    #[test]
+    fn brick_protocol_stats_default() {
+        let stats = ProtocolStats::default();
+        assert_eq!(stats.tcp_total(), 0);
+        assert_eq!(stats.udp_sockets, 0);
+        assert_eq!(stats.icmp_sockets, 0);
+    }
+}
+
+// ============================================================================
+// DiskEntropyAnalyzer Tests
+// ============================================================================
+
+// ============================================================================
+// PanelType and Navigation Tests
+// ============================================================================
+
+mod panel_type_tests {
+    use ttop::state::PanelType;
+
+    #[test]
+    fn brick_panel_type_all() {
+        let all = PanelType::all();
+        assert_eq!(all.len(), 9);
+        assert_eq!(all[0], PanelType::Cpu);
+        assert_eq!(all[7], PanelType::Sensors);
+        assert_eq!(all[8], PanelType::Files);
+    }
+
+    #[test]
+    fn brick_panel_type_number() {
+        assert_eq!(PanelType::Cpu.number(), 1);
+        assert_eq!(PanelType::Memory.number(), 2);
+        assert_eq!(PanelType::Disk.number(), 3);
+        assert_eq!(PanelType::Network.number(), 4);
+        assert_eq!(PanelType::Process.number(), 5);
+        assert_eq!(PanelType::Gpu.number(), 6);
+        assert_eq!(PanelType::Battery.number(), 7);
+        assert_eq!(PanelType::Sensors.number(), 8);
+    }
+
+    #[test]
+    fn brick_panel_type_name() {
+        assert_eq!(PanelType::Cpu.name(), "CPU");
+        assert_eq!(PanelType::Memory.name(), "Memory");
+        assert_eq!(PanelType::Process.name(), "Process");
+    }
+
+    #[test]
+    fn brick_panel_type_next() {
+        assert_eq!(PanelType::Cpu.next(), PanelType::Memory);
+        assert_eq!(PanelType::Memory.next(), PanelType::Disk);
+        assert_eq!(PanelType::Sensors.next(), PanelType::Files);
+        assert_eq!(PanelType::Files.next(), PanelType::Cpu); // Wrap around
+    }
+
+    #[test]
+    fn brick_panel_type_prev() {
+        assert_eq!(PanelType::Memory.prev(), PanelType::Cpu);
+        assert_eq!(PanelType::Cpu.prev(), PanelType::Files); // Wrap around
+        assert_eq!(PanelType::Disk.prev(), PanelType::Memory);
+        assert_eq!(PanelType::Files.prev(), PanelType::Sensors);
+    }
+
+    #[test]
+    fn brick_panel_type_cycle() {
+        // Full cycle through next (9 panels now including Files)
+        let mut panel = PanelType::Cpu;
+        for _ in 0..9 {
+            panel = panel.next();
+        }
+        assert_eq!(panel, PanelType::Cpu); // Should be back at start
+    }
+}
+
+mod panel_navigation_tests {
+    use ttop::app::App;
+    use ttop::state::PanelType;
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    fn create_test_app() -> App {
+        App::new(true, false) // deterministic mode
+    }
+
+    #[test]
+    fn brick_app_initial_focus_state() {
+        let app = create_test_app();
+        assert!(app.focused_panel.is_none());
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn brick_app_visible_panels() {
+        let app = create_test_app();
+        let visible = app.visible_panels();
+        // Should have at least CPU, Memory, Disk, Network, Process
+        assert!(visible.len() >= 5);
+        assert!(visible.contains(&PanelType::Cpu));
+        assert!(visible.contains(&PanelType::Process));
+    }
+
+    #[test]
+    fn brick_app_h_key_starts_focus() {
+        let mut app = create_test_app();
+        assert!(app.focused_panel.is_none());
+
+        // Press 'h' to start panel focus
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+
+        // Should now have focus
+        assert!(app.focused_panel.is_some());
+    }
+
+    #[test]
+    fn brick_app_l_key_navigates() {
+        let mut app = create_test_app();
+
+        // Press 'l' to start and navigate
+        app.handle_key(KeyCode::Char('l'), KeyModifiers::NONE);
+        let first_focus = app.focused_panel;
+
+        app.handle_key(KeyCode::Char('l'), KeyModifiers::NONE);
+        let second_focus = app.focused_panel;
+
+        // Should have moved to next panel
+        assert!(first_focus.is_some());
+        assert!(second_focus.is_some());
+        assert_ne!(first_focus, second_focus);
+    }
+
+    #[test]
+    fn brick_app_z_key_toggles_explode() {
+        let mut app = create_test_app();
+
+        // Press 'z' to start focus
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(app.focused_panel.is_some());
+        assert!(app.exploded_panel.is_none());
+
+        // Press 'z' again to explode
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(app.exploded_panel.is_some());
+
+        // Press 'z' again to collapse
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn brick_app_enter_explodes_focused() {
+        let mut app = create_test_app();
+
+        // Focus a panel first
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        let focused = app.focused_panel;
+        assert!(focused.is_some());
+
+        // Enter should explode it
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(app.exploded_panel, focused);
+    }
+
+    #[test]
+    fn brick_app_esc_exits_explode_first() {
+        let mut app = create_test_app();
+
+        // Focus and explode a panel
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert!(app.exploded_panel.is_some());
+        assert!(app.focused_panel.is_some());
+
+        // ESC should exit explode first
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(app.exploded_panel.is_none());
+        assert!(app.focused_panel.is_some()); // Still focused
+
+        // ESC again should clear focus
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(app.focused_panel.is_none());
+
+        // ESC again should quit
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(quit);
+    }
+
+    #[test]
+    fn brick_app_0_resets_focus() {
+        let mut app = create_test_app();
+
+        // Focus and explode
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+
+        // Press '0' to reset
+        app.handle_key(KeyCode::Char('0'), KeyModifiers::NONE);
+        assert!(app.focused_panel.is_none());
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn brick_app_arrows_navigate_when_focused() {
+        let mut app = create_test_app();
+
+        // Start focus
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        let initial = app.focused_panel;
+
+        // Arrow right should navigate
+        app.handle_key(KeyCode::Right, KeyModifiers::NONE);
+        let after_right = app.focused_panel;
+
+        assert_ne!(initial, after_right);
+    }
+
+    #[test]
+    fn brick_app_is_panel_visible() {
+        let app = create_test_app();
+        assert!(app.is_panel_visible(PanelType::Cpu));
+        assert!(app.is_panel_visible(PanelType::Memory));
+        assert!(app.is_panel_visible(PanelType::Process));
+    }
+}
+
+mod disk_entropy_tests {
+    use ttop::analyzers::{DiskEntropyAnalyzer, MountEntropy};
+
+    #[test]
+    fn brick_disk_entropy_analyzer_new() {
+        let analyzer = DiskEntropyAnalyzer::new();
+        assert!(analyzer.mount_entropy.is_empty());
+        assert_eq!(analyzer.system_entropy, 0.5); // Default medium
+    }
+
+    #[test]
+    fn brick_mount_entropy_gauge_thresholds() {
+        let mut me = MountEntropy::default();
+
+        me.entropy = 0.95;
+        assert_eq!(me.gauge(), "●●●●●");
+
+        me.entropy = 0.8;
+        assert_eq!(me.gauge(), "●●●●○");
+
+        me.entropy = 0.6;
+        assert_eq!(me.gauge(), "●●●○○");
+
+        me.entropy = 0.3;
+        assert_eq!(me.gauge(), "●●○○○");
+
+        me.entropy = 0.1;
+        assert_eq!(me.gauge(), "●○○○○");
+    }
+
+    #[test]
+    fn brick_mount_entropy_indicator() {
+        let mut me = MountEntropy::default();
+
+        me.entropy = 0.9;
+        assert_eq!(me.indicator(), '●');
+
+        me.entropy = 0.6;
+        assert_eq!(me.indicator(), '◐');
+
+        me.entropy = 0.3;
+        assert_eq!(me.indicator(), '○');
+    }
+
+    #[test]
+    fn brick_disk_entropy_system_gauge() {
+        let mut analyzer = DiskEntropyAnalyzer::new();
+
+        analyzer.system_entropy = 0.95;
+        assert_eq!(analyzer.system_gauge(), "●●●●●");
+
+        analyzer.system_entropy = 0.5;
+        assert_eq!(analyzer.system_gauge(), "●●●○○");
+
+        analyzer.system_entropy = 0.1;
+        assert_eq!(analyzer.system_gauge(), "●○○○○");
+    }
+
+    #[test]
+    fn brick_disk_entropy_format_pct() {
+        let analyzer = DiskEntropyAnalyzer::new();
+        assert_eq!(analyzer.format_entropy_pct(0.75), "75%");
+        assert_eq!(analyzer.format_entropy_pct(0.5), "50%");
+        assert_eq!(analyzer.format_entropy_pct(1.0), "100%");
+    }
+
+    #[test]
+    fn brick_mount_entropy_default() {
+        let me = MountEntropy::default();
+        assert_eq!(me.entropy, 0.0);
+        assert_eq!(me.files_sampled, 0);
+        assert_eq!(me.bytes_sampled, 0);
+        assert_eq!(me.dedup_potential, 0.0);
+        assert!(me.last_update.is_none());
+    }
+
+    #[test]
+    fn brick_disk_entropy_get_mount_none() {
+        let analyzer = DiskEntropyAnalyzer::new();
+        assert!(analyzer.get_mount_entropy("/nonexistent").is_none());
+    }
+
+    #[test]
+    fn brick_disk_entropy_collect_empty() {
+        let mut analyzer = DiskEntropyAnalyzer::new();
+        analyzer.collect(&[]);
+        assert!(analyzer.mount_entropy.is_empty());
+    }
+
+    #[test]
+    fn brick_disk_entropy_collect_root() {
+        let mut analyzer = DiskEntropyAnalyzer::new();
+        // Collect on root - this will actually sample files
+        analyzer.collect(&["/".to_string()]);
+
+        // Should have analyzed root mount
+        if let Some(me) = analyzer.get_mount_entropy("/") {
+            // Entropy should be reasonable (0.0-1.0)
+            assert!(me.entropy >= 0.0 && me.entropy <= 1.0);
+            // files_sampled is unsigned, just verify we can access it
+            let _ = me.files_sampled;
+        }
+    }
+
+    #[test]
+    fn brick_disk_entropy_dedup_potential() {
+        let mut me = MountEntropy::default();
+
+        // High entropy = low dedup potential
+        me.entropy = 0.9;
+        me.dedup_potential = 1.0 - me.entropy;
+        assert!((me.dedup_potential - 0.1).abs() < 0.01);
+
+        // Low entropy = high dedup potential
+        me.entropy = 0.2;
+        me.dedup_potential = 1.0 - me.entropy;
+        assert!((me.dedup_potential - 0.8).abs() < 0.01);
     }
 }

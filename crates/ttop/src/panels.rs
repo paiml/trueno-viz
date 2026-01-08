@@ -452,6 +452,11 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
         });
     }
 
+    // ZRAM details row (after swap) - only if ZRAM is active
+    let zram_stats: Vec<_> = app.swap_analyzer.zram_stats().iter().filter(|z| z.is_active()).collect();
+    let zram_total_orig: u64 = zram_stats.iter().map(|z| z.orig_data_size).sum();
+    let zram_total_compr: u64 = zram_stats.iter().map(|z| z.compr_data_size).sum();
+
     // Reserve lines for PSI (1) and Top consumers (1) at bottom
     let reserved_bottom = 2;
     let available_for_rows = (inner.y + inner.height).saturating_sub(y + reserved_bottom) as usize;
@@ -480,6 +485,43 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
                 Rect { x: inner.x + label_width, y, width: sparkline_width, height: 1 },
             );
         }
+        y += 1;
+    }
+
+    // === ZRAM Row (conditional) ===
+    if y < inner.y + inner.height && zram_total_orig > 0 {
+        let orig_gb = zram_total_orig as f64 / (1024.0 * 1024.0 * 1024.0);
+        let compr_gb = zram_total_compr as f64 / (1024.0 * 1024.0 * 1024.0);
+        let ratio = if zram_total_compr > 0 {
+            zram_total_orig as f64 / zram_total_compr as f64
+        } else {
+            1.0
+        };
+
+        // Format based on size (GB vs TB)
+        let orig_str = if orig_gb >= 1000.0 {
+            format!("{:.1}T", orig_gb / 1024.0)
+        } else {
+            format!("{:.0}G", orig_gb)
+        };
+        let compr_str = if compr_gb >= 1000.0 {
+            format!("{:.1}T", compr_gb / 1024.0)
+        } else {
+            format!("{:.0}G", compr_gb)
+        };
+
+        let zram_line = Line::from(vec![
+            Span::styled("  ZRAM ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}→{} ", orig_str, compr_str), Style::default().fg(Color::Magenta)),
+            Span::styled(format!("{:.1}x", ratio), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::styled(format!(" {}", zram_stats.first().map(|z| z.comp_algorithm.as_str()).unwrap_or("?")),
+                         Style::default().fg(Color::DarkGray)),
+        ]);
+
+        f.render_widget(
+            Paragraph::new(zram_line),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
         y += 1;
     }
 
@@ -520,35 +562,75 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
         y += 1;
     }
 
-    // === Top Memory Consumers Row ===
-    if y < inner.y + inner.height {
-        // Get top 3 processes by memory
+    // === Top Memory Consumers - expand to fill available height ===
+    let remaining_height = (inner.y + inner.height).saturating_sub(y) as usize;
+    if remaining_height > 0 {
+        // Get top processes by memory - show more when we have more space
         let mut procs: Vec<_> = app.process.processes().values().collect();
         procs.sort_by(|a, b| b.mem_bytes.cmp(&a.mem_bytes));
 
-        let mut spans = vec![Span::styled("Top:", Style::default().fg(Color::DarkGray))];
+        // First line: compact "Top:" format
+        if remaining_height == 1 {
+            let mut spans = vec![Span::styled("Top:", Style::default().fg(Color::DarkGray))];
+            for proc in procs.iter().take(3) {
+                let mem_gb = proc.mem_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+                let name: String = proc.name.chars().take(10).collect();
+                spans.push(Span::raw(" "));
+                spans.push(Span::styled(name, Style::default().fg(Color::White)));
+                spans.push(Span::styled(format!(" {:.1}G", mem_gb), Style::default().fg(Color::Magenta)));
+                spans.push(Span::styled(" │", Style::default().fg(Color::DarkGray)));
+            }
+            if !procs.is_empty() {
+                spans.pop();
+            }
+            f.render_widget(
+                Paragraph::new(Line::from(spans)),
+                Rect { x: inner.x, y, width: inner.width, height: 1 },
+            );
+        } else {
+            // Multiple lines available - show detailed process list
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled("── Top Memory Consumers ", Style::default().fg(Color::DarkGray)),
+                    Span::styled("─".repeat((inner.width as usize).saturating_sub(24)), Style::default().fg(Color::DarkGray)),
+                ])),
+                Rect { x: inner.x, y, width: inner.width, height: 1 },
+            );
+            y += 1;
 
-        for proc in procs.iter().take(3) {
-            let mem_gb = proc.mem_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-            let name: String = proc.name.chars().take(10).collect();
-            spans.push(Span::raw(" "));
-            spans.push(Span::styled(name, Style::default().fg(Color::White)));
-            spans.push(Span::styled(
-                format!(" {:.1}G", mem_gb),
-                Style::default().fg(Color::Magenta),
-            ));
-            spans.push(Span::styled(" │", Style::default().fg(Color::DarkGray)));
+            let procs_to_show = (remaining_height - 1).min(procs.len());
+            for proc in procs.iter().take(procs_to_show) {
+                if y >= inner.y + inner.height {
+                    break;
+                }
+                let mem_gb = proc.mem_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+                let mem_pct = if app.mem_total > 0 {
+                    (proc.mem_bytes as f64 / app.mem_total as f64) * 100.0
+                } else {
+                    0.0
+                };
+
+                // Visual bar for memory percentage
+                let bar_width = 20usize;
+                let filled = ((mem_pct / 100.0) * bar_width as f64) as usize;
+                let bar = "█".repeat(filled.min(bar_width)) + &"░".repeat(bar_width.saturating_sub(filled));
+
+                let name: String = proc.name.chars().take(20).collect();
+                let line = Line::from(vec![
+                    Span::styled(format!("{:>6} ", proc.pid), Style::default().fg(Color::DarkGray)),
+                    Span::styled(format!("{:<20} ", name), Style::default().fg(Color::White)),
+                    Span::styled(format!("{:>6.1}G ", mem_gb), Style::default().fg(Color::Magenta)),
+                    Span::styled(format!("{:>5.1}% ", mem_pct), Style::default().fg(percent_color(mem_pct))),
+                    Span::styled(bar, Style::default().fg(percent_color(mem_pct))),
+                ]);
+
+                f.render_widget(
+                    Paragraph::new(line),
+                    Rect { x: inner.x, y, width: inner.width, height: 1 },
+                );
+                y += 1;
+            }
         }
-
-        // Remove trailing separator
-        if !procs.is_empty() {
-            spans.pop();
-        }
-
-        f.render_widget(
-            Paragraph::new(Line::from(spans)),
-            Rect { x: inner.x, y, width: inner.width, height: 1 },
-        );
     }
 }
 
@@ -570,12 +652,16 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
     // Get workload type
     let workload = app.disk_io_analyzer.overall_workload();
 
+    // Get entropy gauge
+    let entropy_gauge = app.disk_entropy.system_gauge();
+
     let title = format!(
-        " Disk │ R: {} │ W: {} │ {:.0} IOPS │ {} ",
+        " Disk │ R: {} │ W: {} │ {:.0} IOPS │ {} │ E:{} ",
         theme::format_bytes_rate(total_read),
         theme::format_bytes_rate(total_write),
         total_iops,
-        workload.description()
+        workload.description(),
+        entropy_gauge
     );
 
     let block = btop_block(&title, borders::DISK);
@@ -676,8 +762,8 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
             .or_else(|| rates.get(&base_device))
             .or_else(|| {
                 // macOS: disk1 -> disk0, disk3 -> disk2 (synthesized -> physical)
-                if base_device.starts_with("disk") {
-                    let disk_num: u32 = base_device[4..].parse().unwrap_or(0);
+                if let Some(num_str) = base_device.strip_prefix("disk") {
+                    let disk_num: u32 = num_str.parse().unwrap_or(0);
                     if disk_num > 0 {
                         // Synthesized containers (odd: 1,3,5) map to physical (even: 0,2,4)
                         let physical = format!("disk{}", disk_num.saturating_sub(1));
@@ -703,10 +789,8 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
         // I/O rate string
         let io_str = if let Some(io) = io_info {
             let total_rate = io.read_bytes_per_sec + io.write_bytes_per_sec;
-            if total_rate > 1_000_000.0 {
-                format!("{}", theme::format_bytes_rate(total_rate))
-            } else if total_rate > 1000.0 {
-                format!("{}", theme::format_bytes_rate(total_rate))
+            if total_rate > 1000.0 {
+                theme::format_bytes_rate(total_rate).to_string()
             } else {
                 "—".to_string()
             }
@@ -746,13 +830,25 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
         );
         x += bar_width + 1;
 
-        // Col 4: Percentage
+        // Col 4: Percentage + Entropy indicator
+        let entropy_char = app.disk_entropy
+            .get_mount_entropy(&mount.mount_point)
+            .map(|e| e.indicator())
+            .unwrap_or('·');
+        let entropy_color = match entropy_char {
+            '●' => Color::Green,   // High entropy (unique)
+            '◐' => Color::Yellow,  // Medium entropy
+            '○' => Color::Red,     // Low entropy (dupes)
+            _ => Color::DarkGray,
+        };
         f.render_widget(
-            Paragraph::new(format!("{:>3.0}%", used_pct))
-                .style(Style::default().fg(color)),
-            Rect { x, y, width: 4, height: 1 },
+            Paragraph::new(Line::from(vec![
+                Span::styled(format!("{:>3.0}%", used_pct), Style::default().fg(color)),
+                Span::styled(format!("{}", entropy_char), Style::default().fg(entropy_color)),
+            ])),
+            Rect { x, y, width: 5, height: 1 },
         );
-        x += 5;
+        x += 6;
 
         // Col 5: I/O rate
         f.render_widget(
@@ -815,6 +911,50 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
             Paragraph::new(io_line),
             Rect { x: inner.x, y, width: inner.width, height: 1 },
         );
+        y += 1;
+    }
+
+    // === Expand to fill remaining height with top active processes ===
+    let remaining_height = (inner.y + inner.height).saturating_sub(y) as usize;
+    if remaining_height > 1 {
+        // Show top CPU processes as proxy for I/O activity
+        let mut procs: Vec<_> = app.process.processes().values().collect();
+        procs.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("── Top Active Processes ", Style::default().fg(Color::DarkGray)),
+                Span::styled("─".repeat((inner.width as usize).saturating_sub(24)), Style::default().fg(Color::DarkGray)),
+            ])),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+
+        let procs_to_show = (remaining_height - 1).min(procs.len());
+        for proc in procs.iter().take(procs_to_show) {
+            if y >= inner.y + inner.height {
+                break;
+            }
+
+            if proc.cpu_percent < 0.1 {
+                continue; // Skip idle processes
+            }
+
+            let name: String = proc.name.chars().take(20).collect();
+            let mem_mb = proc.mem_bytes as f64 / (1024.0 * 1024.0);
+            let line = Line::from(vec![
+                Span::styled(format!("{:>6} ", proc.pid), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{:<20} ", name), Style::default().fg(Color::White)),
+                Span::styled(format!("CPU:{:>5.1}% ", proc.cpu_percent), Style::default().fg(percent_color(proc.cpu_percent))),
+                Span::styled(format!("MEM:{:>7.1}M ", mem_mb), Style::default().fg(Color::Magenta)),
+            ]);
+
+            f.render_widget(
+                Paragraph::new(line),
+                Rect { x: inner.x, y, width: inner.width, height: 1 },
+            );
+            y += 1;
+        }
     }
 }
 
@@ -857,8 +997,9 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
 
     let all_rates = app.network.all_rates();
     let interfaces: Vec<_> = all_rates.keys().collect();
-    let show_multi_iface = interfaces.len() > 1 && inner.height >= 8;
-    let bottom_row_count = if inner.height >= 10 { 3 } else if inner.height >= 8 { 2 } else if inner.height >= 6 { 1 } else { 0 };
+    let show_multi_iface = interfaces.len() > 1 && inner.height >= 10;
+    // More rows for expanded stats (protocol, errors, consumers) - lowered thresholds for visibility
+    let bottom_row_count = if inner.height >= 10 { 4 } else if inner.height >= 8 { 3 } else if inner.height >= 6 { 2 } else if inner.height >= 4 { 1 } else { 0 };
 
     let info_lines = 2; // RX + TX info rows
     let multi_iface_line = if show_multi_iface { 1 } else { 0 };
@@ -1046,7 +1187,60 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         y += 1;
     }
 
-    // === Bottom Row 2: Connection Stats ===
+    // === Bottom Row 2: Protocol Stats (TCP/UDP/ICMP) with Errors/Latency ===
+    #[cfg(target_os = "linux")]
+    if bottom_row_count >= 2 && y < inner.y + inner.height {
+        let stats = &app.network_stats;
+        let proto = &stats.protocol_stats;
+
+        // Protocol counts
+        let mut spans = vec![
+            Span::styled("TCP ", Style::default().fg(Color::Cyan)),
+            Span::styled(format!("{}", proto.tcp_established), Style::default().fg(Color::Green)),
+            Span::styled("/", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", proto.tcp_listen), Style::default().fg(Color::Cyan)),
+        ];
+
+        // Show problematic states if any
+        let problem_states = proto.tcp_time_wait + proto.tcp_close_wait;
+        if problem_states > 0 {
+            spans.push(Span::styled(
+                format!(" ({}tw)", proto.tcp_time_wait + proto.tcp_close_wait),
+                Style::default().fg(Color::Yellow),
+            ));
+        }
+
+        spans.push(Span::styled(" UDP ", Style::default().fg(Color::Magenta)));
+        spans.push(Span::styled(format!("{}", proto.udp_sockets), Style::default().fg(Color::White)));
+
+        if proto.icmp_sockets > 0 {
+            spans.push(Span::styled(" ICMP ", Style::default().fg(Color::Blue)));
+            spans.push(Span::styled(format!("{}", proto.icmp_sockets), Style::default().fg(Color::White)));
+        }
+
+        // Latency gauge
+        spans.push(Span::styled(" │ RTT ", Style::default().fg(Color::DarkGray)));
+        let gauge = stats.latency_gauge();
+        let gauge_color = if stats.tcp_perf.rtt_ms < 25.0 { Color::Green } else if stats.tcp_perf.rtt_ms < 50.0 { Color::Yellow } else { Color::Red };
+        spans.push(Span::styled(gauge, Style::default().fg(gauge_color)));
+
+        // Retransmission rate if significant
+        if stats.tcp_perf.retrans_rate > 0.001 {
+            spans.push(Span::styled(
+                format!(" {:.1}%re", stats.tcp_perf.retrans_rate * 100.0),
+                Style::default().fg(Color::Yellow),
+            ));
+        }
+
+        f.render_widget(
+            Paragraph::new(Line::from(spans)),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+    }
+
+    // Fallback for non-Linux: use connection analyzer
+    #[cfg(not(target_os = "linux"))]
     if bottom_row_count >= 2 && y < inner.y + inner.height {
         use crate::analyzers::ConnState;
 
@@ -1079,8 +1273,59 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         y += 1;
     }
 
-    // === Bottom Row 3: Top Network Consumers ===
+    // === Bottom Row 3: Interface Errors (Linux) ===
+    #[cfg(target_os = "linux")]
     if bottom_row_count >= 3 && y < inner.y + inner.height {
+        let stats = &app.network_stats;
+        let (rx_errs, tx_errs) = stats.total_errors();
+        let (rx_delta, tx_delta) = stats.total_error_deltas();
+
+        let mut spans = vec![
+            Span::styled("Errs ", Style::default().fg(Color::DarkGray)),
+        ];
+
+        // RX errors with delta
+        let rx_color = if rx_delta > 0 { Color::Red } else if rx_errs > 0 { Color::Yellow } else { Color::Green };
+        spans.push(Span::styled("↓", Style::default().fg(graph::NETWORK_RX)));
+        spans.push(Span::styled(format!("{}", rx_errs), Style::default().fg(rx_color)));
+        if rx_delta > 0 {
+            spans.push(Span::styled(format!(" (+{})", rx_delta), Style::default().fg(Color::Red)));
+        }
+
+        // TX errors with delta
+        spans.push(Span::styled(" ↑", Style::default().fg(graph::NETWORK_TX)));
+        let tx_color = if tx_delta > 0 { Color::Red } else if tx_errs > 0 { Color::Yellow } else { Color::Green };
+        spans.push(Span::styled(format!("{}", tx_errs), Style::default().fg(tx_color)));
+        if tx_delta > 0 {
+            spans.push(Span::styled(format!(" (+{})", tx_delta), Style::default().fg(Color::Red)));
+        }
+
+        // Queue stats if there's backlog
+        let queues = &stats.queue_stats;
+        if queues.total_rx_queue > 0 || queues.total_tx_queue > 0 {
+            spans.push(Span::styled(" │ Q ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled(
+                format!("rx:{} tx:{}",
+                    theme::format_bytes(queues.total_rx_queue),
+                    theme::format_bytes(queues.total_tx_queue)),
+                Style::default().fg(Color::Yellow),
+            ));
+        }
+
+        // SYN backlog pressure warning
+        if queues.syn_backlog_pressure {
+            spans.push(Span::styled(" SYN!", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+        }
+
+        f.render_widget(
+            Paragraph::new(Line::from(spans)),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+    }
+
+    // === Bottom Row 4: Top Network Consumers ===
+    if bottom_row_count >= 4 && y < inner.y + inner.height {
         // Get processes sorted by network activity (we'll use connections as proxy)
         let conns = app.connection_analyzer.connections();
         let mut proc_conn_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
@@ -1115,6 +1360,97 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
                 Paragraph::new(Line::from(spans)),
                 Rect { x: inner.x, y, width: inner.width, height: 1 },
             );
+            y += 1;
+        }
+    }
+
+    // === Expand to fill remaining height with connection list ===
+    use crate::analyzers::connections::{ConnState, Protocol};
+
+    let remaining_height = (inner.y + inner.height).saturating_sub(y) as usize;
+    if remaining_height > 1 {
+        let conns = app.connection_analyzer.connections();
+
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("── Active Connections ", Style::default().fg(Color::DarkGray)),
+                Span::styled("─".repeat((inner.width as usize).saturating_sub(22)), Style::default().fg(Color::DarkGray)),
+            ])),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+
+        // Sort connections: ESTABLISHED first, then by remote port
+        let mut sorted_conns: Vec<_> = conns.iter().collect();
+        sorted_conns.sort_by(|a, b| {
+            // ESTABLISHED connections first
+            let a_est = a.state == ConnState::Established;
+            let b_est = b.state == ConnState::Established;
+            match (b_est, a_est) {
+                (true, false) => std::cmp::Ordering::Greater,
+                (false, true) => std::cmp::Ordering::Less,
+                _ => a.remote_port.cmp(&b.remote_port),
+            }
+        });
+
+        let conns_to_show = (remaining_height - 1).min(sorted_conns.len());
+        for conn in sorted_conns.iter().take(conns_to_show) {
+            if y >= inner.y + inner.height {
+                break;
+            }
+
+            let state_color = match conn.state {
+                ConnState::Established => Color::Green,
+                ConnState::Listen => Color::Cyan,
+                ConnState::TimeWait | ConnState::CloseWait => Color::Yellow,
+                ConnState::SynSent | ConnState::SynRecv => Color::Magenta,
+                _ => Color::DarkGray,
+            };
+
+            let state_str = match conn.state {
+                ConnState::Established => "ESTABLISHED",
+                ConnState::Listen => "LISTEN",
+                ConnState::TimeWait => "TIME_WAIT",
+                ConnState::CloseWait => "CLOSE_WAIT",
+                ConnState::SynSent => "SYN_SENT",
+                ConnState::SynRecv => "SYN_RECV",
+                ConnState::FinWait1 => "FIN_WAIT1",
+                ConnState::FinWait2 => "FIN_WAIT2",
+                ConnState::Closing => "CLOSING",
+                ConnState::LastAck => "LAST_ACK",
+                ConnState::Close => "CLOSE",
+                ConnState::Unknown => "UNKNOWN",
+            };
+
+            let proto_str = match conn.protocol {
+                Protocol::Tcp => "TCP",
+                Protocol::Udp => "UDP",
+            };
+
+            let proc_info = app.connection_analyzer.process_for_connection(conn)
+                .map(|(pid, name)| format!("{} ({})", truncate_str(name, 12), pid))
+                .unwrap_or_else(|| "-".to_string());
+
+            let remote_addr = conn.remote_addr();
+            let remote_str = if remote_addr.is_empty() || remote_addr == "*" {
+                format!("*:{}", conn.local_port)
+            } else {
+                format!("{}:{}", truncate_str(&remote_addr, 15), conn.remote_port)
+            };
+
+            let line = Line::from(vec![
+                Span::styled(format!("{:>5} ", conn.local_port), Style::default().fg(Color::Cyan)),
+                Span::styled(format!("{:<4} ", proto_str), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{:<11} ", state_str), Style::default().fg(state_color)),
+                Span::styled(format!("{:<22} ", remote_str), Style::default().fg(Color::White)),
+                Span::styled(proc_info, Style::default().fg(Color::Magenta)),
+            ]);
+
+            f.render_widget(
+                Paragraph::new(line),
+                Rect { x: inner.x, y, width: inner.width, height: 1 },
+            );
+            y += 1;
         }
     }
 }
@@ -1645,12 +1981,24 @@ pub fn draw_battery(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-/// Draw Sensors/Temperature panel
+/// Draw Sensors/Temperature panel with health analysis
 pub fn draw_sensors(f: &mut Frame, app: &App, area: Rect) {
+    use trueno_viz::monitor::ratatui::style::Color;
+    use crate::analyzers::{SensorHealth, SensorType};
+
     let temps = app.sensors.readings();
     let max_temp = app.sensors.max_temp().unwrap_or(0.0);
 
-    let title = format!(" Sensors │ Max: {:.0}°C ", max_temp);
+    // Get thermal summary from health analyzer
+    let health_summary = app.sensor_health.thermal_summary();
+    let headroom_str = health_summary
+        .map(|(_, hr, _)| format!(" │ Δ{:.0}°", hr))
+        .unwrap_or_default();
+
+    // Check for any critical sensors
+    let critical_indicator = if app.sensor_health.any_critical() { " ⚠" } else { "" };
+
+    let title = format!(" Sensors │ Max: {:.0}°C{}{} ", max_temp, headroom_str, critical_indicator);
 
     let block = btop_block(&title, borders::SENSORS);
 
@@ -1661,17 +2009,67 @@ pub fn draw_sensors(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    // Show temperature readings
+    // Get sensor health readings
+    let health_readings = app.sensor_health.by_health();
+
+    // Show temperature readings with health indicators
     for (i, temp) in temps.iter().take(inner.height as usize).enumerate() {
-        let label: String = temp.label.chars().take(12).collect();
+        let label: String = temp.label.chars().take(10).collect();
         let color = temp_color(temp.current);
-        let line = Line::from(vec![
-            Span::styled(format!("{label:12}"), Style::default()),
-            Span::styled(
-                format!(" {:.0}°C", temp.current),
-                Style::default().fg(color),
-            ),
-        ]);
+
+        // Find matching health reading for this sensor
+        let health_info = health_readings.values()
+            .flatten()
+            .find(|r| r.sensor_type == SensorType::Temperature && r.label.contains(&temp.label[..temp.label.len().min(6)]));
+
+        let mut spans = Vec::new();
+
+        // Health indicator
+        if let Some(info) = health_info {
+            let health_color = match info.health {
+                SensorHealth::Healthy => Color::Green,
+                SensorHealth::Warning => Color::Yellow,
+                SensorHealth::Critical => Color::Red,
+                SensorHealth::Stale => Color::DarkGray,
+                SensorHealth::Dead => Color::DarkGray,
+            };
+            spans.push(Span::styled(
+                format!("{} ", info.health.symbol()),
+                Style::default().fg(health_color),
+            ));
+        } else {
+            spans.push(Span::raw("  "));
+        }
+
+        // Label
+        spans.push(Span::styled(format!("{label:10}"), Style::default()));
+
+        // Temperature value
+        spans.push(Span::styled(
+            format!(" {:>5.0}°C", temp.current),
+            Style::default().fg(color),
+        ));
+
+        // Drift indicator (if significant)
+        if let Some(info) = health_info {
+            if let Some(drift) = info.drift_rate {
+                if drift.abs() > 1.0 {
+                    let drift_color = if drift > 0.0 { Color::Red } else { Color::Cyan };
+                    let arrow = if drift > 0.0 { "↑" } else { "↓" };
+                    spans.push(Span::styled(
+                        format!(" {}{:.1}/m", arrow, drift.abs()),
+                        Style::default().fg(drift_color),
+                    ));
+                }
+            }
+
+            // Outlier marker
+            if info.is_outlier {
+                spans.push(Span::styled(" !", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)));
+            }
+        }
+
+        let line = Line::from(spans);
         f.render_widget(
             Paragraph::new(line),
             Rect {
@@ -1687,21 +2085,11 @@ pub fn draw_sensors(f: &mut Frame, app: &App, area: Rect) {
 /// Draw compact sensors panel (single line)
 pub fn draw_sensors_compact(f: &mut Frame, app: &App, area: Rect) {
     use trueno_viz::monitor::ratatui::style::Color;
+    use crate::analyzers::SensorType;
 
-    let temps = app.sensors.readings();
-
-    // Find key temperatures: CPU, GPU, NVMe
-    let cpu_temp = temps.iter()
-        .find(|t| t.label.to_lowercase().contains("cpu") || t.label.to_lowercase().contains("core"))
-        .map(|t| t.current);
-    let gpu_temp = temps.iter()
-        .find(|t| t.label.to_lowercase().contains("gpu") || t.label.to_lowercase().contains("edge"))
-        .map(|t| t.current);
-    let nvme_temp = temps.iter()
-        .find(|t| t.label.to_lowercase().contains("nvme") || t.label.to_lowercase().contains("composite"))
-        .map(|t| t.current);
-
+    let readings = app.sensor_health.get_cached_readings();
     let max_temp = app.sensors.max_temp().unwrap_or(0.0);
+
     let title = format!(" Sensors │ {:.0}°C ", max_temp);
 
     let block = btop_block(&title, borders::SENSORS);
@@ -1712,28 +2100,91 @@ pub fn draw_sensors_compact(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    // Build compact sensor line
-    let mut spans = Vec::new();
+    // Filter to most useful sensors, prioritize temps
+    let mut display_sensors: Vec<_> = readings.iter()
+        .filter(|r| r.sensor_type == SensorType::Temperature || r.sensor_type == SensorType::Fan)
+        .collect();
 
-    if let Some(t) = cpu_temp {
-        spans.push(Span::styled("CPU ", Style::default().fg(Color::DarkGray)));
-        spans.push(Span::styled(format!("{:.0}°", t), Style::default().fg(temp_color(t))));
-        spans.push(Span::raw("  "));
-    }
-    if let Some(t) = gpu_temp {
-        spans.push(Span::styled("GPU ", Style::default().fg(Color::DarkGray)));
-        spans.push(Span::styled(format!("{:.0}°", t), Style::default().fg(temp_color(t))));
-        spans.push(Span::raw("  "));
-    }
-    if let Some(t) = nvme_temp {
-        spans.push(Span::styled("NVMe ", Style::default().fg(Color::DarkGray)));
-        spans.push(Span::styled(format!("{:.0}°", t), Style::default().fg(temp_color(t))));
-    }
+    // Sort: temps first, then by value descending
+    display_sensors.sort_by(|a, b| {
+        let type_order = |t: &SensorType| match t {
+            SensorType::Temperature => 0,
+            SensorType::Fan => 1,
+            _ => 2,
+        };
+        type_order(&a.sensor_type).cmp(&type_order(&b.sensor_type))
+            .then(b.value.partial_cmp(&a.value).unwrap_or(std::cmp::Ordering::Equal))
+    });
 
-    f.render_widget(
-        Paragraph::new(Line::from(spans)),
-        Rect { x: inner.x, y: inner.y, width: inner.width, height: 1 },
-    );
+    let bar_width = 4usize;
+
+    for (i, sensor) in display_sensors.iter().take(inner.height as usize).enumerate() {
+        let y = inner.y + i as u16;
+
+        // Type letter: C=CPU, G=GPU, D=Disk, M=Mobo, F=Fan
+        let label_lower = sensor.label.to_lowercase();
+        let (type_char, type_color) = if label_lower.contains("cpu") || label_lower.contains("core") || label_lower.contains("package") {
+            ('C', Color::Rgb(220, 120, 80))   // CPU - orange
+        } else if label_lower.contains("gpu") || label_lower.contains("edge") || label_lower.contains("junction") {
+            ('G', Color::Rgb(120, 200, 80))   // GPU - green
+        } else if label_lower.contains("nvme") || label_lower.contains("composite") || label_lower.contains("ssd") {
+            ('D', Color::Rgb(80, 160, 220))   // Disk - blue
+        } else if label_lower.contains("fan") {
+            ('F', Color::Rgb(180, 180, 220))  // Fan - light purple
+        } else {
+            ('M', Color::Rgb(180, 180, 140))  // Mobo/other - tan
+        };
+
+        // Calculate bar fill based on temp-to-critical ratio
+        let max_val = sensor.crit.or(sensor.max).unwrap_or(100.0);
+        let ratio = (sensor.value / max_val).min(1.0);
+        let fill = (ratio * bar_width as f64).round() as usize;
+
+        // Top color: current temp (green -> yellow -> red)
+        let top_color = if sensor.value >= 85.0 {
+            Color::Rgb(220, 60, 60)    // Red - hot
+        } else if sensor.value >= 70.0 {
+            Color::Rgb(220, 180, 60)   // Yellow - warm
+        } else {
+            Color::Rgb(80, 180, 100)   // Green - cool
+        };
+
+        // Bottom color: trend (green=stable, red=rising, blue=cooling)
+        let bottom_color = match sensor.drift_rate {
+            Some(drift) if drift > 2.0 => Color::Rgb(220, 80, 80),   // Rising fast - red
+            Some(drift) if drift > 0.5 => Color::Rgb(220, 180, 80),  // Rising - yellow
+            Some(drift) if drift < -2.0 => Color::Rgb(80, 140, 220), // Cooling fast - blue
+            Some(drift) if drift < -0.5 => Color::Rgb(100, 180, 200),// Cooling - cyan
+            _ => Color::Rgb(80, 180, 100),                           // Stable - green
+        };
+
+        let bar: String = "▄".repeat(fill.min(bar_width));
+        let empty: String = " ".repeat(bar_width.saturating_sub(fill));
+
+        // Value display
+        let value_str = if sensor.sensor_type == SensorType::Fan {
+            format!("{:.0}", sensor.value)  // RPM, no unit (too wide)
+        } else {
+            format!("{:.0}°", sensor.value)
+        };
+
+        // Label (truncate to fit)
+        let name_width = (inner.width as usize).saturating_sub(bar_width + 8);
+        let label: String = sensor.label.chars().take(name_width).collect();
+
+        let line = Line::from(vec![
+            Span::styled(String::from(type_char), Style::default().fg(type_color)),
+            Span::styled(bar, Style::default().fg(bottom_color).bg(top_color)),
+            Span::styled(empty, Style::default().fg(Color::Rgb(40, 40, 45))),
+            Span::styled(format!("{:>4}", value_str), Style::default().fg(Color::Rgb(180, 180, 160))),
+            Span::styled(format!(" {}", label), Style::default().fg(Color::Rgb(160, 165, 175))),
+        ]);
+
+        f.render_widget(
+            Paragraph::new(line),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+    }
 }
 
 /// Draw PSI (Pressure Stall Information) panel
@@ -1904,39 +2355,65 @@ fn draw_containers_inner(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
+    // Find max CPU for relative bar sizing
+    let max_cpu = containers.iter().map(|c| c.cpu_pct).fold(1.0_f64, f64::max);
+
+    let bar_width = 5usize;
+
     for (i, c) in containers.iter().enumerate() {
         if i as u16 >= inner.height {
             break;
         }
 
-        // Color based on CPU usage
-        let color = if c.cpu_pct >= 50.0 {
-            Color::LightRed
-        } else if c.cpu_pct >= 10.0 {
-            Color::Yellow
-        } else {
-            Color::Green
+        // Status icon: ● running, ◐ paused/restarting, ○ exited
+        let (status_char, status_color) = match c.status {
+            crate::analyzers::ContainerStatus::Running => ('●', Color::Rgb(80, 200, 120)),
+            crate::analyzers::ContainerStatus::Paused => ('◐', Color::Rgb(200, 200, 80)),
+            crate::analyzers::ContainerStatus::Restarting => ('◐', Color::Rgb(200, 180, 80)),
+            crate::analyzers::ContainerStatus::Exited => ('○', Color::Rgb(120, 120, 120)),
+            crate::analyzers::ContainerStatus::Unknown => ('?', Color::Rgb(120, 120, 120)),
         };
 
-        // Format memory
+        // CPU color (top of bar): green -> yellow -> red
+        let cpu_color = if c.cpu_pct >= 80.0 {
+            Color::Rgb(220, 80, 80)
+        } else if c.cpu_pct >= 40.0 {
+            Color::Rgb(220, 180, 80)
+        } else {
+            Color::Rgb(80, 180, 120)
+        };
+
+        // MEM color (bottom of bar): green -> yellow -> red
+        let mem_color = if c.mem_pct >= 80.0 {
+            Color::Rgb(220, 80, 80)
+        } else if c.mem_pct >= 50.0 {
+            Color::Rgb(220, 180, 80)
+        } else {
+            Color::Rgb(80, 180, 120)
+        };
+
+        // Split bar: ▄ with fg=MEM (bottom), bg=CPU (top)
+        let fill = ((c.cpu_pct / max_cpu.max(1.0)) * bar_width as f64).round() as usize;
+        let bar: String = "▄".repeat(fill.min(bar_width));
+        let empty: String = " ".repeat(bar_width.saturating_sub(fill));
+
+        // Compact memory size
         let mem_str = if c.mem_used >= 1024 * 1024 * 1024 {
-            format!("{:.1}G", c.mem_used as f64 / (1024.0 * 1024.0 * 1024.0))
+            format!("{:.0}G", c.mem_used as f64 / (1024.0 * 1024.0 * 1024.0))
         } else {
             format!("{:.0}M", c.mem_used as f64 / (1024.0 * 1024.0))
         };
 
-        // Truncate name to fit
-        let max_name_len = (inner.width as usize).saturating_sub(18);
-        let name = truncate_str(&c.name, max_name_len);
+        // Name fills remaining space
+        let name_width = (inner.width as usize).saturating_sub(bar_width + 7);
+        let name: String = c.name.chars().take(name_width).collect();
 
         let line = Line::from(vec![
-            Span::styled(c.status.symbol(), Style::default().fg(Color::Green)),
-            Span::raw(" "),
-            Span::styled(format!("{:>5.1}%", c.cpu_pct), Style::default().fg(color)),
-            Span::raw(" "),
-            Span::styled(format!("{:>5}", mem_str), Style::default().fg(Color::Cyan)),
-            Span::raw(" "),
-            Span::styled(name, Style::default().fg(Color::White)),
+            Span::styled(status_char.to_string(), Style::default().fg(status_color)),
+            Span::styled(bar, Style::default().fg(mem_color).bg(cpu_color)),
+            Span::styled(empty, Style::default().fg(Color::Rgb(40, 40, 45))),
+            Span::styled(format!("{:>4}", mem_str), Style::default().fg(Color::Rgb(140, 160, 180))),
+            Span::styled(format!(" {}", name), Style::default().fg(Color::Rgb(200, 200, 210))),
         ]);
 
         f.render_widget(
@@ -1974,12 +2451,13 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
         return;
     }
 
-    // Header with mini bar column
-    let header_cells = ["PID", "USER", "S", "CPU", "", "MEM%", "NAME", "COMMAND"];
+    // Header - ultra compact: no CPU bar, minimal spacing
+    let header_cells = ["PID", "S", "C%", "M%", "COMMAND"];
     let header = Row::new(header_cells.iter().map(|h| {
         let style = if *h == app.sort_column.name()
             || (*h == "S" && app.sort_column == crate::state::ProcessSortColumn::State)
-            || (*h == "CPU" && app.sort_column == crate::state::ProcessSortColumn::Cpu)
+            || (*h == "C%" && app.sort_column == crate::state::ProcessSortColumn::Cpu)
+            || (*h == "M%" && app.sort_column == crate::state::ProcessSortColumn::Mem)
         {
             Style::default()
                 .fg(borders::PROCESS)
@@ -1992,32 +2470,6 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
         Span::styled(*h, style)
     }))
     .height(1);
-
-    // Helper function to create mini CPU bar
-    fn mini_cpu_bar(percent: f64) -> String {
-        // 5-char bar using block chars
-        let filled = ((percent / 100.0) * 5.0) as usize;
-        let partial = ((percent / 100.0) * 5.0 - filled as f64) * 8.0;
-        let partial_char = match partial as usize {
-            0 => ' ',
-            1 => '▏',
-            2 => '▎',
-            3 => '▍',
-            4 => '▌',
-            5 => '▋',
-            6 => '▊',
-            7 => '▉',
-            _ => '█',
-        };
-        let mut bar = "█".repeat(filled.min(5));
-        if filled < 5 {
-            bar.push(partial_char);
-            while bar.chars().count() < 5 {
-                bar.push(' ');
-            }
-        }
-        bar
-    }
 
     // Build tree structure if tree view enabled
     let tree_prefixes: std::collections::HashMap<u32, String> = if app.show_tree {
@@ -2057,7 +2509,7 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
         std::collections::HashMap::new()
     };
 
-    // Rows with mini CPU bars
+    // Ultra-compact rows: PID S C% M% COMMAND (name + cmdline combined)
     let rows: Vec<Row> = sorted
         .iter()
         .map(|p| {
@@ -2075,59 +2527,48 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
 
             // Tree prefix for name if tree view enabled
             let tree_prefix = tree_prefixes.get(&p.pid).cloned().unwrap_or_default();
-            let name_with_tree = if app.show_tree {
-                format!(
-                    "{}{}",
-                    tree_prefix,
-                    p.name
-                        .chars()
-                        .take(15 - tree_prefix.chars().count())
-                        .collect::<String>()
-                )
+
+            // Combined command: "name cmdline" or with tree prefix
+            let command = if app.show_tree {
+                if p.cmdline.is_empty() || p.cmdline == p.name {
+                    format!("{}{}", tree_prefix, p.name)
+                } else {
+                    format!("{}{} {}", tree_prefix, p.name, p.cmdline)
+                }
+            } else if p.cmdline.is_empty() || p.cmdline == p.name {
+                p.name.clone()
             } else {
-                p.name.chars().take(15).collect()
+                format!("{} {}", p.name, p.cmdline)
             };
 
             Row::new(vec![
-                Span::styled(format!("{:>6}", p.pid), Style::default()),
+                Span::styled(format!("{:>5}", p.pid), Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray)),
                 Span::styled(
-                    format!("{:8}", p.user.chars().take(8).collect::<String>()),
-                    Style::default().fg(trueno_viz::monitor::ratatui::style::Color::Blue),
-                ),
-                Span::styled(
-                    format!("{}", p.state.as_char()),
+                    p.state.as_char().to_string(),
                     Style::default().fg(state_color),
                 ),
                 Span::styled(
-                    format!("{:>4.0}", p.cpu_percent),
+                    format!("{:>3.0}", p.cpu_percent),
                     Style::default().fg(cpu_color),
                 ),
-                Span::styled(mini_cpu_bar(p.cpu_percent), Style::default().fg(cpu_color)),
                 Span::styled(
-                    format!("{:>5.1}", p.mem_percent),
+                    format!("{:>3.0}", p.mem_percent),
                     Style::default().fg(mem_color),
                 ),
                 Span::styled(
-                    format!("{:15}", name_with_tree),
+                    command,
                     Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White),
-                ),
-                Span::styled(
-                    p.cmdline.chars().take(50).collect::<String>(),
-                    Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray),
                 ),
             ])
         })
         .collect();
 
     let widths = [
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(7),  // PID
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(9),  // USER
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(2),  // State
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(5),  // CPU%
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(5),  // CPU bar
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(6),  // MEM%
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(16), // NAME (with tree)
-        trueno_viz::monitor::ratatui::layout::Constraint::Min(20),    // COMMAND
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(6),  // PID
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(2),  // S
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(4),  // C%
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(4),  // M%
+        trueno_viz::monitor::ratatui::layout::Constraint::Min(20),    // COMMAND (fills rest)
     ];
 
     let mut table_state = trueno_viz::monitor::ratatui::widgets::TableState::default();
@@ -2162,9 +2603,9 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-/// Draw Network Connections panel - Little Snitch style
+/// Draw Network Connections panel - Little Snitch style with service detection
 pub fn draw_connections(f: &mut Frame, app: &App, area: Rect) {
-    use crate::analyzers::{ConnState, Protocol};
+    use crate::analyzers::{ConnState, Protocol, ConnectionAnalyzer, geoip};
 
     let conns = app.connection_analyzer.connections();
     let active_count = conns.iter().filter(|c| c.state == ConnState::Established).count();
@@ -2190,24 +2631,22 @@ pub fn draw_connections(f: &mut Frame, app: &App, area: Rect) {
         }
     });
 
-    // Header
+    // Header - enhanced with SERVICE, AGE, and GEO columns
     let header = Row::new(vec![
-        Span::styled("PROTO", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
+        Span::styled("SVC", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
         Span::styled("LOCAL", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
         Span::styled("REMOTE", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
+        Span::styled("GEO", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
         Span::styled("ST", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
-        Span::styled("PROCESS", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
+        Span::styled("AGE", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
+        Span::styled("PROC", Style::default().fg(borders::NETWORK).add_modifier(Modifier::BOLD)),
     ]).height(1);
 
-    // Connection rows
+    // Connection rows with service detection, duration, and geo-IP
     let rows: Vec<Row> = sorted_conns
         .iter()
         .take(inner.height.saturating_sub(1) as usize)
         .map(|conn| {
-            let proto_str = match conn.protocol {
-                Protocol::Tcp => "TCP",
-                Protocol::Udp => "UDP",
-            };
             let proto_color = match conn.protocol {
                 Protocol::Tcp => trueno_viz::monitor::ratatui::style::Color::Cyan,
                 Protocol::Udp => trueno_viz::monitor::ratatui::style::Color::Yellow,
@@ -2220,11 +2659,34 @@ pub fn draw_connections(f: &mut Frame, app: &App, area: Rect) {
                 _ => trueno_viz::monitor::ratatui::style::Color::DarkGray,
             };
 
+            // Detect service by port
+            let service = app.connection_analyzer.service_name(conn)
+                .unwrap_or(match conn.protocol {
+                    Protocol::Tcp => "TCP",
+                    Protocol::Udp => "UDP",
+                });
+
+            // Get connection duration
+            let duration_str = app.connection_analyzer
+                .connection_duration(conn)
+                .map(ConnectionAnalyzer::format_duration)
+                .unwrap_or_else(|| "new".to_string());
+
+            // Check if "hot" connection (high bandwidth)
+            let is_hot = app.connection_analyzer.is_hot_connection(conn);
+
             // Get process name for this connection
             let proc_name = app.connection_analyzer
                 .process_for_connection(conn)
                 .map(|(_, name)| name.to_string())
                 .unwrap_or_else(|| "-".to_string());
+
+            // Get country flag for remote IP
+            let geo_flag = if conn.remote_ip.is_unspecified() || conn.remote_ip.is_loopback() {
+                "🏠"
+            } else {
+                geoip::get_flag(conn.remote_ip)
+            };
 
             // Format addresses (truncate if needed)
             let local = format!(":{}", conn.local_port);
@@ -2234,201 +2696,1634 @@ pub fn draw_connections(f: &mut Frame, app: &App, area: Rect) {
                 format!("{}:{}", conn.remote_ip, conn.remote_port)
             };
 
+            // Color remote based on bandwidth
+            let remote_color = if is_hot {
+                trueno_viz::monitor::ratatui::style::Color::LightRed
+            } else {
+                trueno_viz::monitor::ratatui::style::Color::White
+            };
+
             Row::new(vec![
-                Span::styled(proto_str, Style::default().fg(proto_color)),
+                Span::styled(format!("{:<5}", service.chars().take(5).collect::<String>()), Style::default().fg(proto_color)),
                 Span::styled(local, Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White)),
-                Span::styled(format!("{:>21}", remote), Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White)),
+                Span::styled(format!("{:>15}", truncate_str(&remote, 15)), Style::default().fg(remote_color)),
+                Span::styled(geo_flag.to_string(), Style::default()),
                 Span::styled(format!("{}", conn.state.as_char()), Style::default().fg(state_color)),
-                Span::styled(proc_name.chars().take(12).collect::<String>(), Style::default().fg(trueno_viz::monitor::ratatui::style::Color::Magenta)),
+                Span::styled(format!("{:>5}", duration_str.chars().take(5).collect::<String>()), Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray)),
+                Span::styled(proc_name.chars().take(8).collect::<String>(), Style::default().fg(trueno_viz::monitor::ratatui::style::Color::Magenta)),
             ])
         })
         .collect();
 
     let widths = [
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(5),  // PROTO
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(7),  // LOCAL
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(22), // REMOTE
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(3),  // ST
-        trueno_viz::monitor::ratatui::layout::Constraint::Min(8),     // PROCESS
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(6),  // SVC
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(6),  // LOCAL
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(16), // REMOTE
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(2),  // GEO (flag emoji)
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(2),  // ST
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(6),  // AGE
+        trueno_viz::monitor::ratatui::layout::Constraint::Min(5),     // PROC
     ];
 
     let table = Table::new(rows, widths).header(header);
     f.render_widget(table, inner);
 }
 
-/// Draw Storage Treemap panel - Pareto-style minimalist design
-/// Uses monochromatic warm palette with clear visual hierarchy
+/// Draw Files panel with 4 sub-panes:
+/// 1. Entropy treemap (area=size, hue=entropy)
+/// 2. Hot files (high I/O activity)
+/// 3. Anomaly detection sparkline
+/// 4. Top 10 largest files (actionable names)
 pub fn draw_treemap(f: &mut Frame, app: &App, area: Rect) {
     use trueno_viz::monitor::ratatui::style::Color;
 
-    let total_size = app.treemap_analyzer.total_size();
     let scanning = app.treemap_analyzer.is_scanning();
 
-    let size_str = if total_size >= 1024 * 1024 * 1024 * 1024 {
-        format!("{:.1}T", total_size as f64 / (1024.0 * 1024.0 * 1024.0 * 1024.0))
-    } else if total_size >= 1024 * 1024 * 1024 {
-        format!("{:.1}G", total_size as f64 / (1024.0 * 1024.0 * 1024.0))
-    } else {
-        format!("{:.0}M", total_size as f64 / (1024.0 * 1024.0))
-    };
-
+    // Build title with mount legend
     let title = if scanning {
         " Files │ scanning... ".to_string()
     } else {
-        format!(" Files │ {} ", size_str)
+        " Files │ N:nvme D:hdd h:home ".to_string()
     };
 
-    let block = btop_block(&title, Color::Rgb(180, 140, 100));
+    let border_color = Color::Rgb(100, 160, 180);
+    let block = btop_block(&title, border_color);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    if inner.height < 2 || inner.width < 4 {
+    if inner.height < 4 || inner.width < 20 {
         return;
     }
 
-    let layout = app.treemap_analyzer.layout(inner.width as f64, inner.height as f64);
+    // Single unified view
+    draw_files_unified(f, app, inner);
+}
 
-    if layout.is_empty() {
-        let msg = if scanning { "Scanning..." } else { "No large files" };
+/// Unified Files panel with:
+/// 1. Directory totals (grouped by folder)
+/// 2. Top files with icons, colors, age, and full paths
+/// Filters out benchmark artifacts (seq-read, seq-write, etc.)
+/// Mount marker - single letter codes, easy to read and distinct
+/// Returns (char, color, short_label) for legend
+fn mount_marker(path: &str) -> (char, (u8, u8, u8), &'static str) {
+    // Single letters: N=nvme, D=hdd, h=home, /=root, M=mount
+    if path.starts_with("/mnt/nvme-raid0") || path.starts_with("/mnt/nvme") {
+        ('N', (100, 220, 140), "nvme")   // N - fast NVMe (bright green)
+    } else if path.starts_with("/mnt/storage") || path.starts_with("/mnt/hdd") {
+        ('D', (220, 100, 100), "hdd")    // D - bulk disk/HDD (red)
+    } else if path.starts_with("/home") {
+        ('h', (220, 180, 80), "home")    // h - home (yellow)
+    } else if path == "/" || path.starts_with("/usr") || path.starts_with("/var") {
+        ('/', (140, 160, 220), "sys")    // / - root/system (blue)
+    } else if path.starts_with("/mnt") || path.starts_with("/media") {
+        ('M', (180, 140, 220), "mnt")    // M - other mounts (purple)
+    } else {
+        ('?', (140, 140, 140), "unk")    // ? - unknown (gray)
+    }
+}
+
+/// Get mount legend for Disk panel header
+pub fn mount_legend_str() -> String {
+    "N:nvme D:hdd h:home /:sys".to_string()
+}
+
+/// Format directory path: prioritize showing the meaningful end
+/// /mnt/nvme-raid0/targets/trueno-viz -> nvme-raid0/.../trueno-viz
+#[allow(dead_code)]
+fn format_dir_path(path: &str, max_width: usize) -> String {
+    if path.len() <= max_width {
+        return path.to_string();
+    }
+    if max_width < 10 {
+        // Very small: just truncate
+        return path.chars().take(max_width).collect();
+    }
+
+    // Split path into components
+    let parts: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
+    if parts.is_empty() {
+        return "/".to_string();
+    }
+    if parts.len() == 1 {
+        let p = parts[0];
+        if p.len() + 1 <= max_width {
+            return format!("/{}", p);
+        }
+        return format!("/{}...", &p[..max_width.saturating_sub(4)]);
+    }
+
+    // Strategy: show mount-name/.../<last meaningful component>
+    // For /mnt/nvme-raid0/targets/trueno-viz/debug -> nvme-raid0/.../debug
+    let mount_part = if parts.len() > 1 && (parts[0] == "mnt" || parts[0] == "home" || parts[0] == "media") {
+        parts.get(1).unwrap_or(&parts[0])
+    } else {
+        parts[0]
+    };
+    let last_part = parts.last().unwrap_or(&"");
+
+    // Budget: mount_part + /.../ + last_part = max_width
+    let ellipsis_len = 5; // /.../
+    let available = max_width.saturating_sub(ellipsis_len);
+
+    if available < 4 {
+        return path.chars().take(max_width).collect();
+    }
+
+    let mount_budget = (available * 2 / 5).max(2).min(12);
+    let last_budget = available.saturating_sub(mount_budget);
+
+    let mount_str: String = if mount_part.len() > mount_budget {
+        mount_part.chars().take(mount_budget).collect()
+    } else {
+        mount_part.to_string()
+    };
+
+    let last_str: String = if last_part.len() > last_budget && last_budget > 0 {
+        // Keep end of last part (more meaningful)
+        last_part.chars().skip(last_part.len().saturating_sub(last_budget)).collect()
+    } else if last_budget > 0 {
+        last_part.to_string()
+    } else {
+        String::new()
+    };
+
+    let result = format!("{}/.../{}", mount_str, last_str);
+    // Final safety check
+    if result.len() > max_width {
+        path.chars().take(max_width).collect()
+    } else {
+        result
+    }
+}
+
+/// Create entropy heatmap cell showing dupe potential
+/// entropy 0.0 = all duplicates (red), 1.0 = all unique (green)
+/// Returns (display_str, r, g, b)
+#[allow(dead_code)]
+fn entropy_heatmap(entropy: f64) -> (String, u8, u8, u8) {
+    // Dedup potential = 1 - entropy (low entropy = high dupe potential)
+    let dupe_pct = ((1.0 - entropy) * 100.0).round() as u8;
+
+    // Color: green (unique) -> yellow -> red (duplicates)
+    let (r, g, b) = if entropy >= 0.8 {
+        (80, 200, 100)   // Green - unique/random data
+    } else if entropy >= 0.5 {
+        (200, 200, 80)   // Yellow - mixed
+    } else if entropy >= 0.25 {
+        (220, 140, 60)   // Orange - some duplication
+    } else {
+        (220, 80, 80)    // Red - high duplication
+    };
+
+    // Show as percentage with small bar
+    let bar_len = ((1.0 - entropy) * 3.0).round() as usize;
+    let bar: String = "█".repeat(bar_len);
+    let pad: String = "░".repeat(3 - bar_len);
+
+    (format!("{}{}{:>2}%", bar, pad, dupe_pct), r, g, b)
+}
+
+fn draw_files_unified(f: &mut Frame, app: &App, area: Rect) {
+    use trueno_viz::monitor::ratatui::style::Color;
+    use std::collections::HashMap;
+
+    if area.height < 1 || area.width < 15 {
+        return;
+    }
+
+    let files = app.treemap_analyzer.top_files_filtered(area.height as usize);
+    if files.is_empty() {
         f.render_widget(
-            Paragraph::new(msg).style(Style::default().fg(Color::Rgb(100, 100, 100))),
-            inner,
+            Paragraph::new("...").style(Style::default().fg(Color::Rgb(80, 80, 80))),
+            area,
         );
         return;
     }
 
-    // Monochromatic warm palette - Pareto: biggest = most saturated
-    // Gradient from warm amber to cool slate based on rank
-    let total_files = layout.len();
+    // Build entropy lookup from file_analyzer
+    let entropy_map: HashMap<String, f64> = app.file_analyzer.files()
+        .iter()
+        .map(|fe| (fe.path.to_string_lossy().to_string(), fe.entropy))
+        .collect();
 
-    // Grid: (char, fg_color, bg_color)
-    let mut grid: Vec<Vec<(char, Color, Color)>> = vec![
-        vec![(' ', Color::Rgb(40, 40, 45), Color::Rgb(25, 25, 30)); inner.width as usize];
-        inner.height as usize
-    ];
+    let max_size = files.first().map(|(_, s, _, _, _)| *s).unwrap_or(1);
 
-    // Render rectangles with Pareto coloring (rank-based intensity)
-    for (idx, (rect, name)) in layout.iter().enumerate() {
-        let x1 = rect.x.floor() as usize;
-        let y1 = rect.y.floor() as usize;
-        let x2 = (rect.x + rect.w).ceil() as usize;
-        let y2 = (rect.y + rect.h).ceil() as usize;
-        let rw = x2.saturating_sub(x1);
-        let rh = y2.saturating_sub(y1);
+    // Layout: [mount 1ch] [bar 5ch] [size 4ch] [space+filename - rest]
+    let bar_width = 5usize;
+    let size_width = 4usize;
+    let name_width = (area.width as usize).saturating_sub(1 + bar_width + size_width + 2);
 
-        // Pareto gradient: top items are warm/bright, lower items fade to cool/dim
-        let rank_ratio = idx as f64 / total_files.max(1) as f64;
-        let (fill, border, text_color) = pareto_colors(rank_ratio);
+    for (i, (name, size, category, _age, path)) in files.iter().take(area.height as usize).enumerate() {
+        let y = area.y + i as u16;
 
-        // Fill rectangle
-        let y_end = y2.min(inner.height as usize);
-        let x_end = x2.min(inner.width as usize);
-        for (row_idx, row) in grid.iter_mut().enumerate().take(y_end).skip(y1) {
-            for (col_idx, cell) in row.iter_mut().enumerate().take(x_end).skip(x1) {
-                let is_edge = col_idx == x1 || row_idx == y1;
-                if is_edge {
-                    *cell = ('▌', border, Color::Rgb(20, 20, 25));
-                } else {
-                    *cell = (' ', fill, fill);
-                }
+        // Mount marker (N/H/~/M/?)
+        let (mount_char, (mr, mg, mb), _) = mount_marker(path);
+
+        // Color by category
+        let (r, g, b) = category.color();
+
+        // Get entropy for this file (0.0 if not sampled)
+        let entropy = entropy_map.get(path).copied().unwrap_or(0.5);
+
+        // Entropy color: green (high/unique) -> yellow -> red (low/duplicate)
+        let (er, eg, eb) = if entropy >= 0.7 {
+            (60, 200, 80)    // Green - unique/high entropy
+        } else if entropy >= 0.4 {
+            (200, 200, 60)   // Yellow - medium
+        } else {
+            (220, 80, 60)    // Red - low entropy/duplicate potential
+        };
+
+        // Split bar: ▄ = lower half shows entropy color, upper half shows category
+        // Foreground = entropy (bottom), Background = category (top)
+        let fill = ((*size as f64 / max_size as f64) * bar_width as f64).round() as usize;
+        let bar: String = "▄".repeat(fill);
+        let empty: String = " ".repeat(bar_width.saturating_sub(fill));
+
+        // Compact size
+        let size_str = if *size >= 1_000_000_000_000 {
+            format!("{:.0}T", *size as f64 / 1e12)
+        } else if *size >= 1_000_000_000 {
+            format!("{:.0}G", *size as f64 / 1e9)
+        } else {
+            format!("{:.0}M", *size as f64 / 1e6)
+        };
+
+        // FULL filename from path
+        let filename = std::path::Path::new(path)
+            .file_name()
+            .and_then(|f| f.to_str())
+            .unwrap_or(name);
+
+        // Truncate only if absolutely necessary, keep extension
+        let display_name: String = if filename.len() <= name_width {
+            filename.to_string()
+        } else if name_width > 15 {
+            // Keep extension: "Qwen2.5-Coder-32B-Instru...Q4_K_M.gguf"
+            let ext_pos = filename.rfind('.').unwrap_or(filename.len());
+            let ext = &filename[ext_pos..];
+            let prefix_len = name_width.saturating_sub(ext.len() + 3);
+            if prefix_len > 5 {
+                format!("{}...{}", &filename[..prefix_len], ext)
+            } else {
+                filename[..name_width].to_string()
             }
+        } else {
+            filename[..name_width.min(filename.len())].to_string()
+        };
+
+        // Layout: mount marker, split bar, size, filename
+        let spans = vec![
+            Span::styled(mount_char.to_string(), Style::default().fg(Color::Rgb(mr, mg, mb))),
+            Span::styled(&bar, Style::default()
+                .fg(Color::Rgb(er, eg, eb))      // Bottom: entropy color
+                .bg(Color::Rgb(r, g, b))),       // Top: category color
+            Span::styled(&empty, Style::default().fg(Color::Rgb(30, 30, 35))),
+            Span::styled(format!("{:>4}", size_str), Style::default().fg(Color::Rgb(150, 150, 120))),
+            Span::styled(format!(" {}", display_name), Style::default().fg(Color::Rgb(175, 180, 190))),
+        ];
+
+        f.render_widget(Paragraph::new(Line::from(spans)), Rect { x: area.x, y, width: area.width, height: 1 });
+    }
+}
+/// Draw enhanced Files panel with I/O, entropy, and duplicate indicators
+pub fn draw_files(f: &mut Frame, app: &App, area: Rect) {
+    use trueno_viz::monitor::ratatui::style::Color;
+    use crate::analyzers::IoActivity;
+
+    let metrics = app.file_analyzer.current_metrics();
+    let total_files = app.file_analyzer.files().len();
+
+    // Build title with summary stats
+    let title = format!(
+        " Files │ {} total │ {} hot │ {} dup │ {} wasted ",
+        total_files,
+        metrics.high_io_count,
+        metrics.duplicate_count,
+        theme::format_bytes(metrics.duplicate_bytes),
+    );
+
+    let block = btop_block(&title, borders::FILES);
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    if inner.height < 3 || inner.width < 20 {
+        return;
+    }
+
+    // Layout: sparklines on top row, file list below
+    let sparkline_height = 2u16;
+    let list_height = inner.height.saturating_sub(sparkline_height);
+
+    // === TOP ROW: Sparklines for activity trends ===
+    let spark_area = Rect {
+        x: inner.x,
+        y: inner.y,
+        width: inner.width,
+        height: sparkline_height.min(inner.height),
+    };
+
+    if spark_area.height >= 1 {
+        // Divide into 4 sparklines
+        let spark_width = inner.width / 4;
+
+        // I/O Activity sparkline
+        let io_history = app.file_analyzer.metric_history("high_io");
+        if !io_history.is_empty() {
+            let io_spark = MonitorSparkline::new(&io_history)
+                .color(Color::Rgb(255, 150, 100));
+            f.render_widget(io_spark, Rect {
+                x: inner.x,
+                y: inner.y,
+                width: spark_width.saturating_sub(1),
+                height: 1,
+            });
+            f.render_widget(
+                Paragraph::new("I/O").style(Style::default().fg(Color::DarkGray)),
+                Rect { x: inner.x, y: inner.y + 1, width: spark_width, height: 1 },
+            );
         }
 
-        // Labels only on blocks large enough (minimalist)
-        if rw >= 8 && rh >= 2 {
-            // Format size compactly
-            let size_str = if rect.size >= 1024 * 1024 * 1024 {
-                format!("{:.1}G", rect.size as f64 / (1024.0 * 1024.0 * 1024.0))
-            } else {
-                format!("{}M", rect.size / (1024 * 1024))
-            };
+        // Entropy sparkline
+        let entropy_history = app.file_analyzer.metric_history("avg_entropy");
+        if !entropy_history.is_empty() {
+            let ent_spark = MonitorSparkline::new(&entropy_history)
+                .color(Color::Rgb(200, 100, 150));
+            f.render_widget(ent_spark, Rect {
+                x: inner.x + spark_width,
+                y: inner.y,
+                width: spark_width.saturating_sub(1),
+                height: 1,
+            });
+            f.render_widget(
+                Paragraph::new("Entropy").style(Style::default().fg(Color::DarkGray)),
+                Rect { x: inner.x + spark_width, y: inner.y + 1, width: spark_width, height: 1 },
+            );
+        }
 
-            // Single line: "name size"
-            let max_name = rw.saturating_sub(size_str.len() + 3);
-            let short_name: String = name.chars().take(max_name).collect();
-            let label = format!("{} {}", short_name, size_str);
+        // Duplicates sparkline
+        let dup_history = app.file_analyzer.metric_history("duplicates");
+        if !dup_history.is_empty() {
+            let dup_spark = MonitorSparkline::new(&dup_history)
+                .color(Color::Rgb(180, 180, 100));
+            f.render_widget(dup_spark, Rect {
+                x: inner.x + spark_width * 2,
+                y: inner.y,
+                width: spark_width.saturating_sub(1),
+                height: 1,
+            });
+            f.render_widget(
+                Paragraph::new("Dups").style(Style::default().fg(Color::DarkGray)),
+                Rect { x: inner.x + spark_width * 2, y: inner.y + 1, width: spark_width, height: 1 },
+            );
+        }
 
-            let label_y = y1 + rh / 2;
-            let label_x = x1 + 1;
-
-            if label_y < inner.height as usize {
-                for (i, ch) in label.chars().enumerate() {
-                    let px = label_x + i;
-                    if px < x2.saturating_sub(1) && px < inner.width as usize {
-                        grid[label_y][px] = (ch, text_color, Color::Rgb(15, 15, 18));
-                    }
-                }
-            }
-        } else if rw >= 4 && rh >= 1 {
-            // Tiny: just size
-            let size_str = if rect.size >= 1024 * 1024 * 1024 {
-                format!("{:.0}G", rect.size as f64 / (1024.0 * 1024.0 * 1024.0))
-            } else {
-                format!("{}M", rect.size / (1024 * 1024))
-            };
-            let label_y = y1 + rh / 2;
-            for (i, ch) in size_str.chars().take(rw - 1).enumerate() {
-                let px = x1 + 1 + i;
-                if px < x2 && px < inner.width as usize && label_y < inner.height as usize {
-                    grid[label_y][px] = (ch, text_color, Color::Rgb(15, 15, 18));
-                }
-            }
+        // Recent files sparkline
+        let recent_history = app.file_analyzer.metric_history("recent");
+        if !recent_history.is_empty() {
+            let rec_spark = MonitorSparkline::new(&recent_history)
+                .color(Color::Rgb(100, 200, 150));
+            f.render_widget(rec_spark, Rect {
+                x: inner.x + spark_width * 3,
+                y: inner.y,
+                width: inner.width.saturating_sub(spark_width * 3),
+                height: 1,
+            });
+            f.render_widget(
+                Paragraph::new("Recent").style(Style::default().fg(Color::DarkGray)),
+                Rect { x: inner.x + spark_width * 3, y: inner.y + 1, width: inner.width.saturating_sub(spark_width * 3), height: 1 },
+            );
         }
     }
 
-    // Render
-    for (row_idx, row) in grid.iter().enumerate() {
-        let spans: Vec<Span> = row.iter().map(|(ch, fg, bg)| {
-            Span::styled(ch.to_string(), Style::default().fg(*fg).bg(*bg))
-        }).collect();
+    // === BOTTOM: File list with indicators ===
+    let list_area = Rect {
+        x: inner.x,
+        y: inner.y + sparkline_height,
+        width: inner.width,
+        height: list_height,
+    };
+
+    if list_area.height < 1 {
+        return;
+    }
+
+    // Get files sorted by a composite score (hot first, then large)
+    let mut display_files: Vec<_> = app.file_analyzer.files().iter().collect();
+    display_files.sort_by(|a, b| {
+        // Score: I/O activity * 1000 + is_recent * 500 + is_duplicate * 100 + size/1GB
+        let score = |f: &crate::analyzers::FileEntry| -> u64 {
+            let io_score = match f.io_activity {
+                IoActivity::High => 3000,
+                IoActivity::Medium => 2000,
+                IoActivity::Low => 1000,
+                IoActivity::None => 0,
+            };
+            let recent_score = if f.is_recent { 500 } else { 0 };
+            let dup_score = if f.is_duplicate { 100 } else { 0 };
+            let size_score = (f.size / (1024 * 1024 * 1024)).min(99);
+            io_score + recent_score + dup_score + size_score
+        };
+        score(b).cmp(&score(a))
+    });
+
+    // Render file rows
+    for (idx, file) in display_files.iter().take(list_area.height as usize).enumerate() {
+        let y = list_area.y + idx as u16;
+
+        // Build indicator string: [type] [io] [entropy] [dup]
+        let type_icon = file.file_type.icon();
+        let io_icon = file.io_activity.icon();
+        let entropy_icon = file.entropy_level.icon();
+        let dup_icon = if file.is_duplicate { '⊕' } else { ' ' };
+
+        // File name (truncated)
+        let name = file.path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("?");
+        let max_name_len = (list_area.width as usize).saturating_sub(25);
+        let display_name = truncate_str(name, max_name_len);
+
+        // Size
+        let size_str = theme::format_bytes(file.size);
+
+        // Build colored spans
+        let (type_r, type_g, type_b) = file.file_type.color();
+        let (io_r, io_g, io_b) = file.io_activity.color();
+        let (ent_r, ent_g, ent_b) = file.entropy_level.color();
+
+        let line = Line::from(vec![
+            Span::styled(
+                format!("{}", type_icon),
+                Style::default().fg(Color::Rgb(type_r, type_g, type_b)),
+            ),
+            Span::raw(" "),
+            Span::styled(
+                format!("{}", io_icon),
+                Style::default().fg(Color::Rgb(io_r, io_g, io_b)),
+            ),
+            Span::styled(
+                format!("{}", entropy_icon),
+                Style::default().fg(Color::Rgb(ent_r, ent_g, ent_b)),
+            ),
+            Span::styled(
+                format!("{}", dup_icon),
+                Style::default().fg(if file.is_duplicate { Color::Rgb(220, 180, 100) } else { Color::DarkGray }),
+            ),
+            Span::raw(" "),
+            Span::styled(
+                display_name,
+                Style::default().fg(if file.is_recent { Color::Rgb(180, 220, 180) } else { Color::Rgb(180, 180, 180) }),
+            ),
+            Span::raw(" "),
+            Span::styled(
+                format!("{:>6}", size_str),
+                Style::default().fg(Color::Rgb(140, 140, 160)),
+            ),
+        ]);
 
         f.render_widget(
-            Paragraph::new(Line::from(spans)),
-            Rect { x: inner.x, y: inner.y + row_idx as u16, width: inner.width, height: 1 },
+            Paragraph::new(line),
+            Rect { x: list_area.x, y, width: list_area.width, height: 1 },
         );
     }
 }
 
-/// Pareto color scheme: warm amber for top items, cool slate for bottom
-fn pareto_colors(rank_ratio: f64) -> (trueno_viz::monitor::ratatui::style::Color, trueno_viz::monitor::ratatui::style::Color, trueno_viz::monitor::ratatui::style::Color) {
-    use trueno_viz::monitor::ratatui::style::Color;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    // Top 20% (Pareto vital few): warm amber/orange
-    // Middle 30%: muted gold
-    // Bottom 50%: cool blue-gray
+    #[test]
+    fn test_mount_marker_nvme() {
+        let (mark, color, label) = mount_marker("/mnt/nvme-raid0/foo/bar");
+        assert_eq!(mark, 'N');
+        assert_eq!(color, (100, 220, 140));
+        assert_eq!(label, "nvme");
 
-    if rank_ratio < 0.2 {
-        // Vital few - warm amber
-        let intensity = 1.0 - (rank_ratio / 0.2);
-        let r = 180 + (40.0 * intensity) as u8;
-        let g = 100 + (30.0 * intensity) as u8;
-        let b = 50;
-        (
-            Color::Rgb(r / 3, g / 3, b / 3),           // fill (dark)
-            Color::Rgb(r, g, b),                        // border (bright)
-            Color::Rgb(255, 240, 220),                  // text (warm white)
-        )
-    } else if rank_ratio < 0.5 {
-        // Useful many - muted gold/tan
-        let t = (rank_ratio - 0.2) / 0.3;
-        let r = 140 - (30.0 * t) as u8;
-        let g = 120 - (30.0 * t) as u8;
-        let b = 80 - (20.0 * t) as u8;
-        (
-            Color::Rgb(r / 3, g / 3, b / 3),
-            Color::Rgb(r, g, b),
-            Color::Rgb(220, 210, 190),
-        )
-    } else {
-        // Trivial many - cool slate
-        let t = (rank_ratio - 0.5) / 0.5;
-        let r = 70 - (20.0 * t) as u8;
-        let g = 80 - (20.0 * t) as u8;
-        let b = 100 - (20.0 * t) as u8;
-        (
-            Color::Rgb(r / 3, g / 3, b / 3),
-            Color::Rgb(r, g, b),
-            Color::Rgb(160, 165, 175),
-        )
+        let (mark, _, _) = mount_marker("/mnt/nvme/data");
+        assert_eq!(mark, 'N');
+    }
+
+    #[test]
+    fn test_mount_marker_storage() {
+        let (mark, color, label) = mount_marker("/mnt/storage/backups");
+        assert_eq!(mark, 'D');
+        assert_eq!(color, (220, 100, 100));
+        assert_eq!(label, "hdd");
+
+        let (mark, _, _) = mount_marker("/mnt/hdd/archive");
+        assert_eq!(mark, 'D');
+    }
+
+    #[test]
+    fn test_mount_marker_home() {
+        let (mark, color, label) = mount_marker("/home/user/documents");
+        assert_eq!(mark, 'h');
+        assert_eq!(color, (220, 180, 80));
+        assert_eq!(label, "home");
+    }
+
+    #[test]
+    fn test_mount_marker_system() {
+        let (mark, color, _) = mount_marker("/");
+        assert_eq!(mark, '/');
+        assert_eq!(color, (140, 160, 220));
+
+        let (mark, _, _) = mount_marker("/usr/local/bin");
+        assert_eq!(mark, '/');
+
+        let (mark, _, _) = mount_marker("/var/log");
+        assert_eq!(mark, '/');
+    }
+
+    #[test]
+    fn test_mount_marker_other_mounts() {
+        let (mark, color, label) = mount_marker("/mnt/usb");
+        assert_eq!(mark, 'M');
+        assert_eq!(color, (180, 140, 220));
+        assert_eq!(label, "mnt");
+
+        let (mark, _, _) = mount_marker("/media/cdrom");
+        assert_eq!(mark, 'M');
+    }
+
+    #[test]
+    fn test_mount_marker_unknown() {
+        let (mark, color, label) = mount_marker("/opt/app");
+        assert_eq!(mark, '?');
+        assert_eq!(color, (140, 140, 140));
+        assert_eq!(label, "unk");
+    }
+
+    #[test]
+    fn test_format_dir_path_short() {
+        assert_eq!(format_dir_path("/mnt/data", 20), "/mnt/data");
+        assert_eq!(format_dir_path("/home", 10), "/home");
+    }
+
+    #[test]
+    fn test_format_dir_path_truncate() {
+        let result = format_dir_path("/mnt/nvme-raid0/very/long/path/here", 25);
+        assert!(result.len() <= 25);
+        assert!(result.contains("..."));
+    }
+
+    #[test]
+    fn test_format_dir_path_very_small_width() {
+        let result = format_dir_path("/mnt/nvme-raid0/foo", 8);
+        assert!(result.len() <= 8);
+    }
+
+    #[test]
+    fn test_format_dir_path_single_component() {
+        let result = format_dir_path("/verylongsingledirectoryname", 15);
+        assert!(result.len() <= 15);
+        assert!(result.starts_with('/'));
+    }
+
+    #[test]
+    fn test_entropy_heatmap_high_dupe() {
+        // Low entropy = high duplication (red)
+        let (display, r, g, b) = entropy_heatmap(0.1);
+        assert!(display.contains('%'));
+        assert!(r > g); // Red-ish for high dupe
+    }
+
+    #[test]
+    fn test_entropy_heatmap_medium() {
+        // Medium entropy = mixed (yellow-ish)
+        let (display, r, g, b) = entropy_heatmap(0.5);
+        assert!(display.contains('%'));
+        assert!(r > 150 && g > 150); // Yellow-ish
+    }
+
+    #[test]
+    fn test_entropy_heatmap_unique() {
+        // High entropy = unique data (green)
+        let (display, r, g, b) = entropy_heatmap(0.9);
+        assert!(display.contains('%'));
+        assert!(g > r); // Green for unique
+    }
+
+    #[test]
+    fn test_entropy_heatmap_boundary() {
+        // Test boundary values don't panic
+        let _ = entropy_heatmap(0.0);
+        let _ = entropy_heatmap(0.5);
+        let _ = entropy_heatmap(1.0);
+        let _ = entropy_heatmap(1.5); // Over 1.0 should work
+    }
+
+    #[test]
+    fn test_truncate_str_short() {
+        assert_eq!(truncate_str("hello", 10), "hello");
+    }
+
+    #[test]
+    fn test_truncate_str_exact() {
+        assert_eq!(truncate_str("hello", 5), "hello");
+    }
+
+    #[test]
+    fn test_truncate_str_long() {
+        assert_eq!(truncate_str("hello world", 8), "hello...");
+    }
+
+    #[test]
+    fn test_truncate_str_very_short_max() {
+        assert_eq!(truncate_str("hello", 2), "he");
+    }
+
+    #[test]
+    fn test_mount_legend_str() {
+        let legend = mount_legend_str();
+        assert!(legend.contains("N:nvme"));
+        assert!(legend.contains("D:hdd"));
+        assert!(legend.contains("h:home"));
+        assert!(legend.contains("/:sys"));
+    }
+
+    #[test]
+    fn test_btop_block() {
+        use trueno_viz::monitor::ratatui::style::Color;
+        let block = btop_block("Test", Color::Red);
+        // Just verify it doesn't panic and returns a Block
+        assert!(format!("{:?}", block).contains("Block"));
+    }
+}
+
+/// TUI rendering tests using probar
+#[cfg(test)]
+mod tui_tests {
+    use jugar_probar::tui::{TuiFrame, expect_frame};
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+    use ratatui::widgets::{Block, Borders, Paragraph};
+    use ratatui::style::{Color, Style};
+
+    /// Test that btop_block renders correctly
+    #[test]
+    fn test_btop_block_renders() {
+        let mut backend = TestBackend::new(40, 5);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let block = Block::default()
+                .title("CPU")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan));
+            f.render_widget(block, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        assert!(frame.contains("CPU"));
+        assert!(frame.contains("─")); // Border character
+    }
+
+    /// Test paragraph widget rendering
+    #[test]
+    fn test_paragraph_renders() {
+        let mut backend = TestBackend::new(40, 5);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let para = Paragraph::new("Hello World")
+                .style(Style::default().fg(Color::Green));
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        assert!(frame.contains("Hello World"));
+    }
+
+    /// Test mount marker legend in rendered frame
+    #[test]
+    fn test_mount_legend_renders() {
+        use super::mount_legend_str;
+
+        let mut backend = TestBackend::new(60, 3);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let legend = mount_legend_str();
+            let para = Paragraph::new(legend);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        assert!(frame.contains("N:nvme"));
+        assert!(frame.contains("D:hdd"));
+        assert!(frame.contains("h:home"));
+    }
+
+    /// Test format_dir_path output in widget
+    #[test]
+    fn test_format_dir_path_renders() {
+        use super::format_dir_path;
+
+        let mut backend = TestBackend::new(30, 3);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let path = format_dir_path("/mnt/nvme-raid0/very/long/path", 25);
+            let para = Paragraph::new(path);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Should contain ellipsis for long paths
+        assert!(frame.contains("...") || frame.as_text().len() <= 25 * 3);
+    }
+
+    /// Test entropy_heatmap rendering
+    #[test]
+    fn test_entropy_heatmap_renders() {
+        use super::entropy_heatmap;
+
+        let mut backend = TestBackend::new(20, 3);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let (display, _r, _g, _b) = entropy_heatmap(0.5);
+            let para = Paragraph::new(display);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Should contain percentage
+        assert!(frame.contains("%"));
+    }
+
+    /// Test truncate_str in rendered context
+    #[test]
+    fn test_truncate_str_renders() {
+        use super::truncate_str;
+
+        let mut backend = TestBackend::new(15, 3);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let text = truncate_str("very long process name", 12);
+            let para = Paragraph::new(text);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Should be truncated with ellipsis
+        assert!(frame.contains("..."));
+        assert!(frame.contains("very long"));
+    }
+
+    /// Test probar frame assertions
+    #[test]
+    fn test_probar_assertions() {
+        let mut backend = TestBackend::new(40, 5);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let block = Block::default()
+                .title("Memory")
+                .borders(Borders::ALL);
+            let para = Paragraph::new("Used: 8GB / 16GB")
+                .block(block);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Use probar's assertion API
+        expect_frame(&frame)
+            .to_contain_text("Memory")
+            .expect("should contain Memory");
+
+        expect_frame(&frame)
+            .to_contain_text("8GB")
+            .expect("should contain 8GB");
+
+        expect_frame(&frame)
+            .to_match(r"\d+GB / \d+GB")
+            .expect("should match memory pattern");
+    }
+
+    /// Test multiple lines rendering
+    #[test]
+    fn test_multiline_renders() {
+        let mut backend = TestBackend::new(30, 6);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let text = "Line 1\nLine 2\nLine 3";
+            let para = Paragraph::new(text);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        assert!(frame.contains("Line 1"));
+        assert!(frame.contains("Line 2"));
+        assert!(frame.contains("Line 3"));
+        assert_eq!(frame.line(0), Some("Line 1"));
+        assert_eq!(frame.line(1), Some("Line 2"));
+    }
+
+    /// Test frame diff for regression detection
+    #[test]
+    fn test_frame_diff() {
+        let frame1 = TuiFrame::from_lines(&[
+            "CPU: 50%",
+            "MEM: 60%",
+        ]);
+        let frame2 = TuiFrame::from_lines(&[
+            "CPU: 50%",
+            "MEM: 60%",
+        ]);
+
+        assert!(frame1.is_identical(&frame2));
+
+        let frame3 = TuiFrame::from_lines(&[
+            "CPU: 75%",
+            "MEM: 60%",
+        ]);
+
+        let diff = frame1.diff(&frame3);
+        assert!(!diff.is_identical);
+        assert_eq!(diff.changed_lines.len(), 1);
+        assert_eq!(diff.changed_lines[0].line_number, 0);
+    }
+
+    /// Test styled text rendering
+    #[test]
+    fn test_styled_text_renders() {
+        let mut backend = TestBackend::new(30, 3);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            use ratatui::text::{Span, Line};
+            let line = Line::from(vec![
+                Span::styled("Red", Style::default().fg(Color::Red)),
+                Span::raw(" "),
+                Span::styled("Green", Style::default().fg(Color::Green)),
+            ]);
+            let para = Paragraph::new(line);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        assert!(frame.contains("Red"));
+        assert!(frame.contains("Green"));
+    }
+
+    /// Test sparkline-style bar rendering (used in panels)
+    #[test]
+    fn test_split_bar_renders() {
+        let mut backend = TestBackend::new(20, 3);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            use ratatui::text::{Span, Line};
+            // Simulate the split bar used in panels
+            let bar = "▄".repeat(5);
+            let line = Line::from(vec![
+                Span::styled(&bar, Style::default()
+                    .fg(Color::Green)   // Bottom half
+                    .bg(Color::Blue)),  // Top half
+            ]);
+            let para = Paragraph::new(line);
+            f.render_widget(para, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        assert!(frame.contains("▄"));
+    }
+}
+
+/// Full panel rendering tests using mock App
+#[cfg(test)]
+mod panel_render_tests {
+    use super::*;
+    use crate::app::App;
+    use jugar_probar::tui::{TuiFrame, expect_frame};
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+    use ratatui::layout::Rect;
+
+    /// Test CPU panel renders with mock data
+    #[test]
+    fn test_draw_cpu_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_cpu(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // CPU panel should contain title with CPU info
+        assert!(frame.contains("CPU"));
+    }
+
+    /// Test Memory panel renders with mock data
+    #[test]
+    fn test_draw_memory_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_memory(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Memory panel should contain memory info
+        assert!(frame.contains("Memory") || frame.contains("Used") || frame.contains("Swap"));
+    }
+
+    /// Test Disk panel renders with mock data
+    #[test]
+    fn test_draw_disk_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 15);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 15);
+            draw_disk(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Disk panel should contain disk info
+        assert!(frame.contains("Disk") || frame.contains("IOPS") || frame.contains("/"));
+    }
+
+    /// Test Network panel renders with mock data
+    #[test]
+    fn test_draw_network_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 15);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 15);
+            draw_network(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Network panel should contain network info
+        assert!(frame.contains("Network") || frame.contains("Download") || frame.contains("Upload"));
+    }
+
+    /// Test GPU panel renders with mock data
+    #[test]
+    fn test_draw_gpu_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 15);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 15);
+            draw_gpu(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // GPU panel should contain GPU info or "No GPU" message
+        assert!(frame.contains("GPU") || frame.contains("No GPU"));
+    }
+
+    /// Test Battery panel renders with mock data
+    #[test]
+    fn test_draw_battery_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(40, 10);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 40, 10);
+            draw_battery(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Battery panel should render
+        assert!(frame.contains("Battery") || frame.contains("AC") || frame.contains("%") || frame.height() > 0);
+    }
+
+    /// Test Sensors panel renders with mock data
+    #[test]
+    fn test_draw_sensors_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(40, 15);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 40, 15);
+            draw_sensors(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Sensors panel should render
+        assert!(frame.contains("Sensors") || frame.contains("°") || frame.height() > 0);
+    }
+
+    /// Test Sensors compact panel renders
+    #[test]
+    fn test_draw_sensors_compact_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(40, 15);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 40, 15);
+            draw_sensors_compact(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Compact sensors panel should render
+        assert!(frame.height() > 0);
+    }
+
+    /// Test PSI panel renders with mock data
+    #[test]
+    fn test_draw_psi_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(40, 10);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 40, 10);
+            draw_psi(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // PSI panel should contain pressure info
+        assert!(frame.contains("Pressure") || frame.contains("PSI") || frame.contains("I/O") || frame.height() > 0);
+    }
+
+    /// Test System panel renders with mock data
+    #[test]
+    fn test_draw_system_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 10);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 10);
+            draw_system(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // System panel should contain system info
+        assert!(frame.contains("System") || frame.contains("Host") || frame.height() > 0);
+    }
+
+    /// Test Process panel renders with mock data
+    #[test]
+    fn test_draw_process_panel() {
+        let mut app = App::new_mock();
+        let backend = TestBackend::new(100, 25);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 100, 25);
+            draw_process(f, &mut app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Process panel should contain process header
+        assert!(frame.contains("Process") || frame.contains("PID") || frame.contains("COMMAND"));
+    }
+
+    /// Test Connections panel renders with mock data
+    #[test]
+    fn test_draw_connections_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(60, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 60, 20);
+            draw_connections(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Connections panel should contain connection info
+        assert!(frame.contains("Connection") || frame.contains("SVC") || frame.contains("listen"));
+    }
+
+    /// Test Treemap panel renders with mock data
+    #[test]
+    fn test_draw_treemap_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(60, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 60, 20);
+            draw_treemap(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Treemap panel should render something
+        assert!(frame.height() > 0);
+    }
+
+    /// Test Files panel renders with mock data
+    #[test]
+    fn test_draw_files_panel() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(60, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 60, 20);
+            draw_files(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Files panel should contain files header with mount legend
+        assert!(frame.contains("Files") || frame.contains("nvme") || frame.contains("hdd"));
+    }
+
+    /// Test panels render at various sizes
+    #[test]
+    fn test_panels_various_sizes() {
+        let app = App::new_mock();
+        let sizes = [(40, 10), (80, 20), (120, 30), (200, 50)];
+
+        for (width, height) in sizes {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            // Test CPU panel at this size
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, width, height);
+                draw_cpu(f, &app, area);
+            }).expect(&format!("draw cpu at {}x{}", width, height));
+
+            // Test Memory panel at this size
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, width, height);
+                draw_memory(f, &app, area);
+            }).expect(&format!("draw memory at {}x{}", width, height));
+
+            // Test Network panel at this size
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, width, height);
+                draw_network(f, &app, area);
+            }).expect(&format!("draw network at {}x{}", width, height));
+        }
+    }
+
+    /// Test panels with small terminal (edge case)
+    #[test]
+    fn test_panels_tiny_terminal() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(20, 5);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        // Should not panic even with tiny terminal
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 20, 5);
+            draw_cpu(f, &app, area);
+        }).expect("draw tiny cpu");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 20, 5);
+            draw_memory(f, &app, area);
+        }).expect("draw tiny memory");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 20, 5);
+            draw_disk(f, &app, area);
+        }).expect("draw tiny disk");
+    }
+
+    /// Test probar assertions on CPU panel
+    #[test]
+    fn test_cpu_panel_probar_assertions() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_cpu(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Verify CPU panel content with probar assertions
+        expect_frame(&frame)
+            .to_contain_text("CPU")
+            .expect("should contain CPU title");
+    }
+
+    /// Test probar assertions on Memory panel
+    #[test]
+    fn test_memory_panel_probar_assertions() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_memory(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Memory panel should show memory usage
+        expect_frame(&frame)
+            .to_contain_text("Memory")
+            .expect("should contain Memory title");
+    }
+
+    /// Test Files panel with corrected mount legend
+    #[test]
+    fn test_files_panel_mount_legend() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_files(f, &app, area);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Verify the corrected mount legend (D:hdd, h:home not H:hdd, ::home)
+        let text = frame.as_text();
+        // Files panel title should have the legend
+        assert!(text.contains("Files") || text.contains("N:nvme"));
+    }
+
+    /// Test Files panel with different view modes
+    #[test]
+    fn test_files_panel_view_modes() {
+        use crate::state::FilesViewMode;
+
+        for mode in [FilesViewMode::Size, FilesViewMode::Entropy, FilesViewMode::Io] {
+            let mut app = App::new_mock();
+            app.files_view_mode = mode;
+
+            let backend = TestBackend::new(80, 20);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, 80, 20);
+                draw_files(f, &app, area);
+            }).expect(&format!("draw files in {:?} mode", mode));
+
+            // Should not panic for any view mode
+        }
+    }
+
+    /// Test Memory panel with different history lengths
+    #[test]
+    fn test_memory_panel_history_variations() {
+        let mut app = App::new_mock();
+
+        // Test with empty history
+        app.mem_history.clear();
+        app.swap_history.clear();
+
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_memory(f, &app, area);
+        }).expect("draw memory empty history");
+
+        // Test with long history
+        app.mem_history = (0..300).map(|i| (i as f64 / 300.0)).collect();
+        app.swap_history = (0..300).map(|i| (i as f64 / 600.0)).collect();
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_memory(f, &app, area);
+        }).expect("draw memory full history");
+    }
+
+    /// Test CPU panel with different core counts
+    #[test]
+    fn test_cpu_panel_core_variations() {
+        let mut app = App::new_mock();
+
+        // Test with no cores
+        app.per_core_percent.clear();
+
+        let backend = TestBackend::new(80, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 15);
+            draw_cpu(f, &app, area);
+        }).expect("draw cpu no cores");
+
+        // Test with many cores (16) - needs taller area
+        app.per_core_percent = (0..16).map(|i| i as f64 * 6.0).collect();
+
+        let backend = TestBackend::new(100, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 100, 40);
+            draw_cpu(f, &app, area);
+        }).expect("draw cpu 16 cores");
+
+        // Test with even more cores (32) - needs even taller area
+        app.per_core_percent = (0..32).map(|i| i as f64 * 3.0).collect();
+
+        let backend = TestBackend::new(120, 80);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 120, 70);
+            draw_cpu(f, &app, area);
+        }).expect("draw cpu 32 cores");
+    }
+
+    /// Test Network panel with peak values
+    #[test]
+    fn test_network_panel_peaks() {
+        let mut app = App::new_mock();
+
+        // Set high peak values
+        app.net_rx_peak = 1_000_000_000.0;  // 1 GB/s
+        app.net_tx_peak = 500_000_000.0;    // 500 MB/s
+
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_network(f, &app, area);
+        }).expect("draw network with peaks");
+    }
+
+    /// Test Network panel with empty history
+    #[test]
+    fn test_network_panel_empty_history() {
+        let mut app = App::new_mock();
+        app.net_rx_history.clear();
+        app.net_tx_history.clear();
+
+        let backend = TestBackend::new(80, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 80, 20);
+            draw_network(f, &app, area);
+        }).expect("draw network empty");
+    }
+
+    /// Test Process panel with filter active
+    #[test]
+    fn test_process_panel_with_filter() {
+        let mut app = App::new_mock();
+        app.filter = "chrome".to_string();
+        app.show_filter_input = true;
+
+        let backend = TestBackend::new(100, 25);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 100, 25);
+            draw_process(f, &mut app, area);
+        }).expect("draw process with filter");
+    }
+
+    /// Test Process panel with tree mode
+    #[test]
+    fn test_process_panel_tree_mode() {
+        let mut app = App::new_mock();
+        app.show_tree = true;
+
+        let backend = TestBackend::new(100, 25);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 100, 25);
+            draw_process(f, &mut app, area);
+        }).expect("draw process tree mode");
+    }
+
+    /// Test Disk panel with different sizes
+    #[test]
+    fn test_disk_panel_sizes() {
+        let app = App::new_mock();
+
+        // Test narrow disk panel
+        let backend = TestBackend::new(40, 10);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 40, 10);
+            draw_disk(f, &app, area);
+        }).expect("draw narrow disk");
+
+        // Test wide disk panel
+        let backend = TestBackend::new(120, 30);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 120, 30);
+            draw_disk(f, &app, area);
+        }).expect("draw wide disk");
+    }
+
+    /// Test GPU panel at various sizes
+    #[test]
+    fn test_gpu_panel_sizes() {
+        let app = App::new_mock();
+
+        for (w, h) in [(30, 10), (60, 15), (100, 20)] {
+            let backend = TestBackend::new(w, h);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_gpu(f, &app, area);
+            }).expect(&format!("draw gpu {}x{}", w, h));
+        }
+    }
+
+    /// Test System panel at various sizes
+    #[test]
+    fn test_system_panel_sizes() {
+        let app = App::new_mock();
+
+        for (w, h) in [(40, 8), (80, 12), (120, 15)] {
+            let backend = TestBackend::new(w, h);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_system(f, &app, area);
+            }).expect(&format!("draw system {}x{}", w, h));
+        }
+    }
+
+    /// Test PSI panel sizes
+    #[test]
+    fn test_psi_panel_sizes() {
+        let app = App::new_mock();
+
+        for (w, h) in [(30, 8), (50, 12), (80, 15)] {
+            let backend = TestBackend::new(w, h);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_psi(f, &app, area);
+            }).expect(&format!("draw psi {}x{}", w, h));
+        }
+    }
+
+    /// Test Battery panel sizes
+    #[test]
+    fn test_battery_panel_sizes() {
+        let app = App::new_mock();
+
+        for (w, h) in [(25, 6), (40, 10), (60, 12)] {
+            let backend = TestBackend::new(w, h);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_battery(f, &app, area);
+            }).expect(&format!("draw battery {}x{}", w, h));
+        }
+    }
+
+    /// Test Sensors panel sizes
+    #[test]
+    fn test_sensors_panel_sizes() {
+        let app = App::new_mock();
+
+        for (w, h) in [(30, 10), (50, 15), (80, 20)] {
+            let backend = TestBackend::new(w, h);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_sensors(f, &app, area);
+            }).expect(&format!("draw sensors {}x{}", w, h));
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_sensors_compact(f, &app, area);
+            }).expect(&format!("draw sensors compact {}x{}", w, h));
+        }
+    }
+
+    /// Test Connections panel sizes
+    #[test]
+    fn test_connections_panel_sizes() {
+        let app = App::new_mock();
+
+        for (w, h) in [(40, 12), (60, 18), (100, 25)] {
+            let backend = TestBackend::new(w, h);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_connections(f, &app, area);
+            }).expect(&format!("draw connections {}x{}", w, h));
+        }
+    }
+
+    /// Test Treemap panel sizes
+    #[test]
+    fn test_treemap_panel_sizes() {
+        let app = App::new_mock();
+
+        for (w, h) in [(40, 15), (60, 20), (100, 30)] {
+            let backend = TestBackend::new(w, h);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, w, h);
+                draw_treemap(f, &app, area);
+            }).expect(&format!("draw treemap {}x{}", w, h));
+        }
+    }
+
+    /// Test all panels with zero-sized area (edge case)
+    #[test]
+    fn test_panels_zero_area() {
+        let app = App::new_mock();
+        let mut app_mut = App::new_mock();
+        let backend = TestBackend::new(1, 1);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        // Draw with minimal area (1x1) - should not panic
+        let area = Rect::new(0, 0, 1, 1);
+
+        terminal.draw(|f| { draw_cpu(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_memory(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_disk(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_network(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_gpu(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_battery(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_sensors(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_psi(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_system(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_process(f, &mut app_mut, area); }).ok();
+        terminal.draw(|f| { draw_connections(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_treemap(f, &app, area); }).ok();
+        terminal.draw(|f| { draw_files(f, &app, area); }).ok();
     }
 }

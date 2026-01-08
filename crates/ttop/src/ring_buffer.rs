@@ -282,4 +282,181 @@ mod tests {
         assert_eq!(slice.len(), 3);
         assert_eq!(slice, &[2.0, 3.0, 4.0]);
     }
+
+    #[test]
+    fn test_ring_buffer_clear() {
+        let mut buf: RingBuffer<i32> = RingBuffer::new(3);
+        buf.push(1);
+        buf.push(2);
+        assert_eq!(buf.len(), 2);
+        buf.clear();
+        assert!(buf.is_empty());
+        assert_eq!(buf.len(), 0);
+    }
+
+    #[test]
+    fn test_ring_buffer_iter() {
+        let mut buf: RingBuffer<i32> = RingBuffer::new(3);
+        buf.push(10);
+        buf.push(20);
+        buf.push(30);
+        let sum: i32 = buf.iter().sum();
+        assert_eq!(sum, 60);
+    }
+
+    #[test]
+    fn test_ring_buffer_capacity() {
+        let buf: RingBuffer<i32> = RingBuffer::new(10);
+        assert_eq!(buf.capacity(), 10);
+    }
+
+    #[test]
+    fn test_ring_buffer_empty_latest_oldest() {
+        let buf: RingBuffer<i32> = RingBuffer::new(3);
+        assert_eq!(buf.latest(), None);
+        assert_eq!(buf.oldest(), None);
+    }
+
+    #[test]
+    fn test_ring_buffer_f64_empty_stats() {
+        let buf: RingBuffer<f64> = RingBuffer::new(3);
+        assert_eq!(buf.mean(), 0.0);
+        assert_eq!(buf.sum(), 0.0);
+        assert_eq!(buf.min(), 0.0);
+        assert_eq!(buf.max(), 0.0);
+        assert_eq!(buf.std_dev(), 0.0);
+    }
+
+    #[test]
+    fn test_ring_buffer_f64_single_value() {
+        let mut buf: RingBuffer<f64> = RingBuffer::new(3);
+        buf.push(42.0);
+        assert!((buf.mean() - 42.0).abs() < 0.001);
+        assert!((buf.sum() - 42.0).abs() < 0.001);
+        assert!((buf.min() - 42.0).abs() < 0.001);
+        assert!((buf.max() - 42.0).abs() < 0.001);
+        assert_eq!(buf.std_dev(), 0.0); // Need at least 2 for std_dev
+    }
+
+    #[test]
+    fn test_ring_buffer_f64_std_dev() {
+        let mut buf: RingBuffer<f64> = RingBuffer::new(5);
+        buf.push(2.0);
+        buf.push(4.0);
+        buf.push(4.0);
+        buf.push(4.0);
+        buf.push(5.0);
+        buf.push(5.0);
+        buf.push(7.0);
+        buf.push(9.0);
+        // Keep last 5: 4, 5, 5, 7, 9 -> mean = 6, variance = (4+1+1+1+9)/4 = 4, std = 2
+        let std = buf.std_dev();
+        assert!(std > 0.0);
+    }
+
+    #[test]
+    fn test_ring_buffer_f64_rate_insufficient_data() {
+        let mut buf: RingBuffer<f64> = RingBuffer::new(3);
+        assert_eq!(buf.rate_per_sec(1.0), 0.0); // Empty
+
+        buf.push(100.0);
+        assert_eq!(buf.rate_per_sec(1.0), 0.0); // Only 1 element
+    }
+
+    #[test]
+    fn test_ring_buffer_f64_rate_zero_interval() {
+        let mut buf: RingBuffer<f64> = RingBuffer::new(3);
+        buf.push(100.0);
+        buf.push(200.0);
+        assert_eq!(buf.rate_per_sec(0.0), 0.0);
+        assert_eq!(buf.rate_per_sec(-1.0), 0.0);
+    }
+
+    #[test]
+    fn test_ring_buffer_f64_rate_per_sec() {
+        let mut buf: RingBuffer<f64> = RingBuffer::new(3);
+        buf.push(0.0);
+        buf.push(100.0);
+        buf.push(200.0);
+        // Rate = (200 - 0) / (2 * 1.0) = 100/s
+        let rate = buf.rate_per_sec(1.0);
+        assert!((rate - 100.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_ring_buffer_u64_stats() {
+        let mut buf: RingBuffer<u64> = RingBuffer::new(5);
+        buf.push(10);
+        buf.push(20);
+        buf.push(30);
+        buf.push(40);
+        buf.push(50);
+        assert_eq!(buf.sum(), 150);
+        assert!((buf.mean() - 30.0).abs() < 0.001);
+        assert_eq!(buf.min(), 10);
+        assert_eq!(buf.max(), 50);
+    }
+
+    #[test]
+    fn test_ring_buffer_u64_empty_stats() {
+        let buf: RingBuffer<u64> = RingBuffer::new(3);
+        assert_eq!(buf.sum(), 0);
+        assert_eq!(buf.mean(), 0.0);
+        assert_eq!(buf.min(), 0);
+        assert_eq!(buf.max(), 0);
+    }
+
+    #[test]
+    fn test_ring_buffer_u64_rate_insufficient_data() {
+        let mut buf: RingBuffer<u64> = RingBuffer::new(3);
+        assert_eq!(buf.rate_per_sec(1.0), 0.0);
+
+        buf.push(100);
+        assert_eq!(buf.rate_per_sec(1.0), 0.0);
+    }
+
+    #[test]
+    fn test_ring_buffer_u64_rate_zero_interval() {
+        let mut buf: RingBuffer<u64> = RingBuffer::new(3);
+        buf.push(100);
+        buf.push(200);
+        assert_eq!(buf.rate_per_sec(0.0), 0.0);
+        assert_eq!(buf.rate_per_sec(-1.0), 0.0);
+    }
+
+    #[test]
+    fn test_ring_buffer_u64_rate_with_wrap() {
+        let mut buf: RingBuffer<u64> = RingBuffer::new(3);
+        buf.push(u64::MAX - 5);
+        buf.push(u64::MAX);
+        buf.push(10);
+        // delta = wrap from MAX-5 to 10 = 16
+        // time_span = 2 * 1.0 = 2.0
+        // rate = 16 / 2 = 8
+        let rate = buf.rate_per_sec(1.0);
+        assert!((rate - 8.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_counter_wrap_no_wrap() {
+        assert_eq!(handle_counter_wrap(100, 200), 100);
+        assert_eq!(handle_counter_wrap(0, 1000), 1000);
+        assert_eq!(handle_counter_wrap(50, 50), 0);
+    }
+
+    #[test]
+    fn test_counter_wrap_at_max() {
+        assert_eq!(handle_counter_wrap(u64::MAX, 0), 1);
+        assert_eq!(handle_counter_wrap(u64::MAX, 10), 11);
+    }
+
+    #[test]
+    fn test_ring_buffer_as_slice() {
+        let mut buf: RingBuffer<i32> = RingBuffer::new(3);
+        buf.push(1);
+        buf.push(2);
+        buf.push(3);
+        let slice = buf.as_slice();
+        assert_eq!(slice, &[1, 2, 3]);
+    }
 }

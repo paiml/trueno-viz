@@ -1877,11 +1877,10 @@ dependencies = [
 
 [[package]]
 name = "jugar-probar"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e1b9510bb9941033f727d826a0ccad18b28415c51e5340a8441ab4017ef890e"
+version = "1.0.0-rc.1"
 dependencies = [
  "base64",
+ "bincode",
  "chrono",
  "crossterm",
  "gif 0.13.3",
@@ -1890,12 +1889,14 @@ dependencies = [
  "mp4",
  "notify",
  "png 0.17.16",
+ "proc-macro2",
  "ratatui",
  "regex",
  "serde",
  "serde_json",
  "serde_yaml",
  "sha2",
+ "syn",
  "thiserror 2.0.17",
  "tracing",
  "tracing-subscriber",

@@ -18,8 +18,8 @@ use trueno_viz::monitor::collectors::AmdGpuCollector;
 #[cfg(target_os = "macos")]
 use trueno_viz::monitor::collectors::AppleGpuCollector;
 
-use crate::analyzers::{ContainerAnalyzer, DiskIoAnalyzer, GpuProcessAnalyzer, PsiAnalyzer, StorageAnalyzer, SwapAnalyzer, ThrashingSeverity};
-use crate::state::ProcessSortColumn;
+use crate::analyzers::{ContainerAnalyzer, DiskEntropyAnalyzer, DiskIoAnalyzer, GpuProcessAnalyzer, NetworkStatsAnalyzer, PsiAnalyzer, SensorHealthAnalyzer, StorageAnalyzer, SwapAnalyzer, ThrashingSeverity};
+use crate::state::{PanelType, ProcessSortColumn, SignalType};
 
 /// Panel visibility state
 #[derive(Debug, Clone, Copy)]
@@ -32,6 +32,7 @@ pub struct PanelVisibility {
     pub gpu: bool,
     pub battery: bool,
     pub sensors: bool,
+    pub files: bool,
 }
 
 impl Default for PanelVisibility {
@@ -45,6 +46,7 @@ impl Default for PanelVisibility {
             gpu: true,
             battery: true,
             sensors: true,
+            files: false, // Off by default, toggle with '9'
         }
     }
 }
@@ -78,6 +80,11 @@ pub struct App {
     pub gpu_process_analyzer: GpuProcessAnalyzer,
     pub psi_analyzer: PsiAnalyzer,
     pub container_analyzer: ContainerAnalyzer,
+    pub network_stats: NetworkStatsAnalyzer,
+    pub disk_entropy: DiskEntropyAnalyzer,
+    pub process_extra: crate::analyzers::ProcessExtraAnalyzer,
+    pub file_analyzer: crate::analyzers::FileAnalyzer,
+    pub sensor_health: SensorHealthAnalyzer,
 
     // History buffers (normalized 0-1)
     pub cpu_history: Vec<f64>,
@@ -120,6 +127,18 @@ pub struct App {
     pub show_filter_input: bool,
     pub show_help: bool,
     pub show_tree: bool,
+
+    // Signal/kill mode
+    pub show_signal_menu: bool,
+    pub pending_signal: Option<(u32, String, SignalType)>, // (pid, name, signal)
+    pub signal_result: Option<(bool, String, Instant)>,     // (success, message, timestamp)
+
+    // Panel focus/explode state
+    pub focused_panel: Option<PanelType>,
+    pub exploded_panel: Option<PanelType>,
+
+    // Files panel view mode (SIZE/ENTROPY/IO)
+    pub files_view_mode: crate::state::FilesViewMode,
 
     // Frame timing
     pub frame_id: u64,
@@ -229,6 +248,11 @@ impl App {
             gpu_process_analyzer: GpuProcessAnalyzer::default(),
             psi_analyzer: PsiAnalyzer::default(),
             container_analyzer: ContainerAnalyzer::default(),
+            network_stats: NetworkStatsAnalyzer::default(),
+            disk_entropy: DiskEntropyAnalyzer::new(),
+            process_extra: crate::analyzers::ProcessExtraAnalyzer::new(),
+            file_analyzer: crate::analyzers::FileAnalyzer::new(),
+            sensor_health: SensorHealthAnalyzer::default(),
 
             cpu_history: Vec::with_capacity(300),
             mem_history: Vec::with_capacity(300),
@@ -267,6 +291,15 @@ impl App {
             show_help: false,
             show_tree: false,
 
+            show_signal_menu: false,
+            pending_signal: None,
+            signal_result: None,
+
+            focused_panel: None,
+            exploded_panel: None,
+
+            files_view_mode: crate::state::FilesViewMode::default(),
+
             frame_id: 0,
             last_collect: Instant::now(),
             avg_frame_time_us: 0,
@@ -284,6 +317,100 @@ impl App {
         debug::log(Level::Info, "app", "App initialization complete");
 
         app
+    }
+
+    /// Create a mock application instance for testing
+    /// This creates an App with default collectors and populated test data
+    /// without making real system calls.
+    #[cfg(test)]
+    pub fn new_mock() -> Self {
+        Self {
+            cpu: CpuCollector::default(),
+            memory: MemoryCollector::default(),
+            disk: DiskCollector::default(),
+            network: NetworkCollector::default(),
+            process: ProcessCollector::default(),
+            sensors: SensorCollector::default(),
+            battery: BatteryCollector::default(),
+
+            #[cfg(feature = "nvidia")]
+            nvidia_gpu: NvidiaGpuCollector::default(),
+
+            #[cfg(target_os = "linux")]
+            amd_gpu: AmdGpuCollector::default(),
+
+            #[cfg(target_os = "macos")]
+            apple_gpu: AppleGpuCollector::default(),
+
+            swap_analyzer: SwapAnalyzer::new(),
+            disk_io_analyzer: DiskIoAnalyzer::new(),
+            storage_analyzer: StorageAnalyzer::new(),
+            connection_analyzer: crate::analyzers::ConnectionAnalyzer::new(),
+            treemap_analyzer: crate::analyzers::TreemapAnalyzer::new("/tmp"),
+            gpu_process_analyzer: GpuProcessAnalyzer::new(),
+            psi_analyzer: PsiAnalyzer::new(),
+            container_analyzer: ContainerAnalyzer::new(),
+            network_stats: NetworkStatsAnalyzer::new(),
+            disk_entropy: DiskEntropyAnalyzer::new(),
+            process_extra: crate::analyzers::ProcessExtraAnalyzer::new(),
+            file_analyzer: crate::analyzers::FileAnalyzer::new(),
+            sensor_health: SensorHealthAnalyzer::new(),
+
+            // Populate with test data
+            cpu_history: vec![0.25, 0.30, 0.35, 0.40, 0.45, 0.50, 0.45, 0.40],
+            mem_history: vec![0.60, 0.61, 0.62, 0.63, 0.64, 0.65, 0.64, 0.63],
+            mem_available_history: vec![0.40, 0.39, 0.38, 0.37, 0.36, 0.35, 0.36, 0.37],
+            mem_cached_history: vec![0.20, 0.21, 0.22, 0.23, 0.22, 0.21, 0.20, 0.21],
+            mem_free_history: vec![0.10, 0.09, 0.08, 0.07, 0.08, 0.09, 0.10, 0.09],
+            swap_history: vec![0.05, 0.06, 0.07, 0.08, 0.07, 0.06, 0.05, 0.06],
+            net_rx_history: vec![0.01, 0.02, 0.03, 0.04, 0.03, 0.02, 0.01, 0.02],
+            net_tx_history: vec![0.005, 0.01, 0.015, 0.02, 0.015, 0.01, 0.005, 0.01],
+            per_core_percent: vec![25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0],
+
+            mem_total: 16 * 1024 * 1024 * 1024,  // 16 GB
+            mem_used: 10 * 1024 * 1024 * 1024,   // 10 GB
+            mem_available: 6 * 1024 * 1024 * 1024, // 6 GB
+            mem_cached: 3 * 1024 * 1024 * 1024,  // 3 GB
+            mem_free: 2 * 1024 * 1024 * 1024,    // 2 GB
+            swap_total: 4 * 1024 * 1024 * 1024,  // 4 GB
+            swap_used: 500 * 1024 * 1024,        // 500 MB
+
+            net_rx_total: 1024 * 1024 * 1024,    // 1 GB
+            net_tx_total: 512 * 1024 * 1024,     // 512 MB
+            net_interface_ip: "192.168.1.100".to_string(),
+
+            net_rx_peak: 100_000_000.0,  // 100 MB/s
+            net_tx_peak: 50_000_000.0,   // 50 MB/s
+            net_rx_peak_time: Instant::now(),
+            net_tx_peak_time: Instant::now(),
+
+            panels: PanelVisibility::default(),
+            process_selected: 0,
+            process_scroll_offset: 0,
+            sort_column: ProcessSortColumn::Cpu,
+            sort_descending: true,
+            filter: String::new(),
+            show_filter_input: false,
+            show_help: false,
+            show_tree: false,
+
+            show_signal_menu: false,
+            pending_signal: None,
+            signal_result: None,
+
+            focused_panel: None,
+            exploded_panel: None,
+
+            files_view_mode: crate::state::FilesViewMode::default(),
+
+            frame_id: 100,
+            last_collect: Instant::now(),
+            avg_frame_time_us: 1000,
+            max_frame_time_us: 2000,
+            show_fps: false,
+
+            deterministic: true,
+        }
     }
 
     /// Collect metrics from all collectors
@@ -445,6 +572,11 @@ impl App {
         if is_first { debug::log(Level::Trace, "collect", "disk_io_analyzer..."); }
         self.disk_io_analyzer.collect();
 
+        // Disk entropy analysis (rate-limited internally)
+        if is_first { debug::log(Level::Trace, "collect", "disk_entropy..."); }
+        let mount_paths: Vec<String> = self.disk.mounts().iter().map(|m| m.mount_point.clone()).collect();
+        self.disk_entropy.collect(&mount_paths);
+
         if is_first { debug::log(Level::Trace, "collect", "storage_analyzer..."); }
         self.storage_analyzer.collect();
 
@@ -462,6 +594,30 @@ impl App {
 
         if is_first { debug::log(Level::Trace, "collect", "container_analyzer..."); }
         self.container_analyzer.collect();
+
+        // Linux network stats (protocol counts, errors, latency)
+        #[cfg(target_os = "linux")]
+        {
+            if is_first { debug::log(Level::Trace, "collect", "network_stats..."); }
+            self.network_stats.collect();
+        }
+
+        // Extended process info (cgroups, FDs, CPU history)
+        if is_first { debug::log(Level::Trace, "collect", "process_extra..."); }
+        let pids: Vec<u32> = self.process.processes().keys().copied().collect();
+        let cpu_percents: std::collections::HashMap<u32, f64> = self.process.processes()
+            .iter()
+            .map(|(&pid, p)| (pid, p.cpu_percent))
+            .collect();
+        self.process_extra.collect(&pids, &cpu_percents);
+
+        // File analyzer for treemap enhancements (rate-limited internally)
+        if is_first { debug::log(Level::Trace, "collect", "file_analyzer..."); }
+        self.file_analyzer.collect("/");
+
+        // Sensor health analysis (outliers, drift, staleness)
+        if is_first { debug::log(Level::Trace, "collect", "sensor_health..."); }
+        let _ = self.sensor_health.collect();
 
         self.last_collect = Instant::now();
     }
@@ -490,6 +646,55 @@ impl App {
 
     /// Handle keyboard input. Returns true if app should quit.
     pub fn handle_key(&mut self, code: KeyCode, modifiers: KeyModifiers) -> bool {
+        // Signal confirmation mode (Y/n prompt)
+        if self.pending_signal.is_some() {
+            match code {
+                KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
+                    self.confirm_signal();
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                    self.cancel_signal();
+                }
+                _ => {}
+            }
+            return false;
+        }
+
+        // Signal menu mode (pick signal type)
+        if self.show_signal_menu {
+            match code {
+                KeyCode::Esc => {
+                    self.show_signal_menu = false;
+                }
+                KeyCode::Char('x') => {
+                    self.show_signal_menu = false;
+                    self.request_signal(SignalType::Term);
+                }
+                KeyCode::Char('K') => {
+                    self.show_signal_menu = false;
+                    self.request_signal(SignalType::Kill);
+                }
+                KeyCode::Char('H') => {
+                    self.show_signal_menu = false;
+                    self.request_signal(SignalType::Hup);
+                }
+                KeyCode::Char('i') => {
+                    self.show_signal_menu = false;
+                    self.request_signal(SignalType::Int);
+                }
+                KeyCode::Char('p') => {
+                    self.show_signal_menu = false;
+                    self.request_signal(SignalType::Stop);
+                }
+                KeyCode::Char('c') => {
+                    self.show_signal_menu = false;
+                    self.request_signal(SignalType::Cont);
+                }
+                _ => {}
+            }
+            return false;
+        }
+
         // Filter input mode
         if self.show_filter_input {
             match code {
@@ -511,10 +716,90 @@ impl App {
             return false;
         }
 
+        // ESC handling: exit explode -> clear focus -> quit
+        if code == KeyCode::Esc {
+            if self.exploded_panel.is_some() {
+                self.exploded_panel = None;
+                return false;
+            }
+            if self.focused_panel.is_some() {
+                self.focused_panel = None;
+                return false;
+            }
+            return true; // Quit
+        }
+
+        // Ctrl+C always quits
+        if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
+            return true;
+        }
+
+        // EXPLODED MODE: pass most keys through to panel controls
+        // Only handle exit keys (Enter/z/ESC already handled above for ESC)
+        if self.exploded_panel.is_some() {
+            match code {
+                // Exit explode with Enter or z
+                KeyCode::Enter | KeyCode::Char('z') => {
+                    self.exploded_panel = None;
+                    return false;
+                }
+                // All other keys fall through to normal handling (process nav, sort, etc.)
+                _ => {}
+            }
+        }
+        // FOCUSED MODE (not exploded): arrow/hjkl navigate between panels
+        else if self.focused_panel.is_some() {
+            match code {
+                // Explode with Enter or z
+                KeyCode::Enter | KeyCode::Char('z') => {
+                    if let Some(panel) = self.focused_panel {
+                        self.exploded_panel = Some(panel);
+                    }
+                    return false;
+                }
+                // Arrow navigation between panels
+                KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down => {
+                    self.navigate_panel_focus(code);
+                    return false;
+                }
+                // hjkl navigation between panels
+                KeyCode::Char('h') => {
+                    self.navigate_panel_focus(KeyCode::Left);
+                    return false;
+                }
+                KeyCode::Char('l') => {
+                    self.navigate_panel_focus(KeyCode::Right);
+                    return false;
+                }
+                KeyCode::Char('j') => {
+                    self.navigate_panel_focus(KeyCode::Down);
+                    return false;
+                }
+                KeyCode::Char('k') => {
+                    self.navigate_panel_focus(KeyCode::Up);
+                    return false;
+                }
+                _ => {}
+            }
+        }
+        // NOT FOCUSED: h/l start panel focus, j/k navigate process list
+        else {
+            match code {
+                KeyCode::Char('h') => {
+                    self.focused_panel = Some(self.first_visible_panel());
+                    return false;
+                }
+                KeyCode::Char('l') => {
+                    self.focused_panel = Some(self.first_visible_panel());
+                    return false;
+                }
+                _ => {}
+            }
+        }
+
         match code {
             // Quit
-            KeyCode::Char('q') | KeyCode::Esc => return true,
-            KeyCode::Char('c') if modifiers.contains(KeyModifiers::CONTROL) => return true,
+            KeyCode::Char('q') => return true,
 
             // Help
             KeyCode::Char('?') | KeyCode::F(1) => self.show_help = !self.show_help,
@@ -528,14 +813,25 @@ impl App {
             KeyCode::Char('6') => self.panels.gpu = !self.panels.gpu,
             KeyCode::Char('7') => self.panels.battery = !self.panels.battery,
             KeyCode::Char('8') => self.panels.sensors = !self.panels.sensors,
+            KeyCode::Char('9') => self.panels.files = !self.panels.files,
 
-            // Navigation
-            KeyCode::Down | KeyCode::Char('j') => self.navigate_process(1),
-            KeyCode::Up | KeyCode::Char('k') => self.navigate_process(-1),
+            // Files view mode cycle (v = view mode: SIZE -> ENTROPY -> I/O)
+            KeyCode::Char('v') => self.files_view_mode = self.files_view_mode.next(),
+
+            // Process navigation (when no panel focused, or when exploded)
+            KeyCode::Down if self.focused_panel.is_none() || self.exploded_panel.is_some() => {
+                self.navigate_process(1)
+            }
+            KeyCode::Up if self.focused_panel.is_none() || self.exploded_panel.is_some() => {
+                self.navigate_process(-1)
+            }
+            // j/k for process navigation when exploded
+            KeyCode::Char('j') if self.exploded_panel.is_some() => self.navigate_process(1),
+            KeyCode::Char('k') if self.exploded_panel.is_some() => self.navigate_process(-1),
             KeyCode::PageDown => self.navigate_process(10),
             KeyCode::PageUp => self.navigate_process(-10),
             KeyCode::Home | KeyCode::Char('g') => self.process_selected = 0,
-            KeyCode::End | KeyCode::Char('G') => {
+            KeyCode::Char('G') => {
                 let count = self.process_count();
                 if count > 0 {
                     self.process_selected = count - 1;
@@ -551,6 +847,22 @@ impl App {
             // Tree view
             KeyCode::Char('t') => self.show_tree = !self.show_tree,
 
+            // Signal menu (kill process) - 'k' key opens signal menu
+            // Quick kill shortcuts (no menu): x=TERM, X=KILL
+            KeyCode::Char('X') if self.focused_panel.is_none() || self.exploded_panel == Some(PanelType::Process) => {
+                // Quick SIGKILL (uppercase X)
+                self.request_signal(SignalType::Kill);
+            }
+            KeyCode::Char('x') if self.focused_panel.is_none() => {
+                // Quick SIGTERM (lowercase x)
+                self.request_signal(SignalType::Term);
+            }
+
+            // z key starts focus when nothing is focused/exploded
+            KeyCode::Char('z') if self.focused_panel.is_none() && self.exploded_panel.is_none() => {
+                self.focused_panel = Some(self.first_visible_panel());
+            }
+
             // Filter
             KeyCode::Char('f') | KeyCode::Char('/') => {
                 self.show_filter_input = true;
@@ -558,12 +870,100 @@ impl App {
             KeyCode::Delete => self.filter.clear(),
 
             // Reset view
-            KeyCode::Char('0') => self.panels = PanelVisibility::default(),
+            KeyCode::Char('0') => {
+                self.panels = PanelVisibility::default();
+                self.focused_panel = None;
+                self.exploded_panel = None;
+            }
 
             _ => {}
         }
 
         false
+    }
+
+    /// Navigate panel focus with arrow keys
+    fn navigate_panel_focus(&mut self, direction: KeyCode) {
+        let visible = self.visible_panels();
+        if visible.is_empty() {
+            return;
+        }
+
+        let current = self.focused_panel.unwrap_or_else(|| self.first_visible_panel());
+        let current_idx = visible.iter().position(|&p| p == current).unwrap_or(0);
+
+        let new_idx = match direction {
+            KeyCode::Left | KeyCode::Up => {
+                if current_idx == 0 {
+                    visible.len() - 1
+                } else {
+                    current_idx - 1
+                }
+            }
+            KeyCode::Right | KeyCode::Down => {
+                if current_idx >= visible.len() - 1 {
+                    0
+                } else {
+                    current_idx + 1
+                }
+            }
+            _ => current_idx,
+        };
+
+        self.focused_panel = Some(visible[new_idx]);
+    }
+
+    /// Get list of currently visible panels
+    pub fn visible_panels(&self) -> Vec<PanelType> {
+        let mut visible = Vec::new();
+        if self.panels.cpu {
+            visible.push(PanelType::Cpu);
+        }
+        if self.panels.memory {
+            visible.push(PanelType::Memory);
+        }
+        if self.panels.disk {
+            visible.push(PanelType::Disk);
+        }
+        if self.panels.network {
+            visible.push(PanelType::Network);
+        }
+        if self.panels.process {
+            visible.push(PanelType::Process);
+        }
+        if self.panels.gpu && self.has_gpu() {
+            visible.push(PanelType::Gpu);
+        }
+        if self.panels.battery && self.battery.is_available() {
+            visible.push(PanelType::Battery);
+        }
+        if self.panels.sensors && self.sensors.is_available() {
+            visible.push(PanelType::Sensors);
+        }
+        if self.panels.files {
+            visible.push(PanelType::Files);
+        }
+        visible
+    }
+
+    /// Get first visible panel (for default focus)
+    fn first_visible_panel(&self) -> PanelType {
+        self.visible_panels().first().copied().unwrap_or(PanelType::Cpu)
+    }
+
+    /// Check if a specific panel is visible
+    pub fn is_panel_visible(&self, panel: PanelType) -> bool {
+        match panel {
+            PanelType::Cpu => self.panels.cpu,
+            PanelType::Memory => self.panels.memory,
+            PanelType::Disk => self.panels.disk,
+            PanelType::Network => self.panels.network,
+            PanelType::Process => self.panels.process,
+            PanelType::Gpu => self.panels.gpu && self.has_gpu(),
+            PanelType::Battery => self.panels.battery && self.battery.is_available(),
+            PanelType::Sensors => self.panels.sensors && self.sensors.is_available(),
+            PanelType::Files => self.panels.files,
+        }
     }
 
     fn navigate_process(&mut self, delta: isize) {
@@ -660,5 +1060,684 @@ impl App {
         }
 
         false
+    }
+
+    /// Send a signal to a process
+    #[cfg(unix)]
+    pub fn send_signal(&mut self, pid: u32, signal: SignalType) -> Result<(), String> {
+        use std::process::Command;
+
+        let signal_num = signal.number();
+        let result = Command::new("kill")
+            .arg(format!("-{}", signal_num))
+            .arg(pid.to_string())
+            .output();
+
+        match result {
+            Ok(output) => {
+                if output.status.success() {
+                    self.signal_result = Some((
+                        true,
+                        format!("Sent {} to PID {}", signal.name(), pid),
+                        Instant::now(),
+                    ));
+                    Ok(())
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    let msg = format!("Failed to send {} to {}: {}", signal.name(), pid, stderr.trim());
+                    self.signal_result = Some((false, msg.clone(), Instant::now()));
+                    Err(msg)
+                }
+            }
+            Err(e) => {
+                let msg = format!("Failed to execute kill: {}", e);
+                self.signal_result = Some((false, msg.clone(), Instant::now()));
+                Err(msg)
+            }
+        }
+    }
+
+    #[cfg(not(unix))]
+    pub fn send_signal(&mut self, _pid: u32, _signal: SignalType) -> Result<(), String> {
+        Err("Signal sending not supported on this platform".to_string())
+    }
+
+    /// Get the currently selected process info (pid, name)
+    pub fn selected_process(&self) -> Option<(u32, String)> {
+        let procs = self.sorted_processes();
+        procs.get(self.process_selected).map(|p| (p.pid, p.name.clone()))
+    }
+
+    /// Request to send a signal to the selected process (shows confirmation)
+    pub fn request_signal(&mut self, signal: SignalType) {
+        if let Some((pid, name)) = self.selected_process() {
+            self.pending_signal = Some((pid, name, signal));
+        }
+    }
+
+    /// Confirm and send the pending signal
+    pub fn confirm_signal(&mut self) {
+        if let Some((pid, _name, signal)) = self.pending_signal.take() {
+            let _ = self.send_signal(pid, signal);
+        }
+    }
+
+    /// Cancel the pending signal
+    pub fn cancel_signal(&mut self) {
+        self.pending_signal = None;
+    }
+
+    /// Clear old signal results (after 3 seconds)
+    pub fn clear_old_signal_result(&mut self) {
+        if let Some((_, _, timestamp)) = &self.signal_result {
+            if timestamp.elapsed() > Duration::from_secs(3) {
+                self.signal_result = None;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crossterm::event::{KeyCode, KeyModifiers};
+
+    #[test]
+    fn test_panel_visibility_default() {
+        let vis = PanelVisibility::default();
+        assert!(vis.cpu);
+        assert!(vis.memory);
+        assert!(vis.disk);
+        assert!(vis.network);
+        assert!(vis.process);
+        assert!(vis.gpu);
+        assert!(vis.battery);
+        assert!(vis.sensors);
+        assert!(!vis.files); // Off by default
+    }
+
+    #[test]
+    fn test_mock_app_creation() {
+        let app = App::new_mock();
+        assert!(app.deterministic);
+        assert_eq!(app.frame_id, 100);
+        assert_eq!(app.avg_frame_time_us, 1000);
+        assert_eq!(app.max_frame_time_us, 2000);
+        assert!(!app.show_fps);
+    }
+
+    #[test]
+    fn test_mock_app_history_populated() {
+        let app = App::new_mock();
+        assert_eq!(app.cpu_history.len(), 8);
+        assert_eq!(app.mem_history.len(), 8);
+        assert_eq!(app.per_core_percent.len(), 8);
+    }
+
+    #[test]
+    fn test_mock_app_memory_values() {
+        let app = App::new_mock();
+        assert_eq!(app.mem_total, 16 * 1024 * 1024 * 1024);
+        assert_eq!(app.mem_used, 10 * 1024 * 1024 * 1024);
+        assert_eq!(app.mem_available, 6 * 1024 * 1024 * 1024);
+    }
+
+    #[test]
+    fn test_update_frame_stats_empty() {
+        let mut app = App::new_mock();
+        app.update_frame_stats(&[]);
+        // Should not panic, values unchanged
+    }
+
+    #[test]
+    fn test_update_frame_stats_single() {
+        let mut app = App::new_mock();
+        app.update_frame_stats(&[Duration::from_micros(500)]);
+        assert_eq!(app.avg_frame_time_us, 500);
+        assert_eq!(app.max_frame_time_us, 500);
+    }
+
+    #[test]
+    fn test_update_frame_stats_multiple() {
+        let mut app = App::new_mock();
+        let times = vec![
+            Duration::from_micros(100),
+            Duration::from_micros(200),
+            Duration::from_micros(300),
+        ];
+        app.update_frame_stats(&times);
+        assert_eq!(app.avg_frame_time_us, 200); // (100+200+300)/3
+        assert_eq!(app.max_frame_time_us, 300);
+    }
+
+    #[test]
+    fn test_visible_panels_default() {
+        let app = App::new_mock();
+        let visible = app.visible_panels();
+        // Default: cpu, memory, disk, network, process (not files, battery/sensors may vary)
+        assert!(visible.contains(&PanelType::Cpu));
+        assert!(visible.contains(&PanelType::Memory));
+        assert!(visible.contains(&PanelType::Disk));
+        assert!(visible.contains(&PanelType::Network));
+        assert!(visible.contains(&PanelType::Process));
+        assert!(!visible.contains(&PanelType::Files)); // Off by default
+    }
+
+    #[test]
+    fn test_visible_panels_with_files() {
+        let mut app = App::new_mock();
+        app.panels.files = true;
+        let visible = app.visible_panels();
+        assert!(visible.contains(&PanelType::Files));
+    }
+
+    #[test]
+    fn test_visible_panels_all_disabled() {
+        let mut app = App::new_mock();
+        app.panels.cpu = false;
+        app.panels.memory = false;
+        app.panels.disk = false;
+        app.panels.network = false;
+        app.panels.process = false;
+        app.panels.gpu = false;
+        app.panels.battery = false;
+        app.panels.sensors = false;
+        app.panels.files = false;
+        let visible = app.visible_panels();
+        assert!(visible.is_empty());
+    }
+
+    #[test]
+    fn test_first_visible_panel_default() {
+        let app = App::new_mock();
+        let first = app.first_visible_panel();
+        assert_eq!(first, PanelType::Cpu);
+    }
+
+    #[test]
+    fn test_first_visible_panel_when_cpu_disabled() {
+        let mut app = App::new_mock();
+        app.panels.cpu = false;
+        let first = app.first_visible_panel();
+        assert_eq!(first, PanelType::Memory);
+    }
+
+    #[test]
+    fn test_is_panel_visible() {
+        let app = App::new_mock();
+        assert!(app.is_panel_visible(PanelType::Cpu));
+        assert!(app.is_panel_visible(PanelType::Memory));
+        assert!(!app.is_panel_visible(PanelType::Files));
+    }
+
+    #[test]
+    fn test_handle_key_quit_q() {
+        let mut app = App::new_mock();
+        let quit = app.handle_key(KeyCode::Char('q'), KeyModifiers::NONE);
+        assert!(quit);
+    }
+
+    #[test]
+    fn test_handle_key_quit_ctrl_c() {
+        let mut app = App::new_mock();
+        let quit = app.handle_key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert!(quit);
+    }
+
+    #[test]
+    fn test_handle_key_quit_esc() {
+        let mut app = App::new_mock();
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(quit);
+    }
+
+    #[test]
+    fn test_handle_key_help_toggle() {
+        let mut app = App::new_mock();
+        assert!(!app.show_help);
+        app.handle_key(KeyCode::Char('?'), KeyModifiers::NONE);
+        assert!(app.show_help);
+        app.handle_key(KeyCode::Char('?'), KeyModifiers::NONE);
+        assert!(!app.show_help);
+    }
+
+    #[test]
+    fn test_handle_key_panel_toggles() {
+        let mut app = App::new_mock();
+
+        // Toggle CPU off
+        assert!(app.panels.cpu);
+        app.handle_key(KeyCode::Char('1'), KeyModifiers::NONE);
+        assert!(!app.panels.cpu);
+
+        // Toggle memory off
+        assert!(app.panels.memory);
+        app.handle_key(KeyCode::Char('2'), KeyModifiers::NONE);
+        assert!(!app.panels.memory);
+
+        // Toggle files on (off by default)
+        assert!(!app.panels.files);
+        app.handle_key(KeyCode::Char('9'), KeyModifiers::NONE);
+        assert!(app.panels.files);
+    }
+
+    #[test]
+    fn test_handle_key_filter_mode() {
+        let mut app = App::new_mock();
+        assert!(!app.show_filter_input);
+
+        // Enter filter mode
+        app.handle_key(KeyCode::Char('/'), KeyModifiers::NONE);
+        assert!(app.show_filter_input);
+
+        // Type some text
+        app.handle_key(KeyCode::Char('t'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('e'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('s'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('t'), KeyModifiers::NONE);
+        assert_eq!(app.filter, "test");
+
+        // Backspace
+        app.handle_key(KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(app.filter, "tes");
+
+        // Escape clears and exits
+        app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!app.show_filter_input);
+        assert_eq!(app.filter, "");
+    }
+
+    #[test]
+    fn test_handle_key_filter_enter_confirm() {
+        let mut app = App::new_mock();
+        app.handle_key(KeyCode::Char('f'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('a'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert!(!app.show_filter_input);
+        assert_eq!(app.filter, "a"); // Preserved
+    }
+
+    #[test]
+    fn test_handle_key_sort_toggle() {
+        let mut app = App::new_mock();
+        assert_eq!(app.sort_column, ProcessSortColumn::Cpu);
+
+        app.handle_key(KeyCode::Tab, KeyModifiers::NONE);
+        assert_eq!(app.sort_column, ProcessSortColumn::Mem);
+
+        app.handle_key(KeyCode::Char('s'), KeyModifiers::NONE);
+        assert_eq!(app.sort_column, ProcessSortColumn::State);
+    }
+
+    #[test]
+    fn test_handle_key_sort_reverse() {
+        let mut app = App::new_mock();
+        assert!(app.sort_descending);
+        app.handle_key(KeyCode::Char('r'), KeyModifiers::NONE);
+        assert!(!app.sort_descending);
+    }
+
+    #[test]
+    fn test_handle_key_tree_toggle() {
+        let mut app = App::new_mock();
+        assert!(!app.show_tree);
+        app.handle_key(KeyCode::Char('t'), KeyModifiers::NONE);
+        assert!(app.show_tree);
+    }
+
+    #[test]
+    fn test_handle_key_reset_view() {
+        let mut app = App::new_mock();
+        app.panels.cpu = false;
+        app.focused_panel = Some(PanelType::Memory);
+        app.exploded_panel = Some(PanelType::Disk);
+
+        app.handle_key(KeyCode::Char('0'), KeyModifiers::NONE);
+
+        assert!(app.panels.cpu);
+        assert!(app.focused_panel.is_none());
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn test_handle_key_focus_start_h() {
+        let mut app = App::new_mock();
+        assert!(app.focused_panel.is_none());
+
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        assert!(app.focused_panel.is_some());
+    }
+
+    #[test]
+    fn test_handle_key_focus_start_l() {
+        let mut app = App::new_mock();
+        assert!(app.focused_panel.is_none());
+
+        app.handle_key(KeyCode::Char('l'), KeyModifiers::NONE);
+        assert!(app.focused_panel.is_some());
+    }
+
+    #[test]
+    fn test_handle_key_focus_navigation() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+
+        // Navigate right
+        app.handle_key(KeyCode::Right, KeyModifiers::NONE);
+        assert_eq!(app.focused_panel, Some(PanelType::Memory));
+
+        // Navigate left
+        app.handle_key(KeyCode::Left, KeyModifiers::NONE);
+        assert_eq!(app.focused_panel, Some(PanelType::Cpu));
+    }
+
+    #[test]
+    fn test_handle_key_explode_panel() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+
+        // Explode with Enter
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(app.exploded_panel, Some(PanelType::Cpu));
+
+        // Un-explode with Enter
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn test_handle_key_explode_with_z() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Memory);
+
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert_eq!(app.exploded_panel, Some(PanelType::Memory));
+    }
+
+    #[test]
+    fn test_handle_key_esc_unexplode() {
+        let mut app = App::new_mock();
+        app.exploded_panel = Some(PanelType::Cpu);
+
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn test_handle_key_esc_unfocus() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(app.focused_panel.is_none());
+    }
+
+    #[test]
+    fn test_handle_key_files_view_mode() {
+        let mut app = App::new_mock();
+        use crate::state::FilesViewMode;
+
+        assert_eq!(app.files_view_mode, FilesViewMode::Size);
+        app.handle_key(KeyCode::Char('v'), KeyModifiers::NONE);
+        assert_eq!(app.files_view_mode, FilesViewMode::Entropy);
+    }
+
+    #[test]
+    fn test_navigate_panel_focus_wrap_right() {
+        let mut app = App::new_mock();
+        // Only keep CPU visible - disable everything else
+        app.panels.memory = false;
+        app.panels.disk = false;
+        app.panels.network = false;
+        app.panels.process = false;
+        app.panels.gpu = false;
+        app.panels.battery = false;
+        app.panels.sensors = false;
+        app.panels.files = false;
+
+        app.focused_panel = Some(PanelType::Cpu);
+        app.navigate_panel_focus(KeyCode::Right);
+        // Should wrap to CPU (only visible panel)
+        assert_eq!(app.focused_panel, Some(PanelType::Cpu));
+    }
+
+    #[test]
+    fn test_navigate_panel_focus_wrap_left() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+        app.navigate_panel_focus(KeyCode::Left);
+        // Should wrap to last visible panel
+        assert!(app.focused_panel.is_some());
+    }
+
+    #[test]
+    fn test_navigate_panel_focus_empty() {
+        let mut app = App::new_mock();
+        app.panels.cpu = false;
+        app.panels.memory = false;
+        app.panels.disk = false;
+        app.panels.network = false;
+        app.panels.process = false;
+        app.panels.gpu = false;
+        app.panels.battery = false;
+        app.panels.sensors = false;
+
+        app.navigate_panel_focus(KeyCode::Right);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_navigate_process_empty() {
+        let mut app = App::new_mock();
+        // Mock has no real processes
+        app.navigate_process(1);
+        app.navigate_process(-1);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_process_count_empty() {
+        let app = App::new_mock();
+        assert_eq!(app.process_count(), 0);
+    }
+
+    #[test]
+    fn test_sorted_processes_empty() {
+        let app = App::new_mock();
+        let procs = app.sorted_processes();
+        assert!(procs.is_empty());
+    }
+
+    #[test]
+    fn test_has_gpu_mock() {
+        let app = App::new_mock();
+        // Mock collectors are not "available"
+        // This tests the has_gpu() method runs without panic
+        let _has_gpu = app.has_gpu();
+    }
+
+    #[test]
+    fn test_thrashing_severity() {
+        let app = App::new_mock();
+        let severity = app.thrashing_severity();
+        assert_eq!(severity, ThrashingSeverity::None);
+    }
+
+    #[test]
+    fn test_has_zram() {
+        let app = App::new_mock();
+        let _has = app.has_zram();
+        // Just verify it doesn't panic
+    }
+
+    #[test]
+    fn test_zram_ratio() {
+        let app = App::new_mock();
+        let ratio = app.zram_ratio();
+        assert!(ratio >= 0.0);
+    }
+
+    #[test]
+    fn test_selected_process_none() {
+        let app = App::new_mock();
+        assert!(app.selected_process().is_none());
+    }
+
+    #[test]
+    fn test_request_signal_no_process() {
+        let mut app = App::new_mock();
+        app.request_signal(SignalType::Term);
+        assert!(app.pending_signal.is_none()); // No process selected
+    }
+
+    #[test]
+    fn test_cancel_signal() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+        app.cancel_signal();
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_confirm_signal_none() {
+        let mut app = App::new_mock();
+        app.confirm_signal(); // No pending signal
+        // Should not panic
+    }
+
+    #[test]
+    fn test_clear_old_signal_result_none() {
+        let mut app = App::new_mock();
+        app.clear_old_signal_result();
+        // Should not panic when no result
+    }
+
+    #[test]
+    fn test_clear_old_signal_result_recent() {
+        let mut app = App::new_mock();
+        app.signal_result = Some((true, "test".to_string(), Instant::now()));
+        app.clear_old_signal_result();
+        assert!(app.signal_result.is_some()); // Not old enough
+    }
+
+    #[test]
+    fn test_signal_menu_handling() {
+        let mut app = App::new_mock();
+        app.show_signal_menu = true;
+
+        // ESC closes menu
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(!app.show_signal_menu);
+    }
+
+    #[test]
+    fn test_signal_menu_keys() {
+        let mut app = App::new_mock();
+
+        // Test various signal menu keys
+        app.show_signal_menu = true;
+        app.handle_key(KeyCode::Char('x'), KeyModifiers::NONE);
+        assert!(!app.show_signal_menu);
+
+        app.show_signal_menu = true;
+        app.handle_key(KeyCode::Char('K'), KeyModifiers::NONE);
+        assert!(!app.show_signal_menu);
+
+        app.show_signal_menu = true;
+        app.handle_key(KeyCode::Char('H'), KeyModifiers::NONE);
+        assert!(!app.show_signal_menu);
+    }
+
+    #[test]
+    fn test_pending_signal_confirmation() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        // Y confirms
+        let quit = app.handle_key(KeyCode::Char('y'), KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_pending_signal_cancel() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        // N cancels
+        let quit = app.handle_key(KeyCode::Char('n'), KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_pending_signal_esc_cancels() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!quit);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_process_navigation_keys() {
+        let mut app = App::new_mock();
+
+        // Home key
+        app.process_selected = 5;
+        app.handle_key(KeyCode::Home, KeyModifiers::NONE);
+        assert_eq!(app.process_selected, 0);
+
+        // g key
+        app.process_selected = 5;
+        app.handle_key(KeyCode::Char('g'), KeyModifiers::NONE);
+        assert_eq!(app.process_selected, 0);
+    }
+
+    #[test]
+    fn test_delete_clears_filter() {
+        let mut app = App::new_mock();
+        app.filter = "test".to_string();
+        app.handle_key(KeyCode::Delete, KeyModifiers::NONE);
+        assert!(app.filter.is_empty());
+    }
+
+    #[test]
+    fn test_hjkl_focus_navigation() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+
+        // l moves right in focus mode
+        app.handle_key(KeyCode::Char('l'), KeyModifiers::NONE);
+        assert_eq!(app.focused_panel, Some(PanelType::Memory));
+
+        // h moves left
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        assert_eq!(app.focused_panel, Some(PanelType::Cpu));
+    }
+
+    #[test]
+    fn test_jk_process_nav_in_explode() {
+        let mut app = App::new_mock();
+        app.exploded_panel = Some(PanelType::Process);
+
+        // j/k should navigate processes in explode mode
+        app.handle_key(KeyCode::Char('j'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('k'), KeyModifiers::NONE);
+        // Should not panic
+    }
+
+    #[test]
+    fn test_z_starts_focus() {
+        let mut app = App::new_mock();
+        assert!(app.focused_panel.is_none());
+        assert!(app.exploded_panel.is_none());
+
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(app.focused_panel.is_some());
     }
 }

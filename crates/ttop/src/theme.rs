@@ -80,6 +80,7 @@ pub mod borders {
     pub const GPU: Color = Color::Rgb(100, 255, 150); // Bright green
     pub const BATTERY: Color = Color::Rgb(255, 220, 100); // Yellow
     pub const SENSORS: Color = Color::Rgb(255, 100, 150); // Pink
+    pub const FILES: Color = Color::Rgb(180, 140, 100); // Warm brown/amber
 
     /// Rounded border style for btop-like appearance
     pub const STYLE: BorderType = BorderType::Rounded;

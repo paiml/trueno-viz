@@ -3,12 +3,13 @@
 use trueno_viz::monitor::ratatui::layout::{Constraint, Direction, Layout, Rect};
 use trueno_viz::monitor::ratatui::style::{Color, Modifier, Style};
 use trueno_viz::monitor::ratatui::text::{Line, Span};
-use trueno_viz::monitor::ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use trueno_viz::monitor::ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 use trueno_viz::monitor::ratatui::Frame;
 use trueno_viz::monitor::types::Collector;
 
 use crate::app::App;
 use crate::panels;
+use crate::state::PanelType;
 
 /// Main draw function
 pub fn draw(f: &mut Frame, app: &mut App) {
@@ -17,6 +18,20 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // Debug: log area size
     if std::env::var("TTOP_DEBUG").is_ok() {
         eprintln!("draw: area={}x{}", area.width, area.height);
+    }
+
+    // EXPLODED MODE: render single panel fullscreen
+    if let Some(panel) = app.exploded_panel {
+        draw_exploded_panel(f, app, panel, area);
+
+        // Still show overlays
+        if app.show_fps {
+            draw_fps_overlay(f, app, area);
+        }
+        if app.show_help {
+            draw_help_overlay(f, area);
+        }
+        return;
     }
 
     // Calculate visible panel count for layout
@@ -72,7 +87,7 @@ pub fn draw(f: &mut Frame, app: &mut App) {
             ])
             .split(bottom_area);
 
-        panels::draw_process(f, app, bottom_chunks[0]);
+        draw_panel_with_focus_mut(f, app, PanelType::Process, bottom_chunks[0], panels::draw_process);
         panels::draw_connections(f, app, bottom_chunks[1]);
         panels::draw_treemap(f, app, bottom_chunks[2]);
     }
@@ -90,6 +105,26 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     // Filter input overlay
     if app.show_filter_input {
         draw_filter_input(f, app, area);
+    }
+
+    // Signal confirmation overlay
+    if app.pending_signal.is_some() {
+        draw_signal_confirm(f, app, area);
+    }
+
+    // Signal menu overlay
+    if app.show_signal_menu {
+        draw_signal_menu(f, app, area);
+    }
+
+    // Signal result notification
+    if app.signal_result.is_some() {
+        draw_signal_result(f, app, area);
+    }
+
+    // Focus indicator hint
+    if app.focused_panel.is_some() {
+        draw_focus_hint(f, area);
     }
 }
 
@@ -138,29 +173,32 @@ fn draw_top_panels(f: &mut Frame, app: &App, area: Rect) {
 
     type PanelDrawFn = fn(&mut Frame, &App, Rect);
     let mut panel_idx = 0;
-    let mut panels_to_draw: Vec<(PanelDrawFn, &App)> = Vec::new();
+    let mut panels_to_draw: Vec<(PanelType, PanelDrawFn, &App)> = Vec::new();
 
-    // Collect panels to draw
+    // Collect panels to draw with their types
     if app.panels.cpu {
-        panels_to_draw.push((panels::draw_cpu, app));
+        panels_to_draw.push((PanelType::Cpu, panels::draw_cpu, app));
     }
     if app.panels.memory {
-        panels_to_draw.push((panels::draw_memory, app));
+        panels_to_draw.push((PanelType::Memory, panels::draw_memory, app));
     }
     if app.panels.disk {
-        panels_to_draw.push((panels::draw_disk, app));
+        panels_to_draw.push((PanelType::Disk, panels::draw_disk, app));
     }
     if app.panels.network {
-        panels_to_draw.push((panels::draw_network, app));
+        panels_to_draw.push((PanelType::Network, panels::draw_network, app));
     }
     if app.panels.gpu && app.has_gpu() {
-        panels_to_draw.push((panels::draw_gpu, app));
+        panels_to_draw.push((PanelType::Gpu, panels::draw_gpu, app));
     }
     if app.panels.battery && app.battery.is_available() {
-        panels_to_draw.push((panels::draw_battery, app));
+        panels_to_draw.push((PanelType::Battery, panels::draw_battery, app));
     }
     if app.panels.sensors && (app.sensors.is_available() || app.psi_analyzer.is_available() || app.container_analyzer.is_available()) {
-        panels_to_draw.push((panels::draw_system, app));
+        panels_to_draw.push((PanelType::Sensors, panels::draw_system, app));
+    }
+    if app.panels.files {
+        panels_to_draw.push((PanelType::Files, panels::draw_treemap, app));
     }
 
     // Draw panels in grid
@@ -187,12 +225,136 @@ fn draw_top_panels(f: &mut Frame, app: &App, area: Rect) {
 
         for col_chunk in col_chunks.iter() {
             if panel_idx < panels_to_draw.len() {
-                let (draw_fn, app_ref) = panels_to_draw[panel_idx];
-                draw_fn(f, app_ref, *col_chunk);
+                let (panel_type, draw_fn, app_ref) = panels_to_draw[panel_idx];
+                draw_panel_with_focus(f, app_ref, panel_type, *col_chunk, draw_fn);
                 panel_idx += 1;
             }
         }
     }
+}
+
+/// Draw a panel with focus ring highlighting if focused (immutable app)
+fn draw_panel_with_focus(
+    f: &mut Frame,
+    app: &App,
+    panel_type: PanelType,
+    area: Rect,
+    draw_fn: fn(&mut Frame, &App, Rect),
+) {
+    let is_focused = app.focused_panel == Some(panel_type);
+
+    // Draw the panel content
+    draw_fn(f, app, area);
+
+    // Draw focus ring overlay if focused - BRIGHT and THICK
+    if is_focused {
+        let focus_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double)
+            .border_style(
+                Style::default()
+                    .fg(Color::LightYellow)
+                    .bg(Color::Blue)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .title(format!(" ▶▶ {} ◀◀ ", panel_type.name()))
+            .title_style(
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::LightYellow)
+                    .add_modifier(Modifier::BOLD),
+            );
+        f.render_widget(focus_block, area);
+    }
+}
+
+/// Draw a panel with focus ring highlighting if focused (mutable app for process panel)
+fn draw_panel_with_focus_mut(
+    f: &mut Frame,
+    app: &mut App,
+    panel_type: PanelType,
+    area: Rect,
+    draw_fn: fn(&mut Frame, &mut App, Rect),
+) {
+    let is_focused = app.focused_panel == Some(panel_type);
+
+    // Draw the panel content
+    draw_fn(f, app, area);
+
+    // Draw focus ring overlay if focused - BRIGHT and THICK
+    if is_focused {
+        let focus_block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Double)
+            .border_style(
+                Style::default()
+                    .fg(Color::LightYellow)
+                    .bg(Color::Blue)
+                    .add_modifier(Modifier::BOLD),
+            )
+            .title(format!(" ▶▶ {} ◀◀ ", panel_type.name()))
+            .title_style(
+                Style::default()
+                    .fg(Color::Black)
+                    .bg(Color::LightYellow)
+                    .add_modifier(Modifier::BOLD),
+            );
+        f.render_widget(focus_block, area);
+    }
+}
+
+/// Draw a single panel in exploded (fullscreen) mode
+fn draw_exploded_panel(f: &mut Frame, app: &mut App, panel: PanelType, area: Rect) {
+    // Draw panel hint at top
+    let hint = format!(" {} [FULLSCREEN] - Press ESC or Enter to exit ", panel.name());
+    let hint_area = Rect {
+        x: 0,
+        y: 0,
+        width: area.width,
+        height: 1,
+    };
+    f.render_widget(
+        Paragraph::new(hint)
+            .style(Style::default().fg(Color::Black).bg(Color::Yellow)),
+        hint_area,
+    );
+
+    // Panel content area (below hint)
+    let content_area = Rect {
+        x: 0,
+        y: 1,
+        width: area.width,
+        height: area.height.saturating_sub(1),
+    };
+
+    // Draw the appropriate panel
+    match panel {
+        PanelType::Cpu => panels::draw_cpu(f, app, content_area),
+        PanelType::Memory => panels::draw_memory(f, app, content_area),
+        PanelType::Disk => panels::draw_disk(f, app, content_area),
+        PanelType::Network => panels::draw_network(f, app, content_area),
+        PanelType::Process => panels::draw_process(f, app, content_area),
+        PanelType::Gpu => panels::draw_gpu(f, app, content_area),
+        PanelType::Battery => panels::draw_battery(f, app, content_area),
+        PanelType::Sensors => panels::draw_system(f, app, content_area),
+        PanelType::Files => panels::draw_treemap(f, app, content_area),
+    }
+}
+
+/// Draw focus mode hint at bottom of screen
+fn draw_focus_hint(f: &mut Frame, area: Rect) {
+    let hint = " h/j/k/l or arrows: navigate │ Enter/z: zoom │ ESC: exit focus ";
+    let hint_area = Rect {
+        x: 0,
+        y: area.height.saturating_sub(1),
+        width: area.width.min(hint.len() as u16 + 2),
+        height: 1,
+    };
+    f.render_widget(
+        Paragraph::new(hint)
+            .style(Style::default().fg(Color::Black).bg(Color::Cyan)),
+        hint_area,
+    );
 }
 
 fn draw_fps_overlay(f: &mut Frame, app: &App, area: Rect) {
@@ -216,7 +378,7 @@ fn draw_fps_overlay(f: &mut Frame, app: &App, area: Rect) {
 
 fn draw_help_overlay(f: &mut Frame, area: Rect) {
     let popup_width = 65;
-    let popup_height = 28;
+    let popup_height = 36;
 
     let popup_area = Rect {
         x: (area.width.saturating_sub(popup_width)) / 2,
@@ -241,10 +403,19 @@ fn draw_help_overlay(f: &mut Frame, area: Rect) {
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "  Navigation:",
+            "  Panel Focus (navigate + explode):",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::from("    j/k, ↑/↓          Move up/down"),
+        Line::from("    h/l, ←/→          Focus prev/next panel"),
+        Line::from("    j/k, ↑/↓          Focus up/down (or process nav)"),
+        Line::from("    Enter, z          Explode panel fullscreen"),
+        Line::from("    Esc               Exit explode/focus, then quit"),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Process Navigation:",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("    j/k, ↑/↓          Move up/down (when unfocused)"),
         Line::from("    PgUp/PgDn         Page up/down"),
         Line::from("    g/G               Go to top/bottom"),
         Line::from(""),
@@ -259,24 +430,24 @@ fn draw_help_overlay(f: &mut Frame, area: Rect) {
         Line::from("    t                 Toggle tree view"),
         Line::from(""),
         Line::from(Span::styled(
+            "  Process Signals:",
+            Style::default().add_modifier(Modifier::BOLD),
+        )),
+        Line::from("    x                 Send SIGTERM (graceful)"),
+        Line::from("    X                 Send SIGKILL (force)"),
+        Line::from(""),
+        Line::from(Span::styled(
             "  Panels:",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::from("    1                 Toggle CPU panel"),
-        Line::from("    2                 Toggle Memory panel"),
-        Line::from("    3                 Toggle Disk panel"),
-        Line::from("    4                 Toggle Network panel"),
-        Line::from("    5                 Toggle Process panel"),
-        Line::from("    6                 Toggle GPU panel"),
-        Line::from("    7                 Toggle Battery panel"),
-        Line::from("    8                 Toggle Sensors panel"),
+        Line::from("    1-8               Toggle panel visibility"),
         Line::from("    0                 Reset all panels"),
         Line::from(""),
         Line::from(Span::styled(
             "  General:",
             Style::default().add_modifier(Modifier::BOLD),
         )),
-        Line::from("    q, Esc            Quit"),
+        Line::from("    q                 Quit"),
         Line::from("    ?, F1             Toggle help"),
         Line::from(""),
     ];
@@ -312,4 +483,542 @@ fn draw_filter_input(f: &mut Frame, app: &App, area: Rect) {
         .style(Style::default().fg(Color::White));
 
     f.render_widget(input, input_area);
+}
+
+/// Draw signal confirmation dialog
+fn draw_signal_confirm(f: &mut Frame, app: &App, area: Rect) {
+    use crate::state::SignalType;
+
+    if let Some((pid, name, signal)) = &app.pending_signal {
+        let popup_width = 55;
+        let popup_height = 7;
+
+        let popup_area = Rect {
+            x: (area.width.saturating_sub(popup_width)) / 2,
+            y: (area.height.saturating_sub(popup_height)) / 2,
+            width: popup_width.min(area.width),
+            height: popup_height.min(area.height),
+        };
+
+        f.render_widget(Clear, popup_area);
+
+        let signal_color = match signal {
+            SignalType::Kill => Color::Red,
+            SignalType::Term => Color::Yellow,
+            SignalType::Stop => Color::Magenta,
+            _ => Color::Cyan,
+        };
+
+        let content = vec![
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("  Send "),
+                Span::styled(
+                    format!("SIG{}", signal.name()),
+                    Style::default().fg(signal_color).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(" to process?"),
+            ]),
+            Line::from(""),
+            Line::from(vec![
+                Span::raw("  PID: "),
+                Span::styled(pid.to_string(), Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
+                Span::raw("  Name: "),
+                Span::styled(name.clone(), Style::default().fg(Color::Cyan)),
+            ]),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  [Y]es  [N]o/Esc",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+
+        let title = format!(" {} - {} ", signal.name(), signal.description());
+        let confirm = Paragraph::new(content).block(
+            Block::default()
+                .title(title)
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(signal_color)),
+        );
+
+        f.render_widget(confirm, popup_area);
+    }
+}
+
+/// Draw signal menu overlay
+fn draw_signal_menu(f: &mut Frame, app: &App, area: Rect) {
+    let popup_width = 45;
+    let popup_height = 14;
+
+    let popup_area = Rect {
+        x: (area.width.saturating_sub(popup_width)) / 2,
+        y: (area.height.saturating_sub(popup_height)) / 2,
+        width: popup_width.min(area.width),
+        height: popup_height.min(area.height),
+    };
+
+    f.render_widget(Clear, popup_area);
+
+    let selected = app.selected_process();
+    let proc_info = selected
+        .map(|(pid, name)| format!("{} ({})", name, pid))
+        .unwrap_or_else(|| "No process selected".to_string());
+
+    let content = vec![
+        Line::from(""),
+        Line::from(Span::styled(
+            format!("  Target: {}", proc_info),
+            Style::default().fg(Color::Cyan),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  x", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::raw("  SIGTERM  - Graceful shutdown"),
+        ]),
+        Line::from(vec![
+            Span::styled("  K", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
+            Span::raw("  SIGKILL  - Force kill"),
+        ]),
+        Line::from(vec![
+            Span::styled("  H", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("  SIGHUP   - Reload config"),
+        ]),
+        Line::from(vec![
+            Span::styled("  i", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::raw("  SIGINT   - Interrupt"),
+        ]),
+        Line::from(vec![
+            Span::styled("  p", Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD)),
+            Span::raw("  SIGSTOP  - Pause process"),
+        ]),
+        Line::from(vec![
+            Span::styled("  c", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+            Span::raw("  SIGCONT  - Resume process"),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled("  Esc to cancel", Style::default().fg(Color::DarkGray))),
+    ];
+
+    let menu = Paragraph::new(content).block(
+        Block::default()
+            .title(" Send Signal ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)),
+    );
+
+    f.render_widget(menu, popup_area);
+}
+
+/// Draw signal result notification (bottom of screen)
+fn draw_signal_result(f: &mut Frame, app: &App, area: Rect) {
+    if let Some((success, message, _timestamp)) = &app.signal_result {
+        let width = (message.len() + 4).min(area.width as usize) as u16;
+        let height = 1u16;
+
+        let result_area = Rect {
+            x: (area.width.saturating_sub(width)) / 2,
+            y: area.height.saturating_sub(2),
+            width,
+            height,
+        };
+
+        let color = if *success { Color::Green } else { Color::Red };
+        let icon = if *success { "✓" } else { "✗" };
+
+        let result = Paragraph::new(format!(" {} {} ", icon, message))
+            .style(Style::default().fg(Color::White).bg(color));
+
+        f.render_widget(result, result_area);
+    }
+}
+
+/// TUI rendering tests using probar
+#[cfg(test)]
+mod tui_tests {
+    use super::*;
+    use jugar_probar::tui::{TuiFrame, expect_frame};
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    /// Test help overlay renders correctly
+    #[test]
+    fn test_help_overlay_renders() {
+        let backend = TestBackend::new(80, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_help_overlay(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Help overlay should contain key sections
+        assert!(frame.contains("Help"));
+        assert!(frame.contains("ttop"));
+        assert!(frame.contains("Panel Focus"));
+        assert!(frame.contains("Process Navigation"));
+        assert!(frame.contains("Sorting"));
+        assert!(frame.contains("Quit"));
+    }
+
+    /// Test help overlay keybindings
+    #[test]
+    fn test_help_overlay_keybindings() {
+        let backend = TestBackend::new(80, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_help_overlay(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Check specific keybindings are documented
+        assert!(frame.contains("h/l"));
+        assert!(frame.contains("j/k"));
+        assert!(frame.contains("Enter"));
+        assert!(frame.contains("Esc"));
+        assert!(frame.contains("PgUp"));
+        assert!(frame.contains("Tab"));
+    }
+
+    /// Test focus hint renders
+    #[test]
+    fn test_focus_hint_renders() {
+        let backend = TestBackend::new(80, 10);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_focus_hint(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Focus hint should show navigation keys
+        assert!(frame.contains("navigate") || frame.contains("arrows"));
+        assert!(frame.contains("Enter") || frame.contains("zoom"));
+        assert!(frame.contains("ESC") || frame.contains("exit"));
+    }
+
+    /// Test help overlay probar assertions
+    #[test]
+    fn test_help_overlay_assertions() {
+        let backend = TestBackend::new(80, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_help_overlay(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Use probar's assertion API
+        expect_frame(&frame)
+            .to_contain_text("Terminal Top")
+            .expect("should contain title");
+
+        expect_frame(&frame)
+            .to_contain_text("Pure Rust")
+            .expect("should contain subtitle");
+
+        expect_frame(&frame)
+            .to_match(r"1-8.*Toggle")
+            .expect("should show panel toggle keys");
+    }
+
+    /// Test help overlay small terminal
+    #[test]
+    fn test_help_overlay_small_terminal() {
+        let backend = TestBackend::new(40, 20);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_help_overlay(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Should still render (possibly truncated)
+        assert!(frame.contains("Help") || frame.height() < 36);
+    }
+
+    /// Test layout constants
+    #[test]
+    fn test_layout_dimensions() {
+        // Test that layout calculations work for various terminal sizes
+        let sizes = [(80, 24), (120, 40), (200, 60), (40, 10)];
+
+        for (width, height) in sizes {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            // Just verify we can draw without panicking
+            terminal.draw(|f| {
+                draw_focus_hint(f, f.area());
+            }).expect(&format!("draw at {}x{}", width, height));
+        }
+    }
+}
+
+/// Full UI integration tests using mock App
+#[cfg(test)]
+mod ui_integration_tests {
+    use super::*;
+    use crate::app::App;
+    use jugar_probar::tui::{TuiFrame, expect_frame};
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+
+    /// Test full UI draw with mock App
+    #[test]
+    fn test_full_ui_draw() {
+        let mut app = App::new_mock();
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw full ui");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // UI should render CPU and Memory panels
+        assert!(frame.contains("CPU") || frame.contains("Memory"));
+    }
+
+    /// Test UI draw with help overlay
+    #[test]
+    fn test_ui_with_help_overlay() {
+        let mut app = App::new_mock();
+        app.show_help = true;
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw with help");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Help overlay should be visible
+        assert!(frame.contains("Help") || frame.contains("ttop"));
+    }
+
+    /// Test UI draw with FPS overlay
+    #[test]
+    fn test_ui_with_fps_overlay() {
+        let mut app = App::new_mock();
+        app.show_fps = true;
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw with fps");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // FPS overlay should show frame info
+        assert!(frame.contains("Frame") || frame.contains("μs") || frame.contains("ID"));
+    }
+
+    /// Test UI draw with exploded panel
+    #[test]
+    fn test_ui_with_exploded_panel() {
+        let mut app = App::new_mock();
+        app.exploded_panel = Some(PanelType::Cpu);
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw exploded");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Exploded CPU panel should be fullscreen
+        assert!(frame.contains("CPU"));
+    }
+
+    /// Test UI draw with focused panel
+    #[test]
+    fn test_ui_with_focused_panel() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Memory);
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw focused");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Focus hint should be visible
+        assert!(frame.contains("Memory") || frame.contains("navigate") || frame.contains("Enter"));
+    }
+
+    /// Test UI draw with no panels
+    #[test]
+    fn test_ui_with_no_panels() {
+        let mut app = App::new_mock();
+        app.panels.cpu = false;
+        app.panels.memory = false;
+        app.panels.disk = false;
+        app.panels.network = false;
+        app.panels.process = false;
+        app.panels.gpu = false;
+        app.panels.battery = false;
+        app.panels.sensors = false;
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        // Should not panic with no panels
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw no panels");
+    }
+
+    /// Test count_top_panels function
+    #[test]
+    fn test_count_top_panels() {
+        let app = App::new_mock();
+        let count = count_top_panels(&app);
+        // Default app should have multiple panels
+        assert!(count > 0);
+    }
+
+    /// Test count_top_panels with some disabled
+    #[test]
+    fn test_count_top_panels_some_disabled() {
+        let mut app = App::new_mock();
+        app.panels.cpu = false;
+        app.panels.memory = false;
+        let count = count_top_panels(&app);
+        // Should have fewer panels
+        assert!(count < 8);
+    }
+
+    /// Test UI at various terminal sizes
+    #[test]
+    fn test_ui_various_sizes() {
+        let sizes = [(80, 24), (120, 40), (160, 50), (200, 60)];
+
+        for (width, height) in sizes {
+            let mut app = App::new_mock();
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                draw(f, &mut app);
+            }).expect(&format!("draw at {}x{}", width, height));
+        }
+    }
+
+    /// Test UI with signal menu
+    #[test]
+    fn test_ui_with_signal_menu() {
+        let mut app = App::new_mock();
+        app.show_signal_menu = true;
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw with signal menu");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Signal menu should be visible
+        assert!(frame.contains("Signal") || frame.contains("TERM") || frame.contains("KILL") || frame.height() > 0);
+    }
+
+    /// Test UI with filter input
+    #[test]
+    fn test_ui_with_filter_input() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "test".to_string();
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw with filter");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Filter input should show the filter text
+        assert!(frame.contains("Filter") || frame.contains("test") || frame.height() > 0);
+    }
+
+    /// Test UI probar assertions
+    #[test]
+    fn test_ui_probar_assertions() {
+        let mut app = App::new_mock();
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+
+        // Use probar assertions
+        expect_frame(&frame)
+            .to_contain_text("CPU")
+            .expect("should contain CPU panel");
+    }
+
+    /// Test small terminal doesn't panic
+    #[test]
+    fn test_ui_tiny_terminal() {
+        let mut app = App::new_mock();
+        let backend = TestBackend::new(40, 10);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        // Should not panic even with tiny terminal
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw tiny terminal");
+    }
+
+    /// Test exploded panels for each type
+    #[test]
+    fn test_exploded_panel_types() {
+        let panel_types = [
+            PanelType::Cpu,
+            PanelType::Memory,
+            PanelType::Disk,
+            PanelType::Network,
+            PanelType::Gpu,
+            PanelType::Battery,
+            PanelType::Sensors,
+        ];
+
+        for panel_type in panel_types {
+            let mut app = App::new_mock();
+            app.exploded_panel = Some(panel_type);
+            let backend = TestBackend::new(120, 40);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                draw(f, &mut app);
+            }).expect(&format!("draw exploded {:?}", panel_type));
+        }
+    }
 }

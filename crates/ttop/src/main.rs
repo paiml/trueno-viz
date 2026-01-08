@@ -131,6 +131,9 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>, mut app: 
             last_frame = Instant::now();
         }
 
+        // Clear old signal result notifications
+        app.clear_old_signal_result();
+
         // Handle events
         if event::poll(tick_rate)? {
             if let Event::Key(key) = event::read()? {
