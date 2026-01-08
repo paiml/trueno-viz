@@ -104,6 +104,12 @@ pub struct App {
     pub net_tx_total: u64,
     pub net_interface_ip: String,
 
+    // Network peak tracking
+    pub net_rx_peak: f64,
+    pub net_tx_peak: f64,
+    pub net_rx_peak_time: Instant,
+    pub net_tx_peak_time: Instant,
+
     // UI state
     pub panels: PanelVisibility,
     pub process_selected: usize,
@@ -246,6 +252,11 @@ impl App {
             net_tx_total: 0,
             net_interface_ip: String::new(),
 
+            net_rx_peak: 0.0,
+            net_tx_peak: 0.0,
+            net_rx_peak_time: Instant::now(),
+            net_tx_peak_time: Instant::now(),
+
             panels: PanelVisibility::default(),
             process_selected: 0,
             process_scroll_offset: 0,
@@ -372,6 +383,16 @@ impl App {
                     // This is reset on app start, but gives session totals
                     self.net_rx_total += rates.rx_bytes_per_sec as u64;
                     self.net_tx_total += rates.tx_bytes_per_sec as u64;
+
+                    // Track peak rates
+                    if rates.rx_bytes_per_sec > self.net_rx_peak {
+                        self.net_rx_peak = rates.rx_bytes_per_sec;
+                        self.net_rx_peak_time = Instant::now();
+                    }
+                    if rates.tx_bytes_per_sec > self.net_tx_peak {
+                        self.net_tx_peak = rates.tx_bytes_per_sec;
+                        self.net_tx_peak_time = Instant::now();
+                    }
                 }
             }
         }

@@ -35,11 +35,15 @@ fn truncate_str(s: &str, max_len: usize) -> String {
     }
 }
 
-/// Draw CPU panel - btop-style with per-core meters and graph
+/// Draw CPU panel - btop-style with per-core meters, graph, load gauge, and top consumers
 pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
+    use trueno_viz::monitor::ratatui::style::Color;
+    use trueno_viz::monitor::ratatui::text::{Line, Span};
+
     let load = app.cpu.load_average();
     let freq = app.cpu.frequencies();
     let max_freq = freq.iter().map(|f| f.current_mhz).max().unwrap_or(0);
+    let min_freq = freq.iter().map(|f| f.current_mhz).min().unwrap_or(0);
     let core_count = app.cpu.core_count();
 
     // Get max CPU temp if available
@@ -49,11 +53,15 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
     // Current CPU usage for title
     let cpu_pct = app.cpu_history.last().copied().unwrap_or(0.0) * 100.0;
 
+    // Detect boost state (if current freq > base freq, we're boosting)
+    let is_boosting = max_freq > 3000; // Rough heuristic: > 3GHz likely boosting
+
     let title = format!(
-        " CPU {:.0}% │ {} cores │ {:.1}GHz{} │ up {} │ LAV {:.2} ",
+        " CPU {:.0}% │ {} cores │ {:.1}GHz{}{} │ up {} │ LAV {:.2} ",
         cpu_pct,
         core_count,
         max_freq as f64 / 1000.0,
+        if is_boosting { "⚡" } else { "" },
         temp_str,
         theme::format_uptime(app.cpu.uptime_secs()),
         load.one,
@@ -68,37 +76,46 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
+    // Reserve bottom rows for load gauge and top consumers
+    let reserved_bottom = 2u16;
+    let core_area_height = inner.height.saturating_sub(reserved_bottom);
+
     // btop-style layout: per-core meters on left, graph on right
-    // Calculate meter width needed for all cores
-    let meter_bar_width = 10u16; // "C0 ████████"
-    let cores_per_col = inner.height as usize;
-    let num_meter_cols = core_count.div_ceil(cores_per_col);
+    let meter_bar_width = 10u16;
+    let cores_per_col = core_area_height as usize;
+    let num_meter_cols = if cores_per_col > 0 {
+        core_count.div_ceil(cores_per_col)
+    } else {
+        1
+    };
     let meters_width = (num_meter_cols as u16 * meter_bar_width).min(inner.width / 2);
 
     // Draw per-core meters on left side
     let cpu_temps = app.sensors.cpu_temps();
 
     for (i, &percent) in app.per_core_percent.iter().enumerate() {
+        if cores_per_col == 0 {
+            break;
+        }
         let col = i / cores_per_col;
         let row = i % cores_per_col;
 
         let cell_x = inner.x + (col as u16) * meter_bar_width;
         let cell_y = inner.y + row as u16;
 
-        if cell_x + meter_bar_width > inner.x + meters_width || cell_y >= inner.y + inner.height {
+        if cell_x + meter_bar_width > inner.x + meters_width || cell_y >= inner.y + core_area_height
+        {
             continue;
         }
 
         let color = percent_color(percent);
         let core_temp = cpu_temps.get(i).map(|t| t.current);
 
-        // btop-style meter: "C0 ████████" with gradient fill
         let bar_len = 6usize;
         let filled = ((percent / 100.0) * bar_len as f64) as usize;
         let bar: String =
             "█".repeat(filled.min(bar_len)) + &"░".repeat(bar_len - filled.min(bar_len));
 
-        // Show temp if available, otherwise just percent
         let label = if let Some(t) = core_temp {
             format!("{:>2} {} {:>2.0}°", i, bar, t)
         } else {
@@ -120,17 +137,149 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
     let graph_x = inner.x + meters_width + 1;
     let graph_width = inner.width.saturating_sub(meters_width + 1);
 
-    if graph_width > 3 && !app.cpu_history.is_empty() {
+    if graph_width > 3 && !app.cpu_history.is_empty() && core_area_height > 0 {
         let graph_area = Rect {
             x: graph_x,
             y: inner.y,
             width: graph_width,
-            height: inner.height,
+            height: core_area_height,
         };
         let cpu_graph = Graph::new(&app.cpu_history)
             .color(graph::CPU)
             .mode(trueno_viz::monitor::widgets::GraphMode::Block);
         f.render_widget(cpu_graph, graph_area);
+    }
+
+    // === Bottom Row 1: Load Average Gauge + Frequency ===
+    let load_y = inner.y + core_area_height;
+    if load_y < inner.y + inner.height {
+        // Load average visualization (normalized to core count)
+        let load_normalized = load.one / core_count as f64;
+        let load_color = if load_normalized > 1.0 {
+            Color::Red
+        } else if load_normalized > 0.7 {
+            Color::Yellow
+        } else {
+            Color::Green
+        };
+
+        // Load trend arrows
+        let trend_1_5 = if load.one > load.five {
+            "↑"
+        } else if load.one < load.five {
+            "↓"
+        } else {
+            "→"
+        };
+        let trend_5_15 = if load.five > load.fifteen {
+            "↑"
+        } else if load.five < load.fifteen {
+            "↓"
+        } else {
+            "→"
+        };
+
+        // Load bar (0-2x cores = 100%)
+        let load_bar_width = 10usize;
+        let load_pct = (load_normalized / 2.0).min(1.0);
+        let load_filled = (load_pct * load_bar_width as f64) as usize;
+        let load_empty = load_bar_width.saturating_sub(load_filled);
+
+        // Frequency range
+        let freq_str = if min_freq != max_freq && min_freq > 0 {
+            format!(
+                "{:.1}-{:.1}GHz",
+                min_freq as f64 / 1000.0,
+                max_freq as f64 / 1000.0
+            )
+        } else {
+            format!("{:.1}GHz", max_freq as f64 / 1000.0)
+        };
+
+        let load_line = Line::from(vec![
+            Span::styled("Load ", Style::default().fg(Color::DarkGray)),
+            Span::styled("█".repeat(load_filled), Style::default().fg(load_color)),
+            Span::styled("░".repeat(load_empty), Style::default().fg(Color::DarkGray)),
+            Span::styled(
+                format!(" {:.2}{} ", load.one, trend_1_5),
+                Style::default().fg(load_color),
+            ),
+            Span::styled(
+                format!("{:.2}{} ", load.five, trend_5_15),
+                Style::default().fg(Color::White),
+            ),
+            Span::styled(format!("{:.2}", load.fifteen), Style::default().fg(Color::DarkGray)),
+            Span::styled(" │ ", Style::default().fg(Color::DarkGray)),
+            Span::styled("Freq ", Style::default().fg(Color::DarkGray)),
+            Span::styled(freq_str, Style::default().fg(if is_boosting { Color::Cyan } else { Color::White })),
+            if is_boosting {
+                Span::styled(" ⚡", Style::default().fg(Color::Yellow))
+            } else {
+                Span::raw("")
+            },
+        ]);
+
+        f.render_widget(
+            Paragraph::new(load_line),
+            Rect {
+                x: inner.x,
+                y: load_y,
+                width: inner.width,
+                height: 1,
+            },
+        );
+    }
+
+    // === Bottom Row 2: Top CPU Consumers ===
+    let consumers_y = inner.y + core_area_height + 1;
+    if consumers_y < inner.y + inner.height {
+        let mut top_procs: Vec<_> = app.process.processes().values().collect();
+        top_procs.sort_by(|a, b| {
+            b.cpu_percent
+                .partial_cmp(&a.cpu_percent)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let mut spans = vec![Span::styled("Top ", Style::default().fg(Color::DarkGray))];
+
+        for (i, proc) in top_procs.iter().take(3).enumerate() {
+            if proc.cpu_percent < 0.1 {
+                continue;
+            }
+
+            let cpu_color = if proc.cpu_percent > 50.0 {
+                Color::Red
+            } else if proc.cpu_percent > 20.0 {
+                Color::Yellow
+            } else {
+                Color::Green
+            };
+
+            if i > 0 {
+                spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+            }
+
+            spans.push(Span::styled(
+                format!("{:.0}%", proc.cpu_percent),
+                Style::default().fg(cpu_color),
+            ));
+            spans.push(Span::styled(
+                format!(" {}", truncate_str(&proc.name, 12)),
+                Style::default().fg(Color::White),
+            ));
+        }
+
+        if spans.len() > 1 {
+            f.render_widget(
+                Paragraph::new(Line::from(spans)),
+                Rect {
+                    x: inner.x,
+                    y: consumers_y,
+                    width: inner.width,
+                    height: 1,
+                },
+            );
+        }
     }
 }
 
@@ -669,8 +818,11 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-/// Draw Network panel - btop style with dual graphs and session totals
+/// Draw Network panel - btop style with dual graphs, peaks, and connection stats
 pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
+    use std::time::Instant;
+    use trueno_viz::monitor::ratatui::style::Color;
+
     let iface = app.network.current_interface().unwrap_or("none");
     let (rx_rate, tx_rate) = app
         .network
@@ -695,22 +847,70 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    // Calculate layout:
-    // - Row for RX info with sparkline (1 line)
+    // Calculate layout based on available height
+    // - Multi-interface row (1 line) if multiple interfaces
+    // - RX info with sparkline (1 line)
     // - RX Graph (variable)
-    // - Row for TX info with sparkline (1 line)
+    // - TX info with sparkline (1 line)
     // - TX Graph (variable)
-    // - Session totals row (1 line) if space
+    // - Bottom rows: totals/peaks, connection stats, top consumers (up to 3 lines)
 
-    let show_totals = inner.height >= 8;
+    let all_rates = app.network.all_rates();
+    let interfaces: Vec<_> = all_rates.keys().collect();
+    let show_multi_iface = interfaces.len() > 1 && inner.height >= 8;
+    let bottom_row_count = if inner.height >= 10 { 3 } else if inner.height >= 8 { 2 } else if inner.height >= 6 { 1 } else { 0 };
+
     let info_lines = 2; // RX + TX info rows
-    let totals_line = if show_totals { 1 } else { 0 };
-    let graph_total = inner.height.saturating_sub(info_lines + totals_line);
+    let multi_iface_line = if show_multi_iface { 1 } else { 0 };
+    let graph_total = inner.height.saturating_sub(info_lines + multi_iface_line + bottom_row_count as u16);
     let half_height = graph_total / 2;
 
     let mut y = inner.y;
 
-    // RX info line with rate and sparkline
+    // === Multi-Interface Summary Row ===
+    if show_multi_iface {
+        let mut spans = vec![Span::styled("Ifaces ", Style::default().fg(Color::DarkGray))];
+
+        for (i, iface_name) in interfaces.iter().take(4).enumerate() {
+            if let Some(rates) = all_rates.get(*iface_name) {
+                let total_rate = rates.rx_bytes_per_sec + rates.tx_bytes_per_sec;
+                // Mini activity indicator (0-8 scale based on rate)
+                let activity = if total_rate > 100_000_000.0 {
+                    "▇"
+                } else if total_rate > 10_000_000.0 {
+                    "▅"
+                } else if total_rate > 1_000_000.0 {
+                    "▃"
+                } else if total_rate > 100_000.0 {
+                    "▂"
+                } else if total_rate > 1000.0 {
+                    "▁"
+                } else {
+                    "░"
+                };
+
+                let is_current = Some(iface_name.as_str()) == app.network.current_interface();
+                let name_color = if is_current { Color::Cyan } else { Color::White };
+
+                if i > 0 {
+                    spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+                }
+
+                // Truncate interface name
+                let short_name: String = iface_name.chars().take(8).collect();
+                spans.push(Span::styled(short_name, Style::default().fg(name_color)));
+                spans.push(Span::styled(activity, Style::default().fg(graph::NETWORK_RX)));
+            }
+        }
+
+        f.render_widget(
+            Paragraph::new(Line::from(spans)),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+    }
+
+    // === RX info line with rate and sparkline ===
     {
         let label_width = 16u16;
         let sparkline_width = inner.width.saturating_sub(label_width);
@@ -719,47 +919,29 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
             Span::styled("↓ Download ", Style::default().fg(graph::NETWORK_RX)),
             Span::styled(
                 theme::format_bytes_rate(rx_rate),
-                Style::default()
-                    .fg(trueno_viz::monitor::ratatui::style::Color::White)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
         ]);
         f.render_widget(
             Paragraph::new(rx_label),
-            Rect {
-                x: inner.x,
-                y,
-                width: label_width,
-                height: 1,
-            },
+            Rect { x: inner.x, y, width: label_width, height: 1 },
         );
 
-        // RX sparkline
         if sparkline_width > 2 && !app.net_rx_history.is_empty() {
             let sparkline = MonitorSparkline::new(&app.net_rx_history)
                 .color(graph::NETWORK_RX)
                 .show_trend(true);
             f.render_widget(
                 sparkline,
-                Rect {
-                    x: inner.x + label_width,
-                    y,
-                    width: sparkline_width,
-                    height: 1,
-                },
+                Rect { x: inner.x + label_width, y, width: sparkline_width, height: 1 },
             );
         }
         y += 1;
     }
 
-    // Download graph
+    // === Download graph ===
     if half_height > 0 {
-        let rx_area = Rect {
-            x: inner.x,
-            y,
-            width: inner.width,
-            height: half_height,
-        };
+        let rx_area = Rect { x: inner.x, y, width: inner.width, height: half_height };
         let rx_data: Vec<f64> = if app.net_rx_history.is_empty() {
             vec![0.0]
         } else {
@@ -770,7 +952,7 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         y += half_height;
     }
 
-    // TX info line with rate and sparkline
+    // === TX info line with rate and sparkline ===
     {
         let label_width = 16u16;
         let sparkline_width = inner.width.saturating_sub(label_width);
@@ -779,53 +961,33 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
             Span::styled("↑ Upload   ", Style::default().fg(graph::NETWORK_TX)),
             Span::styled(
                 theme::format_bytes_rate(tx_rate),
-                Style::default()
-                    .fg(trueno_viz::monitor::ratatui::style::Color::White)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
         ]);
         f.render_widget(
             Paragraph::new(tx_label),
-            Rect {
-                x: inner.x,
-                y,
-                width: label_width,
-                height: 1,
-            },
+            Rect { x: inner.x, y, width: label_width, height: 1 },
         );
 
-        // TX sparkline
         if sparkline_width > 2 && !app.net_tx_history.is_empty() {
             let sparkline = MonitorSparkline::new(&app.net_tx_history)
                 .color(graph::NETWORK_TX)
                 .show_trend(true);
             f.render_widget(
                 sparkline,
-                Rect {
-                    x: inner.x + label_width,
-                    y,
-                    width: sparkline_width,
-                    height: 1,
-                },
+                Rect { x: inner.x + label_width, y, width: sparkline_width, height: 1 },
             );
         }
         y += 1;
     }
 
-    // Upload graph (inverted)
-    let remaining_for_graph = if show_totals {
-        (inner.y + inner.height - 1).saturating_sub(y)
-    } else {
-        (inner.y + inner.height).saturating_sub(y)
-    };
+    // === Upload graph (inverted) ===
+    let remaining_for_graph = (inner.y + inner.height)
+        .saturating_sub(y)
+        .saturating_sub(bottom_row_count as u16);
 
     if remaining_for_graph > 0 {
-        let tx_area = Rect {
-            x: inner.x,
-            y,
-            width: inner.width,
-            height: remaining_for_graph,
-        };
+        let tx_area = Rect { x: inner.x, y, width: inner.width, height: remaining_for_graph };
         let tx_data: Vec<f64> = if app.net_tx_history.is_empty() {
             vec![0.0]
         } else {
@@ -836,34 +998,124 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         y += remaining_for_graph;
     }
 
-    // Session totals
-    if show_totals && y < inner.y + inner.height {
-        let totals_line = Line::from(vec![
-            Span::styled(
-                "Session: ",
-                Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray),
-            ),
-            Span::styled("↓ ", Style::default().fg(graph::NETWORK_RX)),
+    // === Bottom Row 1: Session totals + Peak rates ===
+    if bottom_row_count >= 1 && y < inner.y + inner.height {
+        // Format peak time as "Xm ago" or "Xs ago"
+        let format_ago = |instant: Instant| -> String {
+            let secs = instant.elapsed().as_secs();
+            if secs >= 60 {
+                format!("{}m", secs / 60)
+            } else {
+                format!("{}s", secs)
+            }
+        };
+
+        let mut spans = vec![
+            Span::styled("Session ", Style::default().fg(Color::DarkGray)),
+            Span::styled("↓", Style::default().fg(graph::NETWORK_RX)),
             Span::styled(
                 theme::format_bytes(app.net_rx_total),
-                Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White),
+                Style::default().fg(Color::White),
             ),
-            Span::styled(" │ ", Style::default().fg(trueno_viz::monitor::ratatui::style::Color::DarkGray)),
-            Span::styled("↑ ", Style::default().fg(graph::NETWORK_TX)),
+            Span::styled(" ↑", Style::default().fg(graph::NETWORK_TX)),
             Span::styled(
                 theme::format_bytes(app.net_tx_total),
-                Style::default().fg(trueno_viz::monitor::ratatui::style::Color::White),
+                Style::default().fg(Color::White),
             ),
-        ]);
+        ];
+
+        // Add peak rates if we have them
+        if app.net_rx_peak > 0.0 || app.net_tx_peak > 0.0 {
+            spans.push(Span::styled(" │ Peak ", Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled("↓", Style::default().fg(graph::NETWORK_RX)));
+            spans.push(Span::styled(
+                format!("{} ({})", theme::format_bytes_rate(app.net_rx_peak), format_ago(app.net_rx_peak_time)),
+                Style::default().fg(Color::White),
+            ));
+            spans.push(Span::styled(" ↑", Style::default().fg(graph::NETWORK_TX)));
+            spans.push(Span::styled(
+                format!("{} ({})", theme::format_bytes_rate(app.net_tx_peak), format_ago(app.net_tx_peak_time)),
+                Style::default().fg(Color::White),
+            ));
+        }
+
         f.render_widget(
-            Paragraph::new(totals_line),
-            Rect {
-                x: inner.x,
-                y,
-                width: inner.width,
-                height: 1,
-            },
+            Paragraph::new(Line::from(spans)),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
         );
+        y += 1;
+    }
+
+    // === Bottom Row 2: Connection Stats ===
+    if bottom_row_count >= 2 && y < inner.y + inner.height {
+        use crate::analyzers::ConnState;
+
+        let conns = app.connection_analyzer.connections();
+        let established = conns.iter().filter(|c| c.state == ConnState::Established).count();
+        let listen = conns.iter().filter(|c| c.state == ConnState::Listen).count();
+        let time_wait = conns.iter().filter(|c| c.state == ConnState::TimeWait).count();
+        let close_wait = conns.iter().filter(|c| c.state == ConnState::CloseWait).count();
+
+        let conn_line = Line::from(vec![
+            Span::styled("Conn ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", established), Style::default().fg(Color::Green)),
+            Span::styled(" estab ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}", listen), Style::default().fg(Color::Cyan)),
+            Span::styled(" listen", Style::default().fg(Color::DarkGray)),
+            if time_wait > 0 || close_wait > 0 {
+                Span::styled(
+                    format!(" │ {} tw {} cw", time_wait, close_wait),
+                    Style::default().fg(Color::Yellow),
+                )
+            } else {
+                Span::raw("")
+            },
+        ]);
+
+        f.render_widget(
+            Paragraph::new(conn_line),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        y += 1;
+    }
+
+    // === Bottom Row 3: Top Network Consumers ===
+    if bottom_row_count >= 3 && y < inner.y + inner.height {
+        // Get processes sorted by network activity (we'll use connections as proxy)
+        let conns = app.connection_analyzer.connections();
+        let mut proc_conn_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+        for conn in conns.iter() {
+            if let Some((_, name)) = app.connection_analyzer.process_for_connection(conn) {
+                *proc_conn_counts.entry(name.to_string()).or_insert(0) += 1;
+            }
+        }
+
+        let mut sorted_procs: Vec<_> = proc_conn_counts.iter().collect();
+        sorted_procs.sort_by(|a, b| b.1.cmp(a.1));
+
+        let mut spans = vec![Span::styled("Top ", Style::default().fg(Color::DarkGray))];
+
+        for (i, (name, count)) in sorted_procs.iter().take(3).enumerate() {
+            if i > 0 {
+                spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+            }
+            spans.push(Span::styled(
+                format!("{}", count),
+                Style::default().fg(Color::Yellow),
+            ));
+            spans.push(Span::styled(
+                format!(" {}", truncate_str(name, 10)),
+                Style::default().fg(Color::White),
+            ));
+        }
+
+        if !sorted_procs.is_empty() {
+            f.render_widget(
+                Paragraph::new(Line::from(spans)),
+                Rect { x: inner.x, y, width: inner.width, height: 1 },
+            );
+        }
     }
 }
 
