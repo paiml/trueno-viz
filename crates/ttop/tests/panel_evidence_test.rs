@@ -89,9 +89,9 @@ fn evidence_disk_panel_has_latency_workload() {
         "EVIDENCE FAILED: Disk panel does not show latency"
     );
 
-    // Evidence 3: Disk panel calls workload_type()
+    // Evidence 3: Disk panel shows workload type (via overall_workload or workload_type)
     assert!(
-        source.contains("workload_type"),
+        source.contains("workload_type") || source.contains("overall_workload"),
         "EVIDENCE FAILED: Disk panel does not show workload type"
     );
 
