@@ -1,6 +1,8 @@
 # ttop - Terminal Top
 
-**10X Better Than btop** - A pure Rust system monitor with GPU support, ML stack integration, and deterministic rendering.
+**10X Better Than btop** - A pure Rust system monitor with GPU support, file analytics, and deterministic rendering.
+
+**Current Version: 0.3.1** ([crates.io](https://crates.io/crates/ttop))
 
 ## Installation
 
@@ -23,6 +25,7 @@ cargo install ttop
 - **PSI Pressure Monitoring**: Detect resource contention before OOM (Linux 4.20+)
 - **Container/Docker Dashboard**: Live container CPU/memory stats
 - **Network Connections**: Little Snitch-style connection tracking
+- **File Analytics**: Large file detection, duplicate finder, entropy analysis
 - **Treemap Visualization**: Grand Perspective-style large file display
 - **Disk I/O Analysis**: Per-disk sparklines with workload classification
 - **Swap Thrashing Detection**: ZRAM stats and thrashing severity
@@ -60,8 +63,12 @@ cargo install ttop
 | `2` | Memory |
 | `3` | Disk |
 | `4` | Network |
-| `5` | GPU |
-| `6` | Process |
+| `5` | Process |
+| `6` | GPU |
+| `7` | Battery |
+| `8` | Sensors |
+| `9` | Files |
+| `0` | Reset all |
 
 ### Navigation
 
@@ -140,6 +147,27 @@ Pareto-style visualization of large files (>50MB):
 - Top 20%: Warm amber (vital few)
 - Middle 30%: Muted gold
 - Bottom 50%: Cool slate
+
+### Files Panel (Key: 9)
+
+Comprehensive file analytics with:
+
+```
+Files │ 1234 total │ 5 hot │ 12 dup │ 1.2G wasted
+───────────────────────────────────────────────────
+I/O     Entropy   Dups    Recent
+▁▂▃▄▅▆  ▃▄▅▄▃▂   ▁▂▁▂▁▁  ▂▃▄▅▆▇
+
+📄 ●◑⊕ large-model.gguf              4.2G
+📄 ○◑  dataset.parquet               1.8G
+📁 ●◐⊕ node_modules/                 890M
+```
+
+Indicators:
+- **Type icons**: 📄 file, 📁 folder, 🎬 media, ⚙️ config
+- **I/O activity**: ● high, ◐ medium, ○ low
+- **Entropy**: ◑ unique, ◐ mixed, ○ duplicate potential
+- **Duplicate**: ⊕ marks duplicates
 
 ## macOS Collectors
 
