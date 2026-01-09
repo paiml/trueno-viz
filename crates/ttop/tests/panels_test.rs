@@ -3417,3 +3417,172 @@ mod disk_entropy_tests {
         assert!((me.dedup_potential - 0.8).abs() < 0.01);
     }
 }
+
+/// Property-based tests for TUI rendering bounds safety
+#[cfg(test)]
+mod proptest_tui_bounds {
+    use super::*;
+    use proptest::prelude::*;
+    use ttop::app::App;
+    use ttop::ui;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        /// Test that draw never panics for any reasonable terminal size
+        #[test]
+        fn test_draw_any_size(width in 10u16..300, height in 5u16..100) {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+
+            // Should never panic
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+
+        /// Test that draw handles edge case sizes without panic
+        #[test]
+        fn test_draw_edge_sizes(width in 1u16..20, height in 1u16..10) {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+
+            // Should handle tiny sizes gracefully
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+
+        /// Test exact width=100 which triggered the original panic
+        #[test]
+        fn test_draw_width_100(height in 10u16..60) {
+            let backend = TestBackend::new(100, height);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+
+        /// Test various aspect ratios
+        #[test]
+        fn test_draw_aspect_ratios(base in 20u16..80) {
+            // Wide
+            let backend = TestBackend::new(base * 3, base);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+
+            // Tall
+            let backend = TestBackend::new(base, base * 2);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+
+            // Square
+            let backend = TestBackend::new(base, base);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+    }
+
+    /// Test specific problematic sizes that have caused panics
+    #[test]
+    fn test_known_problem_sizes() {
+        let problem_sizes = [
+            (100, 41),  // Original Mac panic
+            (100, 1),   // Edge case
+            (100, 2),
+            (80, 24),   // Standard terminal
+            (120, 40),
+            (200, 50),
+            (50, 100),  // Tall
+            (15, 5),    // Tiny
+        ];
+
+        for (width, height) in problem_sizes {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+
+            // Should not panic
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+            }));
+
+            assert!(result.is_ok(), "Panicked at size {}x{}", width, height);
+        }
+    }
+
+    /// Test with populated app data (simulating real usage)
+    #[test]
+    fn test_populated_app_various_sizes() {
+        let sizes = [
+            (100, 41),
+            (100, 30),
+            (80, 24),
+            (120, 50),
+            (60, 20),
+        ];
+
+        for (width, height) in sizes {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+
+            // Populate with realistic data
+            app.cpu_history = (0..300).map(|i| (i as f64 / 300.0) * 0.8).collect();
+            app.mem_history = (0..300).map(|i| 0.3 + (i as f64 / 600.0)).collect();
+            app.swap_history = (0..300).map(|i| (i as f64 / 1000.0)).collect();
+            app.net_rx_history = (0..300).map(|i| (i as f64 * 1000.0)).collect();
+            app.net_tx_history = (0..300).map(|i| (i as f64 * 500.0)).collect();
+            app.mem_total = 32 * 1024 * 1024 * 1024;
+            app.mem_used = 16 * 1024 * 1024 * 1024;
+            app.mem_free = 8 * 1024 * 1024 * 1024;
+            app.mem_available = 12 * 1024 * 1024 * 1024;
+            app.mem_cached = 4 * 1024 * 1024 * 1024;
+            app.swap_total = 8 * 1024 * 1024 * 1024;
+            app.swap_used = 1 * 1024 * 1024 * 1024;
+
+            // Simulate many CPU cores (like on Mac Pro)
+            app.per_core_percent = (0..16).map(|i| (i as f64 * 5.0) % 100.0).collect();
+
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+            }));
+
+            assert!(result.is_ok(), "Panicked at size {}x{} with populated data", width, height);
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(30))]
+
+        /// Test with varying amounts of CPU cores
+        #[test]
+        fn test_various_core_counts(width in 60u16..200, height in 20u16..80, cores in 1usize..128) {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+
+            // Simulate many cores
+            app.per_core_percent = (0..cores).map(|i| ((i * 7) % 100) as f64).collect();
+            app.cpu_history = (0..100).map(|i| (i as f64 / 100.0) * 0.7).collect();
+
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+
+        /// Test with very long history data
+        #[test]
+        fn test_long_history(width in 40u16..150, height in 15u16..60, history_len in 100usize..1000) {
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).unwrap();
+            let mut app = App::new(true, true);
+
+            app.cpu_history = (0..history_len).map(|i| (i as f64 / history_len as f64) * 0.9).collect();
+            app.mem_history = (0..history_len).map(|i| 0.2 + (i as f64 / history_len as f64) * 0.5).collect();
+            app.net_rx_history = (0..history_len).map(|i| i as f64 * 1024.0).collect();
+            app.net_tx_history = (0..history_len).map(|i| i as f64 * 512.0).collect();
+
+            terminal.draw(|f| ui::draw(f, &mut app)).unwrap();
+        }
+    }
+}

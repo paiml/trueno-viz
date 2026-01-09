@@ -822,78 +822,97 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
             "—".to_string()
         };
 
-        // Build the row with proper columns
+        // Build the row with proper columns (with bounds checking)
         let mut x = inner.x;
+        let max_x = inner.x + inner.width;
 
         // Col 1: Name
-        f.render_widget(
-            Paragraph::new(format!("{:<width$}", label, width = name_col as usize))
-                .style(Style::default().fg(Color::White)),
-            Rect { x, y, width: name_col, height: 1 },
-        );
-        x += name_col;
+        if x < max_x {
+            let w = name_col.min(max_x.saturating_sub(x));
+            f.render_widget(
+                Paragraph::new(format!("{:<width$}", label, width = w as usize))
+                    .style(Style::default().fg(Color::White)),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += name_col;
+        }
 
         // Col 2: Size
-        f.render_widget(
-            Paragraph::new(format!("{:>width$}", size_str, width = size_col as usize))
-                .style(Style::default().fg(Color::DarkGray)),
-            Rect { x, y, width: size_col, height: 1 },
-        );
-        x += size_col + 1;
+        if x < max_x {
+            let w = size_col.min(max_x.saturating_sub(x));
+            f.render_widget(
+                Paragraph::new(format!("{:>width$}", size_str, width = w as usize))
+                    .style(Style::default().fg(Color::DarkGray)),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += size_col + 1;
+        }
 
         // Col 3: Usage bar
-        let filled = ((used_pct / 100.0) * bar_width as f64) as usize;
-        let empty = (bar_width as usize).saturating_sub(filled);
-        let bar_line = Line::from(vec![
-            Span::styled("█".repeat(filled), Style::default().fg(color)),
-            Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
-        ]);
-        f.render_widget(
-            Paragraph::new(bar_line),
-            Rect { x, y, width: bar_width, height: 1 },
-        );
-        x += bar_width + 1;
+        if x < max_x {
+            let w = bar_width.min(max_x.saturating_sub(x));
+            let filled = ((used_pct / 100.0) * w as f64) as usize;
+            let empty = (w as usize).saturating_sub(filled);
+            let bar_line = Line::from(vec![
+                Span::styled("█".repeat(filled), Style::default().fg(color)),
+                Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
+            ]);
+            f.render_widget(
+                Paragraph::new(bar_line),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += bar_width + 1;
+        }
 
         // Col 4: Percentage + Entropy indicator
-        let entropy_char = app.disk_entropy
-            .get_mount_entropy(&mount.mount_point)
-            .map(|e| e.indicator())
-            .unwrap_or('·');
-        let entropy_color = match entropy_char {
-            '●' => Color::Green,   // High entropy (unique)
-            '◐' => Color::Yellow,  // Medium entropy
-            '○' => Color::Red,     // Low entropy (dupes)
-            _ => Color::DarkGray,
-        };
-        f.render_widget(
-            Paragraph::new(Line::from(vec![
-                Span::styled(format!("{:>3.0}%", used_pct), Style::default().fg(color)),
-                Span::styled(format!("{}", entropy_char), Style::default().fg(entropy_color)),
-            ])),
-            Rect { x, y, width: 5, height: 1 },
-        );
-        x += 6;
+        if x < max_x {
+            let entropy_char = app.disk_entropy
+                .get_mount_entropy(&mount.mount_point)
+                .map(|e| e.indicator())
+                .unwrap_or('·');
+            let entropy_color = match entropy_char {
+                '●' => Color::Green,   // High entropy (unique)
+                '◐' => Color::Yellow,  // Medium entropy
+                '○' => Color::Red,     // Low entropy (dupes)
+                _ => Color::DarkGray,
+            };
+            let w = 5u16.min(max_x.saturating_sub(x));
+            f.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(format!("{:>3.0}%", used_pct), Style::default().fg(color)),
+                    Span::styled(format!("{}", entropy_char), Style::default().fg(entropy_color)),
+                ])),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += 6;
+        }
 
         // Col 5: I/O rate
-        f.render_widget(
-            Paragraph::new(format!("{:>8}", io_str))
-                .style(Style::default().fg(Color::Cyan)),
-            Rect { x, y, width: 8, height: 1 },
-        );
-        x += 9;
+        if x < max_x {
+            let w = 8u16.min(max_x.saturating_sub(x));
+            f.render_widget(
+                Paragraph::new(format!("{:>8}", io_str))
+                    .style(Style::default().fg(Color::Cyan)),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += 9;
+        }
 
         // Col 6: I/O sparkline (if space and history available)
-        if sparkline_width > 3 {
-            let read_history = app.disk_io_analyzer.device_read_history(&base_device);
-            if let Some(ref rh) = read_history {
-                if !rh.is_empty() {
-                    let sparkline = MonitorSparkline::new(rh)
-                        .color(Color::Cyan)
-                        .show_trend(false);
-                    f.render_widget(
-                        sparkline,
-                        Rect { x, y, width: sparkline_width, height: 1 },
-                    );
+        if x < max_x && sparkline_width > 3 {
+            let w = sparkline_width.min(max_x.saturating_sub(x));
+            if w > 3 {
+                let read_history = app.disk_io_analyzer.device_read_history(&base_device);
+                if let Some(ref rh) = read_history {
+                    if !rh.is_empty() {
+                        let sparkline = MonitorSparkline::new(rh)
+                            .color(Color::Cyan)
+                            .show_trend(false);
+                        f.render_widget(
+                            sparkline,
+                            Rect { x, y, width: w, height: 1 },
+                        );
+                    }
                 }
             }
         }
@@ -1660,46 +1679,59 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
 
         let gpu_color = percent_color(gpu.gpu_util);
         let mut x = inner.x;
+        let max_x = inner.x + inner.width;
 
         // Col 1: Label
-        f.render_widget(
-            Paragraph::new(format!("{:<width$}", label, width = label_col as usize))
-                .style(Style::default().fg(Color::White)),
-            Rect { x, y, width: label_col, height: 1 },
-        );
-        x += label_col;
+        if x < max_x {
+            let w = label_col.min(max_x.saturating_sub(x));
+            f.render_widget(
+                Paragraph::new(format!("{:<width$}", label, width = w as usize))
+                    .style(Style::default().fg(Color::White)),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += label_col;
+        }
 
         // Col 2: Utilization bar
-        let util_filled = ((gpu.gpu_util / 100.0) * bar_width as f64) as usize;
-        let util_empty = (bar_width as usize).saturating_sub(util_filled);
-        let bar_line = Line::from(vec![
-            Span::styled("█".repeat(util_filled), Style::default().fg(gpu_color)),
-            Span::styled("░".repeat(util_empty), Style::default().fg(Color::DarkGray)),
-        ]);
-        f.render_widget(
-            Paragraph::new(bar_line),
-            Rect { x, y, width: bar_width, height: 1 },
-        );
-        x += bar_width + 1;
+        if x < max_x {
+            let w = bar_width.min(max_x.saturating_sub(x));
+            let util_filled = ((gpu.gpu_util / 100.0) * w as f64) as usize;
+            let util_empty = (w as usize).saturating_sub(util_filled);
+            let bar_line = Line::from(vec![
+                Span::styled("█".repeat(util_filled), Style::default().fg(gpu_color)),
+                Span::styled("░".repeat(util_empty), Style::default().fg(Color::DarkGray)),
+            ]);
+            f.render_widget(
+                Paragraph::new(bar_line),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += bar_width + 1;
+        }
 
         // Col 3: Percentage value
-        f.render_widget(
-            Paragraph::new(format!("{:>5.1}%", gpu.gpu_util))
-                .style(Style::default().fg(gpu_color)),
-            Rect { x, y, width: value_col, height: 1 },
-        );
-        x += value_col;
+        if x < max_x {
+            let w = value_col.min(max_x.saturating_sub(x));
+            f.render_widget(
+                Paragraph::new(format!("{:>5.1}%", gpu.gpu_util))
+                    .style(Style::default().fg(gpu_color)),
+                Rect { x, y, width: w, height: 1 },
+            );
+            x += value_col;
+        }
 
         // Col 4: Sparkline (if history available)
-        if let Some(ref hist) = gpu.history {
-            if !hist.is_empty() && sparkline_col > 3 {
-                let sparkline = MonitorSparkline::new(hist)
-                    .color(gpu_color)
-                    .show_trend(true);
-                f.render_widget(
-                    sparkline,
-                    Rect { x, y, width: sparkline_col, height: 1 },
-                );
+        if x < max_x {
+            if let Some(ref hist) = gpu.history {
+                let w = sparkline_col.min(max_x.saturating_sub(x));
+                if !hist.is_empty() && w > 3 {
+                    let sparkline = MonitorSparkline::new(hist)
+                        .color(gpu_color)
+                        .show_trend(true);
+                    f.render_widget(
+                        sparkline,
+                        Rect { x, y, width: w, height: 1 },
+                    );
+                }
             }
         }
         y += 1;
@@ -1713,32 +1745,41 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
             x = inner.x;
 
             // Col 1: Label
-            f.render_widget(
-                Paragraph::new(format!("{:<width$}", "VRAM", width = label_col as usize))
-                    .style(Style::default().fg(Color::DarkGray)),
-                Rect { x, y, width: label_col, height: 1 },
-            );
-            x += label_col;
+            if x < max_x {
+                let w = label_col.min(max_x.saturating_sub(x));
+                f.render_widget(
+                    Paragraph::new(format!("{:<width$}", "VRAM", width = w as usize))
+                        .style(Style::default().fg(Color::DarkGray)),
+                    Rect { x, y, width: w, height: 1 },
+                );
+                x += label_col;
+            }
 
             // Col 2: VRAM bar
-            let vram_filled = ((gpu.vram_pct) * bar_width as f64) as usize;
-            let vram_empty = (bar_width as usize).saturating_sub(vram_filled);
-            let vram_bar = Line::from(vec![
-                Span::styled("█".repeat(vram_filled), Style::default().fg(vram_color)),
-                Span::styled("░".repeat(vram_empty), Style::default().fg(Color::DarkGray)),
-            ]);
-            f.render_widget(
-                Paragraph::new(vram_bar),
-                Rect { x, y, width: bar_width, height: 1 },
-            );
-            x += bar_width + 1;
+            if x < max_x {
+                let w = bar_width.min(max_x.saturating_sub(x));
+                let vram_filled = ((gpu.vram_pct) * w as f64) as usize;
+                let vram_empty = (w as usize).saturating_sub(vram_filled);
+                let vram_bar = Line::from(vec![
+                    Span::styled("█".repeat(vram_filled), Style::default().fg(vram_color)),
+                    Span::styled("░".repeat(vram_empty), Style::default().fg(Color::DarkGray)),
+                ]);
+                f.render_widget(
+                    Paragraph::new(vram_bar),
+                    Rect { x, y, width: w, height: 1 },
+                );
+                x += bar_width + 1;
+            }
 
             // Col 3: VRAM value
-            f.render_widget(
-                Paragraph::new(format!("{:.1}/{:.0}G", vram_gb_used, vram_gb_total))
-                    .style(Style::default().fg(Color::White)),
-                Rect { x, y, width: value_col + sparkline_col, height: 1 },
-            );
+            if x < max_x {
+                let w = (value_col + sparkline_col).min(max_x.saturating_sub(x));
+                f.render_widget(
+                    Paragraph::new(format!("{:.1}/{:.0}G", vram_gb_used, vram_gb_total))
+                        .style(Style::default().fg(Color::White)),
+                    Rect { x, y, width: w, height: 1 },
+                );
+            }
             y += 1;
         }
 
@@ -1764,51 +1805,60 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
             x = inner.x;
 
             // Col 1: Label
-            f.render_widget(
-                Paragraph::new(format!("{:<width$}", "Temp", width = label_col as usize))
-                    .style(Style::default().fg(Color::DarkGray)),
-                Rect { x, y, width: label_col, height: 1 },
-            );
-            x += label_col;
+            if x < max_x {
+                let w = label_col.min(max_x.saturating_sub(x));
+                f.render_widget(
+                    Paragraph::new(format!("{:<width$}", "Temp", width = w as usize))
+                        .style(Style::default().fg(Color::DarkGray)),
+                    Rect { x, y, width: w, height: 1 },
+                );
+                x += label_col;
+            }
 
             // Col 2: Temp bar (half width) + Power bar (half width)
-            let half_bar = (bar_width / 2) as usize;
-            let temp_filled = (temp_pct * half_bar as f64) as usize;
-            let temp_empty = half_bar.saturating_sub(temp_filled);
+            if x < max_x {
+                let w = bar_width.min(max_x.saturating_sub(x));
+                let half_bar = (w / 2) as usize;
+                let temp_filled = (temp_pct * half_bar as f64) as usize;
+                let temp_empty = half_bar.saturating_sub(temp_filled);
 
-            let power_filled = ((power_pct / 100.0) * half_bar as f64) as usize;
-            let power_empty = half_bar.saturating_sub(power_filled);
+                let power_filled = ((power_pct / 100.0) * half_bar as f64) as usize;
+                let power_empty = half_bar.saturating_sub(power_filled);
 
-            let thermal_bar = Line::from(vec![
-                Span::styled("█".repeat(temp_filled), Style::default().fg(temp_color)),
-                Span::styled("░".repeat(temp_empty), Style::default().fg(Color::DarkGray)),
-                Span::styled("│", Style::default().fg(Color::DarkGray)),
-                Span::styled("█".repeat(power_filled), Style::default().fg(power_color)),
-                Span::styled("░".repeat(power_empty), Style::default().fg(Color::DarkGray)),
-            ]);
-            f.render_widget(
-                Paragraph::new(thermal_bar),
-                Rect { x, y, width: bar_width, height: 1 },
-            );
-            x += bar_width + 1;
+                let thermal_bar = Line::from(vec![
+                    Span::styled("█".repeat(temp_filled), Style::default().fg(temp_color)),
+                    Span::styled("░".repeat(temp_empty), Style::default().fg(Color::DarkGray)),
+                    Span::styled("│", Style::default().fg(Color::DarkGray)),
+                    Span::styled("█".repeat(power_filled), Style::default().fg(power_color)),
+                    Span::styled("░".repeat(power_empty), Style::default().fg(Color::DarkGray)),
+                ]);
+                f.render_widget(
+                    Paragraph::new(thermal_bar),
+                    Rect { x, y, width: w, height: 1 },
+                );
+                x += bar_width + 1;
+            }
 
             // Col 3: Temp + Power + Clock values
-            let values = if gpu.clock_mhz > 0 && gpu.power_limit > 0 {
-                format!(
-                    "{}°C {:>3}W/{:>3}W {:>4}MHz",
-                    gpu.temp as u32, gpu.power, gpu.power_limit, gpu.clock_mhz
-                )
-            } else if gpu.power_limit > 0 {
-                format!("{}°C {:>3}W/{:>3}W", gpu.temp as u32, gpu.power, gpu.power_limit)
-            } else if gpu.clock_mhz > 0 {
-                format!("{}°C {:>3}W {:>4}MHz", gpu.temp as u32, gpu.power, gpu.clock_mhz)
-            } else {
-                format!("{}°C {:>3}W", gpu.temp as u32, gpu.power)
-            };
-            f.render_widget(
-                Paragraph::new(values).style(Style::default().fg(temp_color)),
-                Rect { x, y, width: value_col + sparkline_col, height: 1 },
-            );
+            if x < max_x {
+                let values = if gpu.clock_mhz > 0 && gpu.power_limit > 0 {
+                    format!(
+                        "{}°C {:>3}W/{:>3}W {:>4}MHz",
+                        gpu.temp as u32, gpu.power, gpu.power_limit, gpu.clock_mhz
+                    )
+                } else if gpu.power_limit > 0 {
+                    format!("{}°C {:>3}W/{:>3}W", gpu.temp as u32, gpu.power, gpu.power_limit)
+                } else if gpu.clock_mhz > 0 {
+                    format!("{}°C {:>3}W {:>4}MHz", gpu.temp as u32, gpu.power, gpu.clock_mhz)
+                } else {
+                    format!("{}°C {:>3}W", gpu.temp as u32, gpu.power)
+                };
+                let w = (value_col + sparkline_col).min(max_x.saturating_sub(x));
+                f.render_widget(
+                    Paragraph::new(values).style(Style::default().fg(temp_color)),
+                    Rect { x, y, width: w, height: 1 },
+                );
+            }
             y += 1;
         }
 
