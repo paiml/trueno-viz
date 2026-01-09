@@ -2762,8 +2762,10 @@ pub fn draw_treemap(f: &mut Frame, app: &App, area: Rect) {
 /// Unified Files panel with:
 /// 1. Directory totals (grouped by folder)
 /// 2. Top files with icons, colors, age, and full paths
+///
 /// Filters out benchmark artifacts (seq-read, seq-write, etc.)
-/// Mount marker - single letter codes, easy to read and distinct
+///
+/// Mount marker - single letter codes, easy to read and distinct.
 /// Returns (char, color, short_label) for legend
 fn mount_marker(path: &str) -> (char, (u8, u8, u8), &'static str) {
     // Single letters: N=nvme, D=hdd, h=home, /=root, M=mount
@@ -2806,7 +2808,7 @@ fn format_dir_path(path: &str, max_width: usize) -> String {
     }
     if parts.len() == 1 {
         let p = parts[0];
-        if p.len() + 1 <= max_width {
+        if p.len() < max_width {
             return format!("/{}", p);
         }
         return format!("/{}...", &p[..max_width.saturating_sub(4)]);
@@ -2829,7 +2831,7 @@ fn format_dir_path(path: &str, max_width: usize) -> String {
         return path.chars().take(max_width).collect();
     }
 
-    let mount_budget = (available * 2 / 5).max(2).min(12);
+    let mount_budget = (available * 2 / 5).clamp(2, 12);
     let last_budget = available.saturating_sub(mount_budget);
 
     let mount_str: String = if mount_part.len() > mount_budget {
@@ -3023,75 +3025,63 @@ pub fn draw_files(f: &mut Frame, app: &App, area: Rect) {
         height: sparkline_height.min(inner.height),
     };
 
-    if spark_area.height >= 1 {
-        // Divide into 4 sparklines
+    if spark_area.height >= 1 && inner.width >= 4 {
+        // Divide into 4 sparklines with bounds safety
         let spark_width = inner.width / 4;
+        let max_x = inner.x + inner.width;
+
+        // Helper to create safe rect within bounds
+        let safe_rect = |x: u16, y: u16, w: u16| -> Rect {
+            let clamped_w = w.min(max_x.saturating_sub(x));
+            Rect { x, y, width: clamped_w, height: 1 }
+        };
 
         // I/O Activity sparkline
         let io_history = app.file_analyzer.metric_history("high_io");
         if !io_history.is_empty() {
             let io_spark = MonitorSparkline::new(&io_history)
                 .color(Color::Rgb(255, 150, 100));
-            f.render_widget(io_spark, Rect {
-                x: inner.x,
-                y: inner.y,
-                width: spark_width.saturating_sub(1),
-                height: 1,
-            });
+            f.render_widget(io_spark, safe_rect(inner.x, inner.y, spark_width.saturating_sub(1)));
             f.render_widget(
                 Paragraph::new("I/O").style(Style::default().fg(Color::DarkGray)),
-                Rect { x: inner.x, y: inner.y + 1, width: spark_width, height: 1 },
+                safe_rect(inner.x, inner.y + 1, spark_width),
             );
         }
 
         // Entropy sparkline
         let entropy_history = app.file_analyzer.metric_history("avg_entropy");
-        if !entropy_history.is_empty() {
+        if !entropy_history.is_empty() && inner.x + spark_width < max_x {
             let ent_spark = MonitorSparkline::new(&entropy_history)
                 .color(Color::Rgb(200, 100, 150));
-            f.render_widget(ent_spark, Rect {
-                x: inner.x + spark_width,
-                y: inner.y,
-                width: spark_width.saturating_sub(1),
-                height: 1,
-            });
+            f.render_widget(ent_spark, safe_rect(inner.x + spark_width, inner.y, spark_width.saturating_sub(1)));
             f.render_widget(
                 Paragraph::new("Entropy").style(Style::default().fg(Color::DarkGray)),
-                Rect { x: inner.x + spark_width, y: inner.y + 1, width: spark_width, height: 1 },
+                safe_rect(inner.x + spark_width, inner.y + 1, spark_width),
             );
         }
 
         // Duplicates sparkline
         let dup_history = app.file_analyzer.metric_history("duplicates");
-        if !dup_history.is_empty() {
+        if !dup_history.is_empty() && inner.x + spark_width * 2 < max_x {
             let dup_spark = MonitorSparkline::new(&dup_history)
                 .color(Color::Rgb(180, 180, 100));
-            f.render_widget(dup_spark, Rect {
-                x: inner.x + spark_width * 2,
-                y: inner.y,
-                width: spark_width.saturating_sub(1),
-                height: 1,
-            });
+            f.render_widget(dup_spark, safe_rect(inner.x + spark_width * 2, inner.y, spark_width.saturating_sub(1)));
             f.render_widget(
                 Paragraph::new("Dups").style(Style::default().fg(Color::DarkGray)),
-                Rect { x: inner.x + spark_width * 2, y: inner.y + 1, width: spark_width, height: 1 },
+                safe_rect(inner.x + spark_width * 2, inner.y + 1, spark_width),
             );
         }
 
         // Recent files sparkline
         let recent_history = app.file_analyzer.metric_history("recent");
-        if !recent_history.is_empty() {
+        if !recent_history.is_empty() && inner.x + spark_width * 3 < max_x {
             let rec_spark = MonitorSparkline::new(&recent_history)
                 .color(Color::Rgb(100, 200, 150));
-            f.render_widget(rec_spark, Rect {
-                x: inner.x + spark_width * 3,
-                y: inner.y,
-                width: inner.width.saturating_sub(spark_width * 3),
-                height: 1,
-            });
+            let remaining = inner.width.saturating_sub(spark_width * 3);
+            f.render_widget(rec_spark, safe_rect(inner.x + spark_width * 3, inner.y, remaining));
             f.render_widget(
                 Paragraph::new("Recent").style(Style::default().fg(Color::DarkGray)),
-                Rect { x: inner.x + spark_width * 3, y: inner.y + 1, width: inner.width.saturating_sub(spark_width * 3), height: 1 },
+                safe_rect(inner.x + spark_width * 3, inner.y + 1, remaining),
             );
         }
     }
@@ -4478,5 +4468,147 @@ mod panel_render_tests {
     fn test_entropy_heatmap_very_low_entropy() {
         let (_, r, g, b) = entropy_heatmap(0.1);
         assert_eq!((r, g, b), (220, 80, 80)); // Red
+    }
+
+    /// Test all panels at extra large size for full coverage
+    #[test]
+    fn test_all_panels_xlarge() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(250, 80);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        // Test all panels at xlarge size
+        for panel_fn in [
+            |f: &mut Frame, a: &App, area: Rect| draw_cpu(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_memory(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_disk(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_network(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_gpu(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_battery(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_sensors(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_sensors_compact(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_psi(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_system(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_connections(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_treemap(f, a, area),
+            |f: &mut Frame, a: &App, area: Rect| draw_files(f, a, area),
+        ] {
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, 250, 80);
+                panel_fn(f, &app, area);
+            }).expect("xlarge panel");
+        }
+
+        // Process needs mutable app
+        let mut app_mut = App::new_mock();
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 250, 80);
+            draw_process(f, &mut app_mut, area);
+        }).expect("xlarge process");
+    }
+
+    /// Test process panel with tree mode
+    #[test]
+    fn test_process_tree_mode() {
+        let mut app = App::new_mock();
+        app.show_tree = true;
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 120, 40);
+            draw_process(f, &mut app, area);
+        }).expect("process tree");
+    }
+
+    /// Test process panel with filter
+    #[test]
+    fn test_process_filtered() {
+        let mut app = App::new_mock();
+        app.filter = "test".to_string();
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 120, 40);
+            draw_process(f, &mut app, area);
+        }).expect("process filtered");
+    }
+
+    /// Test process panel sort variations
+    #[test]
+    fn test_process_sorts() {
+        use crate::state::ProcessSortColumn;
+        let sorts = [
+            ProcessSortColumn::Cpu,
+            ProcessSortColumn::Mem,
+            ProcessSortColumn::Pid,
+            ProcessSortColumn::Name,
+            ProcessSortColumn::State,
+            ProcessSortColumn::User,
+            ProcessSortColumn::Threads,
+        ];
+        for sort in sorts {
+            let mut app = App::new_mock();
+            app.sort_column = sort;
+            let backend = TestBackend::new(100, 30);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+            terminal.draw(|f| {
+                let area = Rect::new(0, 0, 100, 30);
+                draw_process(f, &mut app, area);
+            }).expect(&format!("sort {:?}", sort));
+        }
+    }
+
+    /// Test panels with wide terminal (horizontal coverage)
+    #[test]
+    fn test_panels_wide() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(300, 25);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 300, 25);
+            draw_cpu(f, &app, area);
+        }).expect("wide cpu");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 300, 25);
+            draw_memory(f, &app, area);
+        }).expect("wide memory");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 300, 25);
+            draw_network(f, &app, area);
+        }).expect("wide network");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 300, 25);
+            draw_disk(f, &app, area);
+        }).expect("wide disk");
+    }
+
+    /// Test panels with tall terminal (vertical coverage)
+    #[test]
+    fn test_panels_tall() {
+        let app = App::new_mock();
+        let backend = TestBackend::new(60, 100);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 60, 100);
+            draw_cpu(f, &app, area);
+        }).expect("tall cpu");
+
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 60, 100);
+            draw_sensors(f, &app, area);
+        }).expect("tall sensors");
+
+        let mut app_mut = App::new_mock();
+        terminal.draw(|f| {
+            let area = Rect::new(0, 0, 60, 100);
+            draw_process(f, &mut app_mut, area);
+        }).expect("tall process");
     }
 }

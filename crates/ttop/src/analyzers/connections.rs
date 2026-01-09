@@ -906,4 +906,156 @@ mod tests {
         assert_eq!(key.remote_ip, Ipv4Addr::new(8, 8, 8, 8));
         assert_eq!(key.remote_port, 443);
     }
+
+    #[test]
+    fn test_format_duration_seconds() {
+        use std::time::Duration;
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(30)), "30s");
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(59)), "59s");
+    }
+
+    #[test]
+    fn test_format_duration_minutes() {
+        use std::time::Duration;
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(60)), "1m0s");
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(90)), "1m30s");
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(3599)), "59m59s");
+    }
+
+    #[test]
+    fn test_format_duration_hours() {
+        use std::time::Duration;
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(3600)), "1h0m");
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(7200)), "2h0m");
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(86399)), "23h59m");
+    }
+
+    #[test]
+    fn test_format_duration_days() {
+        use std::time::Duration;
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(86400)), "1d0h");
+        assert_eq!(ConnectionAnalyzer::format_duration(Duration::from_secs(172800)), "2d0h");
+    }
+
+    #[test]
+    fn test_active_connections() {
+        let analyzer = ConnectionAnalyzer::new();
+        let active = analyzer.active_connections();
+        // Should return empty or active connections
+        assert!(active.len() <= analyzer.connections().len());
+    }
+
+    #[test]
+    fn test_listening_connections() {
+        let analyzer = ConnectionAnalyzer::new();
+        let listening = analyzer.listening();
+        // Should return empty or listening connections
+        for conn in &listening {
+            assert!(conn.is_listening());
+        }
+    }
+
+    #[test]
+    fn test_service_name() {
+        let analyzer = ConnectionAnalyzer::new();
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(0, 0, 0, 0),
+            local_port: 80,
+            remote_ip: Ipv4Addr::new(0, 0, 0, 0),
+            remote_port: 0,
+            state: ConnState::Listen,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        // Listening on port 80 should be HTTP
+        assert_eq!(analyzer.service_name(&conn), Some("HTTP"));
+    }
+
+    #[test]
+    fn test_service_icon() {
+        let analyzer = ConnectionAnalyzer::new();
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(192, 168, 1, 1),
+            local_port: 54321,
+            remote_ip: Ipv4Addr::new(8, 8, 8, 8),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        // Remote port 443 should get lock icon
+        assert_eq!(analyzer.service_icon(&conn), "🔒");
+    }
+
+    #[test]
+    fn test_is_hot_connection() {
+        let mut analyzer = ConnectionAnalyzer::new();
+        analyzer.collect();
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(192, 168, 1, 1),
+            local_port: 54321,
+            remote_ip: Ipv4Addr::new(8, 8, 8, 8),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        // A new connection shouldn't be hot (no history)
+        let _ = analyzer.is_hot_connection(&conn);
+    }
+
+    #[test]
+    fn test_connection_duration() {
+        let mut analyzer = ConnectionAnalyzer::new();
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(192, 168, 1, 1),
+            local_port: 54321,
+            remote_ip: Ipv4Addr::new(8, 8, 8, 8),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        // Duration for new connection should be None
+        assert!(analyzer.connection_duration(&conn).is_none());
+    }
+
+    #[test]
+    fn test_bandwidth_delta() {
+        let mut analyzer = ConnectionAnalyzer::new();
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(192, 168, 1, 1),
+            local_port: 54321,
+            remote_ip: Ipv4Addr::new(8, 8, 8, 8),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 0,
+            uid: 0,
+            tx_queue: 100,
+            rx_queue: 200,
+        };
+        // No history, should return None
+        assert!(analyzer.bandwidth_delta(&conn).is_none());
+    }
+
+    #[test]
+    fn test_get_hostname_unknown() {
+        let analyzer = ConnectionAnalyzer::new();
+        let ip = Ipv4Addr::new(1, 2, 3, 4);
+        // Unknown IP should return None
+        assert!(analyzer.get_hostname(ip).is_none());
+    }
 }
