@@ -35,6 +35,28 @@ fn truncate_str(s: &str, max_len: usize) -> String {
     }
 }
 
+/// Create a bounds-safe Rect that doesn't exceed parent boundaries
+/// Returns None if the rect would be entirely outside parent bounds
+fn clamp_rect(parent: Rect, x: u16, y: u16, width: u16, height: u16) -> Option<Rect> {
+    let max_x = parent.x + parent.width;
+    let max_y = parent.y + parent.height;
+
+    // If starting position is outside parent, skip
+    if x >= max_x || y >= max_y {
+        return None;
+    }
+
+    // Clamp width and height to parent boundaries
+    let clamped_width = width.min(max_x.saturating_sub(x));
+    let clamped_height = height.min(max_y.saturating_sub(y));
+
+    if clamped_width == 0 || clamped_height == 0 {
+        return None;
+    }
+
+    Some(Rect { x, y, width: clamped_width, height: clamped_height })
+}
+
 /// Draw CPU panel - btop-style with per-core meters, graph, load gauge, and top consumers
 pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
     use trueno_viz::monitor::ratatui::style::Color;
@@ -468,22 +490,24 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
         } else {
             format!("{:>6}: {:>5.1}G {:>2.0}", row.label, row.value_gb, row.pct)
         };
-        let label_width = label_part.len() as u16 + 1;
+        // Clamp label width to inner bounds
+        let label_width = (label_part.len() as u16 + 1).min(inner.width);
         let sparkline_width = inner.width.saturating_sub(label_width);
 
-        f.render_widget(
-            Paragraph::new(label_part).style(Style::default().fg(row.color)),
-            Rect { x: inner.x, y, width: label_width, height: 1 },
-        );
+        if let Some(label_rect) = clamp_rect(inner, inner.x, y, label_width, 1) {
+            f.render_widget(
+                Paragraph::new(label_part).style(Style::default().fg(row.color)),
+                label_rect,
+            );
+        }
 
         if sparkline_width > 3 && !row.history.is_empty() {
-            let sparkline = MonitorSparkline::new(row.history)
-                .color(row.color)
-                .show_trend(true);
-            f.render_widget(
-                sparkline,
-                Rect { x: inner.x + label_width, y, width: sparkline_width, height: 1 },
-            );
+            if let Some(spark_rect) = clamp_rect(inner, inner.x + label_width, y, sparkline_width, 1) {
+                let sparkline = MonitorSparkline::new(row.history)
+                    .color(row.color)
+                    .show_trend(true);
+                f.render_widget(sparkline, spark_rect);
+            }
         }
         y += 1;
     }
@@ -1053,7 +1077,7 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
 
     // === RX info line with rate and sparkline ===
     {
-        let label_width = 16u16;
+        let label_width = 16u16.min(inner.width);
         let sparkline_width = inner.width.saturating_sub(label_width);
 
         let rx_label = Line::from(vec![
@@ -1063,19 +1087,17 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
         ]);
-        f.render_widget(
-            Paragraph::new(rx_label),
-            Rect { x: inner.x, y, width: label_width, height: 1 },
-        );
+        if let Some(label_rect) = clamp_rect(inner, inner.x, y, label_width, 1) {
+            f.render_widget(Paragraph::new(rx_label), label_rect);
+        }
 
         if sparkline_width > 2 && !app.net_rx_history.is_empty() {
-            let sparkline = MonitorSparkline::new(&app.net_rx_history)
-                .color(graph::NETWORK_RX)
-                .show_trend(true);
-            f.render_widget(
-                sparkline,
-                Rect { x: inner.x + label_width, y, width: sparkline_width, height: 1 },
-            );
+            if let Some(spark_rect) = clamp_rect(inner, inner.x + label_width, y, sparkline_width, 1) {
+                let sparkline = MonitorSparkline::new(&app.net_rx_history)
+                    .color(graph::NETWORK_RX)
+                    .show_trend(true);
+                f.render_widget(sparkline, spark_rect);
+            }
         }
         y += 1;
     }
@@ -1095,7 +1117,7 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
 
     // === TX info line with rate and sparkline ===
     {
-        let label_width = 16u16;
+        let label_width = 16u16.min(inner.width);
         let sparkline_width = inner.width.saturating_sub(label_width);
 
         let tx_label = Line::from(vec![
@@ -1105,19 +1127,17 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
             ),
         ]);
-        f.render_widget(
-            Paragraph::new(tx_label),
-            Rect { x: inner.x, y, width: label_width, height: 1 },
-        );
+        if let Some(label_rect) = clamp_rect(inner, inner.x, y, label_width, 1) {
+            f.render_widget(Paragraph::new(tx_label), label_rect);
+        }
 
         if sparkline_width > 2 && !app.net_tx_history.is_empty() {
-            let sparkline = MonitorSparkline::new(&app.net_tx_history)
-                .color(graph::NETWORK_TX)
-                .show_trend(true);
-            f.render_widget(
-                sparkline,
-                Rect { x: inner.x + label_width, y, width: sparkline_width, height: 1 },
-            );
+            if let Some(spark_rect) = clamp_rect(inner, inner.x + label_width, y, sparkline_width, 1) {
+                let sparkline = MonitorSparkline::new(&app.net_tx_history)
+                    .color(graph::NETWORK_TX)
+                    .show_trend(true);
+                f.render_widget(sparkline, spark_rect);
+            }
         }
         y += 1;
     }
