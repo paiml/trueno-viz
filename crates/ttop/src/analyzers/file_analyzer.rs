@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::fs;
 
 #[cfg(target_os = "linux")]
@@ -388,12 +388,35 @@ impl FileAnalyzer {
         self.update_activity_history();
     }
 
-    #[cfg(not(target_os = "linux"))]
-    pub fn collect(&mut self, _root: &str) {
-        // Not implemented on non-Linux
+    #[cfg(target_os = "macos")]
+    pub fn collect(&mut self, root: &str) {
+        // Rate limit scanning
+        if self.last_scan.elapsed() < self.scan_interval {
+            return;
+        }
+        self.last_scan = Instant::now();
+
+        self.files.clear();
+        self.recent_files.clear();
+        self.max_depth = 0;
+
+        let root_path = Path::new(root);
+        self.scan_directory(root_path, 0);
+
+        // Find duplicates by size (simplified for macOS)
+        self.find_duplicates();
+        self.mark_duplicate_files();
+
+        // Track activity metrics for sparklines
+        self.update_activity_history();
     }
 
-    #[cfg(target_os = "linux")]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    pub fn collect(&mut self, _root: &str) {
+        // Not implemented on this platform
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     fn scan_directory(&mut self, dir: &Path, depth: u32) {
         const MAX_FILES: usize = 10000;
         const MAX_DEPTH: u32 = 20;
