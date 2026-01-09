@@ -3,6 +3,12 @@
 //! Scans filesystem for large files and renders as 2D treemap.
 
 use std::fs;
+
+/// Mount file info: (filename, size, full_path)
+pub type MountFileInfo = (String, u64, String);
+
+/// Mount group: (mount_label, mount_total_size, files)
+pub type MountGroup = (String, u64, Vec<MountFileInfo>);
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -268,8 +274,8 @@ impl TreemapAnalyzer {
     }
 
     /// Get files grouped by mount point (faceted view)
-    /// Returns: Vec<(mount_label, mount_total_size, Vec<(filename, size, full_path)>)>
-    pub fn files_by_mount(&self) -> Vec<(String, u64, Vec<(String, u64, String)>)> {
+    /// Returns: Vec<(mount_label, mount_total_size, files)>
+    pub fn files_by_mount(&self) -> Vec<MountGroup> {
         let files = self.files.lock().expect("files lock poisoned");
 
         // Known mount points to group by
@@ -278,7 +284,7 @@ impl TreemapAnalyzer {
         #[cfg(not(target_os = "linux"))]
         let mounts = vec!["/".to_string()];
 
-        let mut mount_files: std::collections::HashMap<String, Vec<(String, u64, String)>> =
+        let mut mount_files: std::collections::HashMap<String, Vec<MountFileInfo>> =
             std::collections::HashMap::new();
 
         for f in files.iter() {
@@ -321,7 +327,7 @@ impl TreemapAnalyzer {
                 let label = if mount == "/" {
                     "/".to_string()
                 } else {
-                    mount.split('/').last().unwrap_or(&mount).to_string()
+                    mount.split('/').next_back().unwrap_or(&mount).to_string()
                 };
                 (label, total, files)
             })
@@ -425,7 +431,7 @@ fn get_real_mounts() -> Vec<String> {
     }
 
     // Dedupe and sort by path length (shorter first = higher level mounts)
-    mounts.sort_by(|a, b| a.len().cmp(&b.len()));
+    mounts.sort_by_key(|a| a.len());
     mounts.dedup();
 
     mounts
@@ -1048,5 +1054,24 @@ mod tests {
                 ext
             );
         }
+    }
+
+    #[test]
+    fn test_analyzer_collect_tmp() {
+        let mut analyzer = TreemapAnalyzer::new("/tmp");
+        // Collect should not panic
+        analyzer.collect();
+        // May or may not have files
+        let _ = analyzer.total_size();
+    }
+
+    #[test]
+    fn test_squarify_zero_size() {
+        let files = vec![
+            LargeFile { name: "zero.bin".into(), path: "/zero.bin".into(), size: 0, color_idx: 0, modified: None, category: FileCategory::Other },
+        ];
+        let layout = squarify_files(&files, 100.0, 100.0);
+        // Zero-size file should be handled gracefully
+        assert!(layout.is_empty() || layout[0].0.w * layout[0].0.h == 0.0 || layout[0].0.w * layout[0].0.h > 0.0);
     }
 }

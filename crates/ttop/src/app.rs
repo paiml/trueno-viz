@@ -322,7 +322,7 @@ impl App {
     /// Create a mock application instance for testing
     /// This creates an App with default collectors and populated test data
     /// without making real system calls.
-    #[cfg(test)]
+    /// Available for integration tests and benchmarks.
     pub fn new_mock() -> Self {
         Self {
             cpu: CpuCollector::default(),
@@ -418,6 +418,12 @@ impl App {
         use trueno_viz::monitor::debug::{self, Level};
 
         self.frame_id += 1;
+
+        // Skip real collection in deterministic/mock mode - data is pre-populated
+        if self.deterministic {
+            return;
+        }
+
         let is_first = self.frame_id <= 2;
 
         // CPU
@@ -1739,5 +1745,51 @@ mod tests {
 
         app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
         assert!(app.focused_panel.is_some());
+    }
+
+    /// Test collect_metrics with real system data (for coverage)
+    #[test]
+    fn test_collect_metrics_real() {
+        let mut app = App::new(false, false);
+        // Run one real collection cycle for coverage
+        app.collect_metrics();
+        // Should complete without panic
+        assert!(app.frame_id >= 1);
+    }
+
+    /// Test collect_metrics multiple cycles
+    #[test]
+    fn test_collect_metrics_cycles() {
+        let mut app = App::new(false, false);
+        let initial_frame = app.frame_id;
+        app.collect_metrics();
+        app.collect_metrics();
+        assert_eq!(app.frame_id, initial_frame + 2);
+    }
+
+    /// Test history update in collect_metrics
+    #[test]
+    fn test_collect_metrics_history() {
+        let mut app = App::new(false, false);
+        let initial_cpu_len = app.cpu_history.len();
+        app.collect_metrics();
+        // History should have been updated (may or may not grow depending on collector state)
+        assert!(app.cpu_history.len() >= initial_cpu_len);
+    }
+
+    /// Test push_to_history helper
+    #[test]
+    fn test_push_to_history() {
+        let mut history = Vec::new();
+        App::push_to_history(&mut history, 0.5);
+        assert_eq!(history.len(), 1);
+        assert_eq!(history[0], 0.5);
+
+        // Push more values
+        for i in 0..400 {
+            App::push_to_history(&mut history, i as f64 / 400.0);
+        }
+        // Should be capped at 300
+        assert_eq!(history.len(), 300);
     }
 }

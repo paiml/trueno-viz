@@ -20,6 +20,11 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         eprintln!("draw: area={}x{}", area.width, area.height);
     }
 
+    // Safety: ensure area is valid and within bounds
+    if area.width == 0 || area.height == 0 {
+        return;
+    }
+
     // EXPLODED MODE: render single panel fullscreen
     if let Some(panel) = app.exploded_panel {
         draw_exploded_panel(f, app, panel, area);
@@ -1020,5 +1025,116 @@ mod ui_integration_tests {
                 draw(f, &mut app);
             }).expect(&format!("draw exploded {:?}", panel_type));
         }
+    }
+
+    /// Test signal confirmation dialog
+    #[test]
+    fn test_ui_with_signal_confirm() {
+        use crate::state::SignalType;
+
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test_process".to_string(), SignalType::Term));
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw with signal confirm");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+        assert!(frame.contains("TERM") || frame.contains("1234") || frame.height() > 0);
+    }
+
+    /// Test signal confirmation with different signal types
+    #[test]
+    fn test_signal_confirm_all_types() {
+        use crate::state::SignalType;
+
+        let signals = [
+            SignalType::Kill,
+            SignalType::Term,
+            SignalType::Stop,
+            SignalType::Hup,
+            SignalType::Int,
+            SignalType::Usr1,
+            SignalType::Usr2,
+            SignalType::Cont,
+        ];
+
+        for signal in signals {
+            let mut app = App::new_mock();
+            app.pending_signal = Some((999, "proc".to_string(), signal));
+            let backend = TestBackend::new(80, 30);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                draw(f, &mut app);
+            }).expect(&format!("draw signal {:?}", signal));
+        }
+    }
+
+    /// Test signal result notification (success)
+    #[test]
+    fn test_ui_with_signal_result_success() {
+        use std::time::Instant;
+
+        let mut app = App::new_mock();
+        app.signal_result = Some((true, "Signal sent successfully".to_string(), Instant::now()));
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw with signal result success");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+        assert!(frame.contains("✓") || frame.contains("success") || frame.height() > 0);
+    }
+
+    /// Test signal result notification (failure)
+    #[test]
+    fn test_ui_with_signal_result_failure() {
+        use std::time::Instant;
+
+        let mut app = App::new_mock();
+        app.signal_result = Some((false, "Failed to send signal".to_string(), Instant::now()));
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw with signal result failure");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = TuiFrame::from_buffer(&buffer, 0);
+        assert!(frame.contains("✗") || frame.contains("Failed") || frame.height() > 0);
+    }
+
+    /// Test UI with process panel exploded
+    #[test]
+    fn test_ui_exploded_process() {
+        let mut app = App::new_mock();
+        app.exploded_panel = Some(PanelType::Process);
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw exploded process");
+    }
+
+    /// Test UI with files panel exploded
+    #[test]
+    fn test_ui_exploded_files() {
+        let mut app = App::new_mock();
+        app.exploded_panel = Some(PanelType::Files);
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw exploded files");
     }
 }

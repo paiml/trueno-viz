@@ -806,7 +806,7 @@ mod panel_draw_tests {
 
     /// Get or create the test App instance
     fn test_app() -> &'static App {
-        TEST_APP.get_or_init(|| App::new(true, false)) // deterministic mode, no fps
+        TEST_APP.get_or_init(|| App::new_mock()) // deterministic mode, no fps
     }
 
     /// Helper to render a panel and get the buffer text
@@ -920,7 +920,7 @@ mod panel_draw_tests {
     #[test]
     fn test_draw_process_panel() {
         // draw_process takes &mut App, so create a fresh one (can't use cached)
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         let backend = TestBackend::new(100, 20);
         let mut terminal = Terminal::new(backend).unwrap();
 
@@ -1016,10 +1016,8 @@ mod brick_tests {
 
     fn brick_app() -> &'static App {
         BRICK_APP.get_or_init(|| {
-            let mut app = App::new(true, false);
-            // Collect data to populate panels
-            app.collect_metrics();
-            app
+            // Use mock app for fast tests - no real system collectors
+            App::new_mock()
         })
     }
 
@@ -1531,14 +1529,14 @@ mod app_brick_tests {
 
     #[test]
     fn brick_app_initialization() {
-        let app = App::new(true, false);
+        let app = App::new_mock();
         // Verify app initializes without panic
         assert!(app.cpu.is_available() || !app.cpu.is_available()); // Always true, tests accessor
     }
 
     #[test]
     fn brick_app_collect_cycle() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         // First collect
         app.collect_metrics();
         // Second collect (tests delta calculations)
@@ -1549,7 +1547,7 @@ mod app_brick_tests {
 
     #[test]
     fn brick_app_panel_visibility() {
-        let app = App::new(true, false);
+        let app = App::new_mock();
         // Test all panel visibility accessors (default visibility)
         let _ = app.panels.cpu;
         let _ = app.panels.memory;
@@ -1565,7 +1563,7 @@ mod app_brick_tests {
 
     #[test]
     fn brick_app_history_vectors() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         // Verify history vectors are accessible
         let _ = app.cpu_history.len();
@@ -1576,7 +1574,7 @@ mod app_brick_tests {
 
     #[test]
     fn brick_app_network_peaks() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         // Verify peak tracking fields
         assert!(app.net_rx_peak >= 0.0);
@@ -1585,14 +1583,14 @@ mod app_brick_tests {
 
     #[test]
     fn brick_app_thrashing_detection() {
-        let app = App::new(true, false);
+        let app = App::new_mock();
         // Test thrashing severity accessor
         let _severity = app.thrashing_severity();
     }
 
     #[test]
     fn brick_app_zram_detection() {
-        let app = App::new(true, false);
+        let app = App::new_mock();
         // Test ZRAM accessors
         let _has_zram = app.has_zram();
         let _ratio = app.zram_ratio();
@@ -1600,7 +1598,7 @@ mod app_brick_tests {
 
     #[test]
     fn brick_app_gpu_detection() {
-        let app = App::new(true, false);
+        let app = App::new_mock();
         // Test GPU availability
         let _has_gpu = app.has_gpu();
     }
@@ -1626,7 +1624,7 @@ mod ui_brick_tests {
     }
 
     fn single_panel_app() -> App {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.panels.cpu = true;
         app.panels.memory = false;
         app.panels.disk = false;
@@ -1707,7 +1705,7 @@ mod ui_brick_tests {
     fn brick_ui_draw_empty_panels() {
         let backend = TestBackend::new(120, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.panels.cpu = false;
         app.panels.memory = false;
         app.panels.disk = false;
@@ -1727,7 +1725,7 @@ mod ui_brick_tests {
     fn brick_ui_draw_only_process_panel() {
         let backend = TestBackend::new(120, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         app.panels.cpu = false;
         app.panels.memory = false;
@@ -1751,7 +1749,7 @@ mod ui_brick_tests {
     fn brick_ui_draw_memory_panel() {
         let backend = TestBackend::new(120, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         app.panels.cpu = false;
         app.panels.memory = true;
@@ -1775,7 +1773,7 @@ mod ui_brick_tests {
     fn brick_ui_draw_network_panel() {
         let backend = TestBackend::new(120, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         app.panels.cpu = false;
         app.panels.memory = false;
@@ -1799,7 +1797,7 @@ mod ui_brick_tests {
     fn brick_ui_draw_disk_panel() {
         let backend = TestBackend::new(120, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         app.panels.cpu = false;
         app.panels.memory = false;
@@ -1857,7 +1855,7 @@ mod ui_brick_tests {
     fn brick_ui_two_panels() {
         let backend = TestBackend::new(160, 50);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         app.panels.cpu = true;
         app.panels.memory = true;
@@ -1885,28 +1883,28 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_quit_q() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         let quit = app.handle_key(KeyCode::Char('q'), KeyModifiers::NONE);
         assert!(quit, "'q' should quit");
     }
 
     #[test]
     fn brick_key_quit_esc() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         let quit = app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
         assert!(quit, "Esc should quit");
     }
 
     #[test]
     fn brick_key_quit_ctrl_c() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         let quit = app.handle_key(KeyCode::Char('c'), KeyModifiers::CONTROL);
         assert!(quit, "Ctrl+C should quit");
     }
 
     #[test]
     fn brick_key_help_toggle() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         assert!(!app.show_help);
         app.handle_key(KeyCode::Char('?'), KeyModifiers::NONE);
         assert!(app.show_help, "'?' should show help");
@@ -1916,14 +1914,14 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_help_f1() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.handle_key(KeyCode::F(1), KeyModifiers::NONE);
         assert!(app.show_help, "F1 should show help");
     }
 
     #[test]
     fn brick_key_panel_toggles() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
 
         // Toggle CPU panel
         assert!(app.panels.cpu);
@@ -1962,7 +1960,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_reset_panels() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         // Turn off some panels
         app.panels.cpu = false;
         app.panels.memory = false;
@@ -1974,7 +1972,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_navigation() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         // Down with 'j'
@@ -2005,7 +2003,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_sorting() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
 
         // Cycle sort with Tab
         let initial_column = app.sort_column;
@@ -2023,7 +2021,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_tree_view() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         assert!(!app.show_tree);
         app.handle_key(KeyCode::Char('t'), KeyModifiers::NONE);
         assert!(app.show_tree, "'t' should enable tree view");
@@ -2031,7 +2029,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_filter_mode() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
 
         // Enter filter mode with 'f'
         assert!(!app.show_filter_input);
@@ -2057,7 +2055,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_filter_escape() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
 
         // Enter filter mode with '/'
         app.handle_key(KeyCode::Char('/'), KeyModifiers::NONE);
@@ -2075,7 +2073,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_clear_filter() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.filter = "some_filter".to_string();
         app.handle_key(KeyCode::Delete, KeyModifiers::NONE);
         assert_eq!(app.filter, "", "Delete should clear filter");
@@ -2083,7 +2081,7 @@ mod key_handling_tests {
 
     #[test]
     fn brick_key_unknown() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         // Unknown key should not quit
         let quit = app.handle_key(KeyCode::F(12), KeyModifiers::NONE);
         assert!(!quit, "Unknown key should not quit");
@@ -2097,7 +2095,7 @@ mod process_tests {
 
     #[test]
     fn brick_sorted_processes() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         // Test different sort columns
@@ -2125,7 +2123,7 @@ mod process_tests {
 
     #[test]
     fn brick_filter_processes() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         // Filter by name (case insensitive)
@@ -2141,7 +2139,7 @@ mod process_tests {
 
     #[test]
     fn brick_ascending_sort() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
         app.sort_descending = false;
         let _procs = app.sorted_processes();
@@ -2155,7 +2153,7 @@ mod frame_stats_tests {
 
     #[test]
     fn brick_update_frame_stats_normal() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         let times = vec![
             Duration::from_micros(1000),
             Duration::from_micros(2000),
@@ -2168,14 +2166,14 @@ mod frame_stats_tests {
 
     #[test]
     fn brick_update_frame_stats_empty() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.update_frame_stats(&[]);
         // Should not panic on empty input
     }
 
     #[test]
     fn brick_update_frame_stats_single() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         let times = vec![Duration::from_micros(5000)];
         app.update_frame_stats(&times);
         assert_eq!(app.avg_frame_time_us, 5000);
@@ -2184,7 +2182,7 @@ mod frame_stats_tests {
 
     #[test]
     fn brick_frame_id_increments() {
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         let initial_frame_id = app.frame_id;
         app.collect_metrics();
         assert!(app.frame_id > initial_frame_id, "Frame ID should increment on collect");
@@ -2423,7 +2421,7 @@ mod panel_coverage_tests {
     fn brick_draw_sensors_panel() {
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2437,7 +2435,7 @@ mod panel_coverage_tests {
     fn brick_draw_sensors_compact_panel() {
         let backend = TestBackend::new(40, 10);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2450,7 +2448,7 @@ mod panel_coverage_tests {
     fn brick_draw_psi_panel() {
         let backend = TestBackend::new(80, 15);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2463,7 +2461,7 @@ mod panel_coverage_tests {
     fn brick_draw_system_panel_large() {
         let backend = TestBackend::new(120, 30);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2476,7 +2474,7 @@ mod panel_coverage_tests {
     fn brick_draw_cpu_small() {
         let backend = TestBackend::new(50, 8);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2489,7 +2487,7 @@ mod panel_coverage_tests {
     fn brick_draw_cpu_large() {
         let backend = TestBackend::new(150, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2502,7 +2500,7 @@ mod panel_coverage_tests {
     fn brick_draw_memory_small() {
         let backend = TestBackend::new(50, 8);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2515,7 +2513,7 @@ mod panel_coverage_tests {
     fn brick_draw_memory_large() {
         let backend = TestBackend::new(150, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2528,7 +2526,7 @@ mod panel_coverage_tests {
     fn brick_draw_disk_small() {
         let backend = TestBackend::new(50, 8);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2541,7 +2539,7 @@ mod panel_coverage_tests {
     fn brick_draw_network_small() {
         let backend = TestBackend::new(50, 8);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2554,7 +2552,7 @@ mod panel_coverage_tests {
     fn brick_draw_network_large() {
         let backend = TestBackend::new(150, 40);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2569,7 +2567,7 @@ mod panel_coverage_tests {
         for (w, h) in sizes {
             let backend = TestBackend::new(w, h);
             let mut terminal = Terminal::new(backend).unwrap();
-            let mut app = App::new(true, false);
+            let mut app = App::new_mock();
             app.collect_metrics();
 
             terminal.draw(|f| {
@@ -2583,7 +2581,7 @@ mod panel_coverage_tests {
     fn brick_draw_connections_small() {
         let backend = TestBackend::new(60, 15);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2596,7 +2594,7 @@ mod panel_coverage_tests {
     fn brick_draw_treemap_small() {
         let backend = TestBackend::new(60, 15);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2610,7 +2608,7 @@ mod panel_coverage_tests {
         // Test extremely small sizes to hit edge case branches
         let backend = TestBackend::new(20, 5);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2623,7 +2621,7 @@ mod panel_coverage_tests {
     fn brick_draw_battery_panel() {
         let backend = TestBackend::new(80, 15);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -2636,7 +2634,7 @@ mod panel_coverage_tests {
     fn brick_draw_gpu_panel_direct() {
         let backend = TestBackend::new(80, 20);
         let mut terminal = Terminal::new(backend).unwrap();
-        let mut app = App::new(true, false);
+        let mut app = App::new_mock();
         app.collect_metrics();
 
         terminal.draw(|f| {
@@ -3155,7 +3153,7 @@ mod panel_navigation_tests {
     use crossterm::event::{KeyCode, KeyModifiers};
 
     fn create_test_app() -> App {
-        App::new(true, false) // deterministic mode
+        App::new_mock() // deterministic mode
     }
 
     #[test]
