@@ -2579,9 +2579,9 @@ dependencies = [
 
 [[package]]
 name = "manzana"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48144f8ba7aa7ad229af84abd795a443004502f896ad0983a26f8b3708f70a42"
+checksum = "4b5eed7c777f2d9d8313bdbc671c19fae34769646b42e9ea2beeec9f5d872cb7"
 dependencies = [
  "bitflags 2.10.0",
  "core-foundation 0.10.1",
@@ -4637,7 +4637,7 @@ dependencies = [
 
 [[package]]
 name = "trueno-viz"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "approx",
  "aprender 0.24.0",
