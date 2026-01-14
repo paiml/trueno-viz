@@ -203,4 +203,112 @@ mod tests {
         assert_eq!(gray.g, 127);
         assert_eq!(gray.b, 127);
     }
+
+    #[test]
+    fn test_hsla_to_rgba_low_lightness() {
+        // Dark red (l < 0.5, tests line 121: l * (1.0 + s))
+        let dark_red = Hsla::hsl(0.0, 1.0, 0.25).to_rgba();
+        assert_eq!(dark_red.r, 127);
+        assert_eq!(dark_red.g, 0);
+        assert_eq!(dark_red.b, 0);
+    }
+
+    #[test]
+    fn test_hsla_to_rgba_high_hue() {
+        // High hue value that causes t > 1.0 in hue_to_rgb (tests line 148)
+        // h=300 degrees -> normalized h=0.833
+        // t values: 0.833+0.333=1.166 (needs reduction), 0.833, 0.833-0.333=0.5
+        let magenta = Hsla::hsl(300.0, 1.0, 0.5).to_rgba();
+        // Allow for floating point rounding (254 or 255)
+        assert!(magenta.r >= 254);
+        assert_eq!(magenta.g, 0);
+        assert!(magenta.b >= 254);
+    }
+
+    #[test]
+    fn test_hsla_to_rgba_cyan() {
+        // Cyan: h=180 degrees
+        // Tests different branch paths in hue_to_rgb (t >= 2/3 branch, line 158)
+        let cyan = Hsla::hsl(180.0, 1.0, 0.5).to_rgba();
+        assert_eq!(cyan.r, 0);
+        // Allow for floating point rounding (254 or 255)
+        assert!(cyan.g >= 254);
+        assert!(cyan.b >= 254);
+    }
+
+    #[test]
+    fn test_from_hsla_trait() {
+        // Test From<Hsla> for Rgba (lines 163-165)
+        let hsla = Hsla::hsl(0.0, 1.0, 0.5);
+        let rgba: Rgba = hsla.into();
+        assert_eq!(rgba.r, 255);
+        assert_eq!(rgba.g, 0);
+        assert_eq!(rgba.b, 0);
+    }
+
+    #[test]
+    fn test_rgba_with_alpha() {
+        let red = Rgba::RED;
+        let semi_red = red.with_alpha(128);
+        assert_eq!(semi_red.r, 255);
+        assert_eq!(semi_red.a, 128);
+    }
+
+    #[test]
+    fn test_rgba_to_array_from_array() {
+        let color = Rgba::new(10, 20, 30, 40);
+        let arr = color.to_array();
+        assert_eq!(arr, [10, 20, 30, 40]);
+        let restored = Rgba::from_array(arr);
+        assert_eq!(restored, color);
+    }
+
+    #[test]
+    fn test_hsla_new() {
+        let hsla = Hsla::new(180.0, 0.5, 0.5, 0.8);
+        assert!((hsla.h - 180.0).abs() < f32::EPSILON);
+        assert!((hsla.s - 0.5).abs() < f32::EPSILON);
+        assert!((hsla.l - 0.5).abs() < f32::EPSILON);
+        assert!((hsla.a - 0.8).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_rgba_default() {
+        let color = Rgba::default();
+        assert_eq!(color, Rgba::new(0, 0, 0, 0));
+    }
+
+    #[test]
+    fn test_hsla_default() {
+        let color = Hsla::default();
+        assert!((color.h - 0.0).abs() < f32::EPSILON);
+        assert!((color.s - 0.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn test_rgba_transparent() {
+        assert_eq!(Rgba::TRANSPARENT, Rgba::new(0, 0, 0, 0));
+        assert_eq!(Rgba::TRANSPARENT.a, 0);
+    }
+
+    #[test]
+    fn test_lerp_boundaries() {
+        let black = Rgba::BLACK;
+        let white = Rgba::WHITE;
+
+        // t=0 should give black
+        let at_zero = black.lerp(white, 0.0);
+        assert_eq!(at_zero, black);
+
+        // t=1 should give white
+        let at_one = black.lerp(white, 1.0);
+        assert_eq!(at_one, white);
+
+        // t clamped to [0, 1]
+        let below = black.lerp(white, -0.5);
+        assert_eq!(below, black);
+
+        let above = black.lerp(white, 1.5);
+        assert_eq!(above, white);
+    }
 }

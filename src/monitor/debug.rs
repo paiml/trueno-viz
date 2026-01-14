@@ -302,4 +302,64 @@ mod tests {
             // Should not output anything
         }
     }
+
+    #[test]
+    fn test_elapsed_ms_when_not_enabled() {
+        // Reset everything
+        disable();
+        START_TIME_MS.store(0, Ordering::SeqCst);
+        // When start time is 0, should return 0
+        assert_eq!(elapsed_ms(), 0);
+    }
+
+    #[test]
+    fn test_timing_guard_drop_when_enabled() {
+        // Enable debug mode first
+        enable();
+        // Ensure debug is enabled
+        assert!(is_enabled());
+
+        // Create and immediately drop the guard
+        let guard = TimingGuard::new("drop_test", "test_operation");
+        // Verify fields are set
+        assert_eq!(guard.component, "drop_test");
+        assert_eq!(guard.operation, "test_operation");
+        // Drop explicitly
+        drop(guard);
+
+        // Clean up
+        disable();
+    }
+
+    #[test]
+    fn test_level_equality() {
+        assert_eq!(Level::Trace, Level::Trace);
+        assert_eq!(Level::Debug, Level::Debug);
+        assert_ne!(Level::Trace, Level::Debug);
+    }
+
+    #[test]
+    fn test_level_clone() {
+        let level = Level::Warn;
+        let cloned = level.clone();
+        assert_eq!(level, cloned);
+    }
+
+    #[test]
+    fn test_level_debug() {
+        let debug_str = format!("{:?}", Level::Error);
+        assert!(debug_str.contains("Error"));
+    }
+
+    #[test]
+    fn test_log_all_levels_when_enabled() {
+        enable();
+        // Test each level to ensure color codes are used
+        log(Level::Trace, "test", "trace msg");
+        log(Level::Debug, "test", "debug msg");
+        log(Level::Info, "test", "info msg");
+        log(Level::Warn, "test", "warn msg");
+        log(Level::Error, "test", "error msg");
+        disable();
+    }
 }

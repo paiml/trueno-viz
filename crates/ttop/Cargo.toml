@@ -50,8 +50,8 @@ libc = "0.2"
 proptest = "1.4"
 tempfile = "3.10"
 
-# TUI testing (probar) - 100% pixel coverage
-jugar-probar = { version = "1.0.0", default-features = false, features = ["tui"] }
+# TUI testing (probar) - 100% pixel coverage + load testing
+jugar-probar = { version = "1.0.1", path = "../../../probar/crates/probar", default-features = false, features = ["tui"] }
 ratatui = "0.29"
 
 [features]

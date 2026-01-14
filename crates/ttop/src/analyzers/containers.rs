@@ -72,57 +72,60 @@ impl ContainerAnalyzer {
     }
 
     /// Collect container stats
+    ///
+    /// Uses aggressive caching to avoid blocking the main thread.
+    /// Docker stats is VERY slow (1-2 seconds) so we skip it entirely
+    /// and only get container counts which is fast.
     pub fn collect(&mut self) {
         if !self.available {
             return;
         }
 
-        // Collect at most once every 2 seconds (docker stats is slow)
-        if self.last_collect.elapsed() < Duration::from_secs(2) {
+        // Collect at most once every 10 seconds (docker is slow)
+        if self.last_collect.elapsed() < Duration::from_secs(10) {
             return;
         }
         self.last_collect = Instant::now();
 
-        // Get container count first (fast)
-        if let Ok(output) = Command::new("docker")
+        // ONLY get container count - this is fast (<100ms)
+        // Skip 'docker stats' entirely as it blocks for 1-2 seconds
+        let mut child = match Command::new("docker")
             .args(["ps", "-a", "--format", "{{.Status}}"])
-            .output()
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::null())
+            .spawn()
         {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let lines: Vec<&str> = stdout.lines().collect();
-                self.total_count = lines.len();
-                self.running_count = lines.iter().filter(|l| l.starts_with("Up")).count();
-            }
-        }
-
-        // Get stats for running containers
-        let output = match Command::new("docker")
-            .args([
-                "stats",
-                "--no-stream",
-                "--format",
-                "{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}",
-            ])
-            .output()
-        {
-            Ok(o) => o,
+            Ok(c) => c,
             Err(_) => return,
         };
 
-        if !output.status.success() {
-            return;
+        // Wait max 200ms then kill
+        let start = Instant::now();
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) if status.success() => {
+                    if let Some(stdout) = child.stdout.take() {
+                        use std::io::Read;
+                        let mut output = String::new();
+                        if std::io::BufReader::new(stdout).read_to_string(&mut output).is_ok() {
+                            let lines: Vec<&str> = output.lines().collect();
+                            self.total_count = lines.len();
+                            self.running_count = lines.iter().filter(|l| l.starts_with("Up")).count();
+                        }
+                    }
+                    return;
+                }
+                Ok(Some(_)) => return, // Non-zero exit
+                Ok(None) => {
+                    if start.elapsed() > Duration::from_millis(200) {
+                        let _ = child.kill();
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(10));
+                }
+                Err(_) => return,
+            }
         }
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        self.containers = parse_docker_stats(&stdout);
-
-        // Sort by CPU usage descending
-        self.containers.sort_by(|a, b| {
-            b.cpu_pct
-                .partial_cmp(&a.cpu_pct)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
     }
 
     /// Check if Docker is available

@@ -150,6 +150,22 @@ mod tests {
     }
 
     #[test]
+    fn test_sparkline_color() {
+        let data = vec![0.5];
+        let sparkline = MonitorSparkline::new(&data).color(Color::Red);
+
+        assert_eq!(sparkline.color, Color::Red);
+    }
+
+    #[test]
+    fn test_sparkline_show_trend_false() {
+        let data = vec![0.5];
+        let sparkline = MonitorSparkline::new(&data).show_trend(false);
+
+        assert!(!sparkline.show_trend);
+    }
+
+    #[test]
     fn test_sparkline_trend_up() {
         let data = vec![0.1, 0.2, 0.3, 0.4, 0.5];
         let sparkline = MonitorSparkline::new(&data);
@@ -170,6 +186,24 @@ mod tests {
         let data = vec![0.5, 0.5, 0.5, 0.5, 0.5];
         let sparkline = MonitorSparkline::new(&data);
 
+        assert_eq!(sparkline.trend(), '→');
+    }
+
+    #[test]
+    fn test_sparkline_trend_single_point() {
+        let data = vec![0.5];
+        let sparkline = MonitorSparkline::new(&data);
+
+        // Single point should return stable
+        assert_eq!(sparkline.trend(), '→');
+    }
+
+    #[test]
+    fn test_sparkline_trend_empty() {
+        let data: Vec<f64> = vec![];
+        let sparkline = MonitorSparkline::new(&data);
+
+        // Empty should return stable
         assert_eq!(sparkline.trend(), '→');
     }
 
@@ -199,5 +233,194 @@ mod tests {
             content.chars().any(|c| "▁▂▃▄▅▆▇█".contains(c)),
             "Should contain block characters"
         );
+    }
+
+    #[test]
+    fn test_sparkline_render_empty_data() {
+        let backend = TestBackend::new(10, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let data: Vec<f64> = vec![];
+
+        terminal
+            .draw(|frame| {
+                let sparkline = MonitorSparkline::new(&data);
+                frame.render_widget(sparkline, frame.area());
+            })
+            .unwrap();
+
+        // Should render without panic
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer
+            .content()
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
+
+        // Empty data should produce spaces only
+        assert!(content.trim().is_empty() || content.chars().all(|c| c == ' '));
+    }
+
+    #[test]
+    fn test_sparkline_render_zero_width() {
+        let backend = TestBackend::new(10, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let data = vec![0.5, 0.6, 0.7];
+
+        terminal
+            .draw(|frame| {
+                let sparkline = MonitorSparkline::new(&data);
+                // Use zero-width area
+                let area = Rect::new(0, 0, 0, 1);
+                frame.render_widget(sparkline, area);
+            })
+            .unwrap();
+
+        // Should render without panic
+    }
+
+    #[test]
+    fn test_sparkline_render_no_trend() {
+        let backend = TestBackend::new(10, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let data = vec![0.1, 0.3, 0.5, 0.7, 0.9];
+
+        terminal
+            .draw(|frame| {
+                let sparkline = MonitorSparkline::new(&data).show_trend(false);
+                frame.render_widget(sparkline, frame.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer
+            .content()
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
+
+        // Should NOT contain trend arrows
+        assert!(!content.contains('↑'));
+        assert!(!content.contains('↓'));
+        assert!(!content.contains('→'));
+    }
+
+    #[test]
+    fn test_sparkline_render_constant_values() {
+        let backend = TestBackend::new(10, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // All same values -> range = 0
+        let data = vec![0.5, 0.5, 0.5, 0.5, 0.5];
+
+        terminal
+            .draw(|frame| {
+                let sparkline = MonitorSparkline::new(&data);
+                frame.render_widget(sparkline, frame.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer
+            .content()
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
+
+        // Should render middle block for constant values
+        assert!(content.contains('▄')); // Middle block (normalized = 0.5)
+    }
+
+    #[test]
+    fn test_sparkline_render_data_longer_than_width() {
+        let backend = TestBackend::new(5, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // 20 data points but only 5 chars width (minus trend = 4)
+        let data: Vec<f64> = (0..20).map(|i| i as f64 / 20.0).collect();
+
+        terminal
+            .draw(|frame| {
+                let sparkline = MonitorSparkline::new(&data);
+                frame.render_widget(sparkline, frame.area());
+            })
+            .unwrap();
+
+        // Should render without panic, sampling the data
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer
+            .content()
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
+
+        assert!(content.chars().any(|c| "▁▂▃▄▅▆▇█↑↓→".contains(c)));
+    }
+
+    #[test]
+    fn test_sparkline_render_width_larger_than_data() {
+        let backend = TestBackend::new(20, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        // Only 3 data points but 20 chars width
+        let data = vec![0.0, 0.5, 1.0];
+
+        terminal
+            .draw(|frame| {
+                let sparkline = MonitorSparkline::new(&data);
+                frame.render_widget(sparkline, frame.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer
+            .content()
+            .iter()
+            .map(|c| c.symbol().chars().next().unwrap_or(' '))
+            .collect();
+
+        // Should contain blocks for each data point
+        assert!(content.contains('▁')); // Low
+        assert!(content.contains('█')); // High
+    }
+
+    #[test]
+    fn test_sparkline_render_with_color() {
+        let backend = TestBackend::new(10, 1);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let data = vec![0.1, 0.5, 0.9];
+
+        terminal
+            .draw(|frame| {
+                let sparkline = MonitorSparkline::new(&data).color(Color::Green);
+                frame.render_widget(sparkline, frame.area());
+            })
+            .unwrap();
+
+        // Check that cells have the correct color
+        let buffer = terminal.backend().buffer();
+        let cell = buffer.cell((0, 0)).unwrap();
+        assert_eq!(cell.fg, Color::Green);
+    }
+
+    #[test]
+    fn test_sparkline_trend_within_threshold() {
+        // Just under threshold should be stable
+        let data = vec![0.5, 0.5, 0.5, 0.5, 0.54]; // diff = 0.04 < 0.05
+        let sparkline = MonitorSparkline::new(&data);
+
+        assert_eq!(sparkline.trend(), '→');
+    }
+
+    #[test]
+    fn test_sparkline_trend_at_threshold() {
+        // At threshold should be up
+        let data = vec![0.5, 0.5, 0.5, 0.5, 0.56]; // diff = 0.06 > 0.05
+        let sparkline = MonitorSparkline::new(&data);
+
+        assert_eq!(sparkline.trend(), '↑');
     }
 }

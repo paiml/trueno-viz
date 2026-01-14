@@ -25,9 +25,21 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         return;
     }
 
+    // Split into title bar (1 row) and content area
+    let main_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(0)])
+        .split(area);
+
+    let title_area = main_layout[0];
+    let content_area = main_layout[1];
+
+    // Draw title bar first (always visible)
+    draw_title_bar(f, app, title_area);
+
     // EXPLODED MODE: render single panel fullscreen
     if let Some(panel) = app.exploded_panel {
-        draw_exploded_panel(f, app, panel, area);
+        draw_exploded_panel(f, app, panel, content_area);
 
         // Still show overlays
         if app.show_fps {
@@ -38,6 +50,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
         }
         return;
     }
+
+    let area = content_area; // Use content area for rest of layout
 
     // Calculate visible panel count for layout
     let top_panel_count = count_top_panels(app);
@@ -157,6 +171,55 @@ fn count_top_panels(app: &App) -> u32 {
         count += 1;
     }
     count
+}
+
+/// Draw the title bar at the top of the screen
+fn draw_title_bar(f: &mut Frame, app: &App, area: Rect) {
+    // Determine keybinds based on current mode
+    let keybinds = if app.show_filter_input {
+        "[Enter]Apply [Esc]Cancel"
+    } else if app.exploded_panel.is_some() {
+        "[Esc]Exit [↑↓]Row [Tab]Sort"
+    } else if app.focused_panel.is_some() {
+        "[Enter]Zoom [Esc]Exit [←→↑↓]Nav"
+    } else {
+        "[q]Quit [?]Help [/]Filter [z]Focus"
+    };
+
+    // Mode indicator
+    let mode = if app.exploded_panel.is_some() {
+        " [▣]"
+    } else if app.focused_panel.is_some() {
+        " [◎]"
+    } else {
+        ""
+    };
+
+    // Filter display
+    let filter_part = if app.show_filter_input {
+        format!(" {}█ │", app.filter)
+    } else if !app.filter.is_empty() {
+        format!(" filter: {} │", app.filter)
+    } else {
+        " /: Filter │".to_string()
+    };
+
+    // Simple format: "ttop vX.X.X [mode] │ filter │ keybinds"
+    let left = format!(" ttop v{}{} │{}", env!("CARGO_PKG_VERSION"), mode, filter_part);
+    let right = format!(" {}", keybinds);
+
+    // Calculate padding
+    let left_width = left.chars().count();
+    let right_width = right.chars().count();
+    let total_width = area.width as usize;
+    let pad_width = total_width.saturating_sub(left_width).saturating_sub(right_width);
+
+    let full_line = format!("{}{:pad$}{}", left, "", right, pad = pad_width);
+
+    let title_para = Paragraph::new(full_line)
+        .style(Style::default().fg(Color::Cyan).bg(Color::Rgb(30, 30, 40)));
+
+    f.render_widget(title_para, area);
 }
 
 fn draw_top_panels(f: &mut Frame, app: &App, area: Rect) {
@@ -310,39 +373,17 @@ fn draw_panel_with_focus_mut(
 
 /// Draw a single panel in exploded (fullscreen) mode
 fn draw_exploded_panel(f: &mut Frame, app: &mut App, panel: PanelType, area: Rect) {
-    // Draw panel hint at top
-    let hint = format!(" {} [FULLSCREEN] - Press ESC or Enter to exit ", panel.name());
-    let hint_area = Rect {
-        x: 0,
-        y: 0,
-        width: area.width,
-        height: 1,
-    };
-    f.render_widget(
-        Paragraph::new(hint)
-            .style(Style::default().fg(Color::Black).bg(Color::Yellow)),
-        hint_area,
-    );
-
-    // Panel content area (below hint)
-    let content_area = Rect {
-        x: 0,
-        y: 1,
-        width: area.width,
-        height: area.height.saturating_sub(1),
-    };
-
-    // Draw the appropriate panel
+    // Draw the appropriate panel fullscreen (title bar handles mode indicator)
     match panel {
-        PanelType::Cpu => panels::draw_cpu(f, app, content_area),
-        PanelType::Memory => panels::draw_memory(f, app, content_area),
-        PanelType::Disk => panels::draw_disk(f, app, content_area),
-        PanelType::Network => panels::draw_network(f, app, content_area),
-        PanelType::Process => panels::draw_process(f, app, content_area),
-        PanelType::Gpu => panels::draw_gpu(f, app, content_area),
-        PanelType::Battery => panels::draw_battery(f, app, content_area),
-        PanelType::Sensors => panels::draw_system(f, app, content_area),
-        PanelType::Files => panels::draw_treemap(f, app, content_area),
+        PanelType::Cpu => panels::draw_cpu(f, app, area),
+        PanelType::Memory => panels::draw_memory(f, app, area),
+        PanelType::Disk => panels::draw_disk(f, app, area),
+        PanelType::Network => panels::draw_network(f, app, area),
+        PanelType::Process => panels::draw_process(f, app, area),
+        PanelType::Gpu => panels::draw_gpu(f, app, area),
+        PanelType::Battery => panels::draw_battery(f, app, area),
+        PanelType::Sensors => panels::draw_system(f, app, area),
+        PanelType::Files => panels::draw_treemap(f, app, area),
     }
 }
 
@@ -468,26 +509,36 @@ fn draw_help_overlay(f: &mut Frame, area: Rect) {
 }
 
 fn draw_filter_input(f: &mut Frame, app: &App, area: Rect) {
-    let input_width = 50;
-    let input_area = Rect {
-        x: (area.width.saturating_sub(input_width)) / 2,
-        y: area.height / 2,
-        width: input_width.min(area.width),
-        height: 3,
+    let popup_width: u16 = 50.min(area.width.saturating_sub(4));
+    let popup_height: u16 = 3.min(area.height.saturating_sub(2));
+
+    if popup_width < 10 || popup_height < 3 {
+        return; // Too small to render
+    }
+
+    let popup_area = Rect {
+        x: area.x + (area.width.saturating_sub(popup_width)) / 2,
+        y: area.y + (area.height.saturating_sub(popup_height)) / 2,
+        width: popup_width,
+        height: popup_height,
     };
 
-    f.render_widget(Clear, input_area);
+    f.render_widget(Clear, popup_area);
 
-    let input = Paragraph::new(app.filter.as_str())
+    // Filter text with cursor
+    let filter_text = format!("{}█", app.filter);
+
+    let input = Paragraph::new(filter_text)
         .block(
             Block::default()
-                .title(" Filter (Enter to confirm, Esc to cancel) ")
+                .title(" Filter [Enter=OK Esc=Cancel] ")
                 .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::Cyan)),
         )
         .style(Style::default().fg(Color::White));
 
-    f.render_widget(input, input_area);
+    f.render_widget(input, popup_area);
 }
 
 /// Draw signal confirmation dialog
@@ -644,6 +695,24 @@ mod tui_tests {
     use jugar_probar::tui::{TuiFrame, expect_frame};
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::buffer::Buffer;
+
+    /// Helper: Convert ratatui Buffer to TuiFrame
+    fn buffer_to_frame(buffer: &Buffer, _timestamp_ms: u64) -> TuiFrame {
+        let area = buffer.area;
+        let mut lines = Vec::with_capacity(area.height as usize);
+
+        for y in 0..area.height {
+            let mut line = String::with_capacity(area.width as usize);
+            for x in 0..area.width {
+                let cell = buffer.cell((x, y)).expect("cell in bounds");
+                line.push_str(cell.symbol());
+            }
+            lines.push(line.trim_end().to_string());
+        }
+
+        TuiFrame::from_lines(&lines.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+    }
 
     /// Test help overlay renders correctly
     #[test]
@@ -656,7 +725,7 @@ mod tui_tests {
         }).expect("draw");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Help overlay should contain key sections
         assert!(frame.contains("Help"));
@@ -678,7 +747,7 @@ mod tui_tests {
         }).expect("draw");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Check specific keybindings are documented
         assert!(frame.contains("h/l"));
@@ -700,7 +769,7 @@ mod tui_tests {
         }).expect("draw");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Focus hint should show navigation keys
         assert!(frame.contains("navigate") || frame.contains("arrows"));
@@ -719,7 +788,7 @@ mod tui_tests {
         }).expect("draw");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Use probar's assertion API
         expect_frame(&frame)
@@ -746,7 +815,7 @@ mod tui_tests {
         }).expect("draw");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Should still render (possibly truncated)
         assert!(frame.contains("Help") || frame.height() < 36);
@@ -778,6 +847,15 @@ mod ui_integration_tests {
     use jugar_probar::tui::{TuiFrame, expect_frame};
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
+    use ratatui::buffer::Buffer;
+
+    fn buffer_to_frame(buffer: &Buffer, _ts: u64) -> TuiFrame {
+        let area = buffer.area;
+        let lines: Vec<String> = (0..area.height).map(|y| {
+            (0..area.width).map(|x| buffer.cell((x, y)).expect("c").symbol()).collect()
+        }).collect();
+        TuiFrame::from_lines(&lines.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+    }
 
     /// Test full UI draw with mock App
     #[test]
@@ -791,7 +869,7 @@ mod ui_integration_tests {
         }).expect("draw full ui");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // UI should render CPU and Memory panels
         assert!(frame.contains("CPU") || frame.contains("Memory"));
@@ -810,7 +888,7 @@ mod ui_integration_tests {
         }).expect("draw with help");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Help overlay should be visible
         assert!(frame.contains("Help") || frame.contains("ttop"));
@@ -829,7 +907,7 @@ mod ui_integration_tests {
         }).expect("draw with fps");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // FPS overlay should show frame info
         assert!(frame.contains("Frame") || frame.contains("μs") || frame.contains("ID"));
@@ -848,7 +926,7 @@ mod ui_integration_tests {
         }).expect("draw exploded");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Exploded CPU panel should be fullscreen
         assert!(frame.contains("CPU"));
@@ -867,7 +945,7 @@ mod ui_integration_tests {
         }).expect("draw focused");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Focus hint should be visible
         assert!(frame.contains("Memory") || frame.contains("navigate") || frame.contains("Enter"));
@@ -943,7 +1021,7 @@ mod ui_integration_tests {
         }).expect("draw with signal menu");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Signal menu should be visible
         assert!(frame.contains("Signal") || frame.contains("TERM") || frame.contains("KILL") || frame.height() > 0);
@@ -963,10 +1041,84 @@ mod ui_integration_tests {
         }).expect("draw with filter");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Filter input should show the filter text
         assert!(frame.contains("Filter") || frame.contains("test") || frame.height() > 0);
+    }
+
+    /// FALSIFICATION TEST: Filter input must not hang the main thread
+    /// This test simulates rapid filter typing and multiple render frames
+    /// If it hangs or takes >1 second, the test fails
+    #[test]
+    fn test_filter_input_no_hang() {
+        use std::time::{Duration, Instant};
+
+        let start = Instant::now();
+        let timeout = Duration::from_secs(1);
+
+        let mut app = App::new_mock();
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        // Simulate entering filter mode and typing rapidly
+        app.show_filter_input = true;
+
+        // Type 20 characters rapidly, rendering after each
+        for c in "abcdefghijklmnopqrst".chars() {
+            app.filter.push(c);
+
+            terminal.draw(|f| {
+                draw(f, &mut app);
+            }).expect("draw with filter");
+
+            // Check timeout after each frame
+            assert!(
+                start.elapsed() < timeout,
+                "Filter input caused hang: took {:?} (limit {:?})",
+                start.elapsed(),
+                timeout
+            );
+        }
+
+        // Verify filter is applied
+        assert_eq!(app.filter, "abcdefghijklmnopqrst");
+
+        // Total time must be under 1 second
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < timeout,
+            "Filter typing took {:?}, expected < {:?}",
+            elapsed,
+            timeout
+        );
+    }
+
+    /// FALSIFICATION TEST: Filter with active filter string renders quickly
+    #[test]
+    fn test_filter_active_render_performance() {
+        use std::time::{Duration, Instant};
+
+        let mut app = App::new_mock();
+        app.filter = "rust".to_string(); // Active filter
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        // Render 10 frames with active filter
+        let start = Instant::now();
+        for _ in 0..10 {
+            terminal.draw(|f| {
+                draw(f, &mut app);
+            }).expect("draw with active filter");
+        }
+        let elapsed = start.elapsed();
+
+        // 10 frames should complete in under 500ms
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "10 frames with filter took {:?}, expected < 500ms",
+            elapsed
+        );
     }
 
     /// Test UI probar assertions
@@ -981,7 +1133,7 @@ mod ui_integration_tests {
         }).expect("draw");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
 
         // Use probar assertions
         expect_frame(&frame)
@@ -1042,7 +1194,7 @@ mod ui_integration_tests {
         }).expect("draw with signal confirm");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
         assert!(frame.contains("TERM") || frame.contains("1234") || frame.height() > 0);
     }
 
@@ -1089,7 +1241,7 @@ mod ui_integration_tests {
         }).expect("draw with signal result success");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
         assert!(frame.contains("✓") || frame.contains("success") || frame.height() > 0);
     }
 
@@ -1108,7 +1260,7 @@ mod ui_integration_tests {
         }).expect("draw with signal result failure");
 
         let buffer = terminal.backend().buffer().clone();
-        let frame = TuiFrame::from_buffer(&buffer, 0);
+        let frame = buffer_to_frame(&buffer, 0);
         assert!(frame.contains("✗") || frame.contains("Failed") || frame.height() > 0);
     }
 
@@ -1136,5 +1288,296 @@ mod ui_integration_tests {
         terminal.draw(|f| {
             draw(f, &mut app);
         }).expect("draw exploded files");
+    }
+
+    /// Debug test: compare normal vs exploded process panel
+    #[test]
+    fn test_exploded_vs_normal_process_columns() {
+        let mut app = App::new_mock();
+
+        // Normal mode: small area (60x20 - compact 5 columns)
+        let backend_normal = TestBackend::new(60, 20);
+        let mut terminal_normal = Terminal::new(backend_normal).expect("terminal");
+        terminal_normal.draw(|f| {
+            panels::draw_process(f, &mut app, Rect::new(0, 0, 60, 20));
+        }).expect("normal");
+
+        // Get normal header line
+        let buf_normal = terminal_normal.backend().buffer().clone();
+        let header_normal: String = (0..60u16).map(|x| buf_normal.cell((x, 0)).expect("c").symbol()).collect();
+
+        // Exploded mode: large area (150x40 - should have 8 columns)
+        let backend_exploded = TestBackend::new(150, 40);
+        let mut terminal_exploded = Terminal::new(backend_exploded).expect("terminal");
+        terminal_exploded.draw(|f| {
+            panels::draw_process(f, &mut app, Rect::new(0, 0, 150, 40));
+        }).expect("exploded");
+
+        // Get exploded header line (line 1, after title)
+        let buf_exploded = terminal_exploded.backend().buffer().clone();
+        let header_exploded: String = (0..150u16).map(|x| buf_exploded.cell((x, 1)).expect("c").symbol()).collect();
+
+        // Check exploded has USER column (not in compact)
+        assert!(header_exploded.contains("USER"),
+            "Exploded mode should have USER column.\nNormal header: {}\nExploded header: {}",
+            header_normal.trim(), header_exploded.trim());
+
+        // Also check it has THR (threads) column
+        assert!(header_exploded.contains("THR"),
+            "Exploded mode should have THR column.\nExploded header: {}",
+            header_exploded.trim());
+    }
+}
+
+/// Advanced probar tests using soft assertions and snapshots
+#[cfg(test)]
+mod advanced_probar_tests {
+    use super::*;
+    use crate::app::App;
+    use jugar_probar::SoftAssertions;
+    use jugar_probar::tui::{TuiFrame, TuiSnapshot, expect_frame};
+    use ratatui::backend::TestBackend;
+    use ratatui::Terminal;
+    use ratatui::buffer::Buffer;
+
+    fn buffer_to_frame(buffer: &Buffer, _ts: u64) -> TuiFrame {
+        let area = buffer.area;
+        let lines: Vec<String> = (0..area.height).map(|y| {
+            (0..area.width).map(|x| buffer.cell((x, y)).expect("c").symbol()).collect()
+        }).collect();
+        TuiFrame::from_lines(&lines.iter().map(|s| s.as_str()).collect::<Vec<_>>())
+    }
+
+    /// Test help overlay with soft assertions - collects all failures
+    #[test]
+    fn test_help_overlay_soft_assertions() {
+        let backend = TestBackend::new(80, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_help_overlay(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = buffer_to_frame(&buffer, 0);
+        let text = frame.as_text();
+
+        let mut soft = SoftAssertions::new();
+        soft.assert_contains(&text, "Help", "should contain Help title");
+        soft.assert_contains(&text, "ttop", "should contain ttop");
+        soft.assert_contains(&text, "Panel Focus", "should have Panel Focus section");
+        soft.assert_contains(&text, "Process", "should have Process section");
+        soft.assert_contains(&text, "Sorting", "should have Sorting section");
+        soft.assert_contains(&text, "Quit", "should have Quit option");
+
+        soft.verify().expect("all help overlay assertions should pass");
+    }
+
+    /// Test help overlay keybindings with soft assertions
+    #[test]
+    fn test_help_keybindings_soft_assertions() {
+        let backend = TestBackend::new(80, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_help_overlay(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = buffer_to_frame(&buffer, 0);
+        let text = frame.as_text();
+
+        let mut soft = SoftAssertions::new();
+        soft.assert_contains(&text, "h/l", "should document h/l navigation");
+        soft.assert_contains(&text, "j/k", "should document j/k navigation");
+        soft.assert_contains(&text, "Enter", "should document Enter key");
+        soft.assert_contains(&text, "Esc", "should document Esc key");
+        soft.assert_contains(&text, "Tab", "should document Tab key");
+        soft.assert_contains(&text, "1-8", "should document panel toggles");
+
+        soft.verify().expect("all keybinding assertions should pass");
+    }
+
+    /// Test full UI render with soft assertions for comprehensive validation
+    #[test]
+    fn test_full_ui_soft_assertions() {
+        let mut app = App::new_mock();
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = buffer_to_frame(&buffer, 0);
+        let text = frame.as_text();
+
+        let mut soft = SoftAssertions::new();
+
+        // Verify panel headers are present
+        soft.assert_contains(&text, "CPU", "should render CPU panel");
+        soft.assert_contains(&text, "Memory", "should render Memory panel");
+        soft.assert_contains(&text, "Process", "should render Process panel");
+
+        // Verify frame dimensions
+        soft.assert_eq(&frame.width(), &160, "frame width should be 160");
+        soft.assert_eq(&frame.height(), &50, "frame height should be 50");
+
+        // Verify btop-style borders (rounded corners)
+        soft.assert_true(text.contains("╭") || text.contains("┌"), "should have top corners");
+        soft.assert_true(text.contains("╰") || text.contains("└"), "should have bottom corners");
+
+        soft.verify().expect("all full UI assertions should pass");
+    }
+
+    /// Test TuiSnapshot creation and comparison
+    #[test]
+    fn test_tui_snapshot_help_overlay() {
+        let backend = TestBackend::new(80, 40);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_help_overlay(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = buffer_to_frame(&buffer, 0);
+
+        // Create snapshot
+        let snapshot = TuiSnapshot::from_frame("help_overlay_80x40", &frame)
+            .with_metadata("terminal_size", "80x40")
+            .with_metadata("test_type", "help_overlay");
+
+        // Verify snapshot properties
+        assert_eq!(snapshot.width, 80);
+        assert_eq!(snapshot.height, 40);
+        assert!(!snapshot.hash.is_empty());
+        assert_eq!(snapshot.name, "help_overlay_80x40");
+
+        // Verify snapshot can round-trip to frame
+        let restored_frame = snapshot.to_frame();
+        assert!(frame.is_identical(&restored_frame));
+    }
+
+    /// Test snapshot comparison detects differences
+    #[test]
+    fn test_snapshot_difference_detection() {
+        // Create two different frames
+        let frame1 = TuiFrame::from_lines(&[
+            "╭─ Help ─────────────────────╮",
+            "│  Panel Controls            │",
+            "│  1-8: Toggle panels        │",
+            "╰────────────────────────────╯",
+        ]);
+
+        let frame2 = TuiFrame::from_lines(&[
+            "╭─ Help ─────────────────────╮",
+            "│  Panel Controls            │",
+            "│  1-9: Toggle panels        │",  // Different!
+            "╰────────────────────────────╯",
+        ]);
+
+        let snap1 = TuiSnapshot::from_frame("help_v1", &frame1);
+        let snap2 = TuiSnapshot::from_frame("help_v2", &frame2);
+
+        // Snapshots should NOT match (different content)
+        assert!(!snap1.matches(&snap2));
+
+        // Same frame should match itself
+        let snap1_copy = TuiSnapshot::from_frame("help_v1_copy", &frame1);
+        assert!(snap1.matches(&snap1_copy));
+    }
+
+    /// Test multiple terminal sizes with soft assertions
+    #[test]
+    fn test_responsive_ui_soft_assertions() {
+        let sizes = [
+            (80, 24, "minimal"),
+            (120, 40, "standard"),
+            (200, 60, "large"),
+        ];
+
+        for (width, height, name) in sizes {
+            let mut app = App::new_mock();
+            let backend = TestBackend::new(width, height);
+            let mut terminal = Terminal::new(backend).expect("terminal");
+
+            terminal.draw(|f| {
+                draw(f, &mut app);
+            }).expect(&format!("draw at {name} ({width}x{height})"));
+
+            let buffer = terminal.backend().buffer().clone();
+            let frame = buffer_to_frame(&buffer, 0);
+
+            let mut soft = SoftAssertions::new();
+            soft.assert_eq(&frame.width(), &width, &format!("{name} width"));
+            soft.assert_eq(&frame.height(), &height, &format!("{name} height"));
+            soft.assert_true(frame.height() > 0, &format!("{name} should have content"));
+
+            soft.verify().expect(&format!("all {name} assertions should pass"));
+        }
+    }
+
+    /// Test focus hint with snapshot verification
+    #[test]
+    fn test_focus_hint_snapshot() {
+        let backend = TestBackend::new(80, 10);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw_focus_hint(f, f.area());
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = buffer_to_frame(&buffer, 0);
+
+        let snapshot = TuiSnapshot::from_frame("focus_hint", &frame);
+
+        // Verify basic properties
+        assert_eq!(snapshot.width, 80);
+        assert_eq!(snapshot.height, 10);
+
+        // Verify content contains expected hints
+        let text = frame.as_text();
+        let mut soft = SoftAssertions::new();
+        soft.assert_true(
+            text.contains("navigate") || text.contains("arrows") || text.contains("↑"),
+            "should show navigation hints"
+        );
+        soft.verify().expect("focus hint should contain navigation info");
+    }
+
+    /// Test UI panel states with soft assertions
+    #[test]
+    fn test_panel_visibility_soft_assertions() {
+        let mut app = App::new_mock();
+
+        // Test with all panels visible (default mock state)
+        let backend = TestBackend::new(160, 50);
+        let mut terminal = Terminal::new(backend).expect("terminal");
+
+        terminal.draw(|f| {
+            draw(f, &mut app);
+        }).expect("draw");
+
+        let buffer = terminal.backend().buffer().clone();
+        let frame = buffer_to_frame(&buffer, 0);
+        let text = frame.as_text();
+
+        let mut soft = SoftAssertions::new();
+
+        // Test panel presence based on visibility
+        if app.panels.cpu {
+            soft.assert_contains(&text, "CPU", "CPU panel should be visible");
+        }
+        if app.panels.memory {
+            soft.assert_contains(&text, "Memory", "Memory panel should be visible");
+        }
+        if app.panels.process {
+            soft.assert_contains(&text, "Process", "Process panel should be visible");
+        }
+
+        soft.verify().expect("panel visibility assertions should pass");
     }
 }
