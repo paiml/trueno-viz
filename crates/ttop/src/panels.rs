@@ -12,7 +12,7 @@ use trueno_viz::monitor::collectors::process::ProcessState;
 use trueno_viz::monitor::types::Collector;
 use trueno_viz::monitor::widgets::{Graph, Meter, MonitorSparkline};
 
-use crate::app::App;
+use crate::app::{App, DiskHealth};
 use crate::theme::{self, borders, graph, percent_color, process_state, temp_color};
 
 /// Helper to create a btop-style block with rounded corners
@@ -82,13 +82,21 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
     let is_exploded = area.width > 82 || area.height > 22;
     let exploded_info = if is_exploded { " │ ▣ FULL" } else { "" };
 
+    // Thermal throttling indicator
+    let throttle_str = match app.thermal_throttle_active {
+        Some(true) => " 🔥THROTTLE",
+        Some(false) => "",
+        None => "",
+    };
+
     let title = format!(
-        " CPU {:.0}% │ {} cores │ {:.1}GHz{}{} │ up {} │ LAV {:.2}{} ",
+        " CPU {:.0}% │ {} cores │ {:.1}GHz{}{}{} │ up {} │ LAV {:.2}{} ",
         cpu_pct,
         core_count,
         max_freq as f64 / 1000.0,
         if is_boosting { "⚡" } else { "" },
         temp_str,
+        throttle_str,
         theme::format_uptime(app.cpu.uptime_secs()),
         load.one,
         exploded_info,
@@ -111,7 +119,7 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
     // In exploded mode: FILL THE ENTIRE WIDTH with meters and graph
     let (meter_bar_width, bar_len, max_cores_per_col, meters_width) = if is_exploded {
         // Calculate how many cores per column based on height
-        let max_per_col = core_area_height as usize;
+        let max_per_col = (core_area_height as usize).max(1);  // Avoid divide by zero
         let num_cols = core_count.div_ceil(max_per_col).max(1);
 
         // Use 70% of width for meters, 30% for graph
@@ -158,28 +166,67 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
         let bar: String =
             "█".repeat(filled.min(bar_len)) + &"░".repeat(bar_len - filled.min(bar_len));
 
-        // Exploded mode: show both temp and percent if available
-        let label = if is_exploded {
-            if let Some(t) = core_temp {
-                format!("{:>2} {} {:>3.0}% {:>2.0}°", i, bar, percent, t)
-            } else {
-                format!("{:>2} {} {:>3.0}%", i, bar, percent)
-            }
-        } else if let Some(t) = core_temp {
-            format!("{:>2} {} {:>2.0}°", i, bar, t)
-        } else {
-            format!("{:>2} {} {:>3.0}", i, bar, percent)
-        };
+        // Exploded mode: show state breakdown with colored bars
+        if is_exploded {
+            let temp_str = core_temp.map(|t| format!("{:>2.0}°", t)).unwrap_or_default();
 
-        f.render_widget(
-            Paragraph::new(label).style(Style::default().fg(color)),
-            Rect {
-                x: cell_x,
-                y: cell_y,
-                width: meter_bar_width,
-                height: 1,
-            },
-        );
+            // Get CPU state breakdown for this core
+            let state = app.per_core_state.get(i);
+
+            let mut spans = vec![
+                Span::styled(format!("{:>2} ", i), Style::default().fg(Color::DarkGray)),
+                Span::styled(&bar, Style::default().fg(color)),
+                Span::styled(format!(" {:>3.0}%", percent), Style::default().fg(color)),
+            ];
+
+            if !temp_str.is_empty() {
+                spans.push(Span::styled(format!(" {}", temp_str), Style::default().fg(Color::Cyan)));
+            }
+
+            // Add state breakdown: u/s/io colored mini-text
+            if let Some(s) = state {
+                spans.push(Span::styled(" │", Style::default().fg(Color::DarkGray)));
+                // User time in green
+                if s.user > 0.5 {
+                    spans.push(Span::styled(format!("u{:.0}", s.user), Style::default().fg(Color::Green)));
+                }
+                // System time in yellow
+                if s.system > 0.5 {
+                    spans.push(Span::styled(format!(" s{:.0}", s.system), Style::default().fg(Color::Yellow)));
+                }
+                // IOWait in red (only show if significant)
+                if s.iowait > 1.0 {
+                    spans.push(Span::styled(format!(" io{:.0}", s.iowait), Style::default().fg(Color::Red)));
+                }
+            }
+
+            f.render_widget(
+                Paragraph::new(Line::from(spans)),
+                Rect {
+                    x: cell_x,
+                    y: cell_y,
+                    width: meter_bar_width,
+                    height: 1,
+                },
+            );
+        } else {
+            // Normal mode: simple label
+            let label = if let Some(t) = core_temp {
+                format!("{:>2} {} {:>2.0}°", i, bar, t)
+            } else {
+                format!("{:>2} {} {:>3.0}", i, bar, percent)
+            };
+
+            f.render_widget(
+                Paragraph::new(label).style(Style::default().fg(color)),
+                Rect {
+                    x: cell_x,
+                    y: cell_y,
+                    width: meter_bar_width,
+                    height: 1,
+                },
+            );
+        }
     }
 
     // Draw graph on right side
@@ -361,6 +408,48 @@ pub fn draw_cpu(f: &mut Frame, app: &App, area: Rect) {
                 },
             );
         }
+
+        // === Bottom Row 4 (exploded only): Top process per core ===
+        let proc_y = inner.y + core_area_height + 3;
+        if proc_y < inner.y + inner.height && !app.top_process_per_core.is_empty() {
+            let mut spans = vec![Span::styled("Per-core ", Style::default().fg(Color::DarkGray))];
+
+            // Show top process for first few cores
+            let max_shown = ((inner.width as usize - 10) / 20).min(app.top_process_per_core.len()).min(8);
+            for (i, proc) in app.top_process_per_core.iter().take(max_shown).enumerate() {
+                if i > 0 {
+                    spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+                }
+
+                let cpu_color = if proc.cpu_percent > 50.0 {
+                    Color::Red
+                } else if proc.cpu_percent > 20.0 {
+                    Color::Yellow
+                } else {
+                    Color::Green
+                };
+
+                spans.push(Span::styled(format!("c{}", i), Style::default().fg(Color::DarkGray)));
+                spans.push(Span::styled(
+                    format!(":{:.0}%", proc.cpu_percent),
+                    Style::default().fg(cpu_color),
+                ));
+                spans.push(Span::styled(
+                    format!(" {}", truncate_str(&proc.name, 8)),
+                    Style::default().fg(Color::White),
+                ));
+            }
+
+            f.render_widget(
+                Paragraph::new(Line::from(spans)),
+                Rect {
+                    x: inner.x,
+                    y: proc_y,
+                    width: inner.width,
+                    height: 1,
+                },
+            );
+        }
     }
 }
 
@@ -414,8 +503,22 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
     let is_exploded = area.width > 82 || area.height > 22;
     let exploded_info = if is_exploded { " │ ▣ FULL" } else { "" };
 
+    // Swap trend indicator
+    let swap_trend_info = if app.swap_total > 0 && swap_pct > 5.0 {
+        format!(" Swap{}", app.swap_trend.symbol())
+    } else {
+        String::new()
+    };
+
+    // Memory reclaim rate (if significant)
+    let reclaim_info = if app.mem_reclaim_rate > 100.0 {
+        format!(" │ Reclaim:{:.0}p/s", app.mem_reclaim_rate)
+    } else {
+        String::new()
+    };
+
     let title = format!(
-        " Memory │ {used_gb:.1}G / {total_gb:.1}G ({used_pct:.0}%){zram_info}{exploded_info} "
+        " Memory │ {used_gb:.1}G / {total_gb:.1}G ({used_pct:.0}%){swap_trend_info}{zram_info}{reclaim_info}{exploded_info} "
     );
 
     let block = btop_block(&title, borders::MEMORY);
@@ -708,24 +811,29 @@ pub fn draw_memory(f: &mut Frame, app: &App, area: Rect) {
                     0.0
                 };
 
-                // Visual bar for memory percentage
-                let filled = ((mem_pct / 100.0) * bar_width as f64) as usize;
-                let bar = "█".repeat(filled.min(bar_width)) + &"░".repeat(bar_width.saturating_sub(filled));
-
                 let name: String = proc.name.chars().take(name_width).collect();
 
-                // Exploded mode: show user and thread count too
+                // Exploded mode: show user and thread count too, scale bar to fill remaining width
                 let line = if is_exploded {
-                    let user: String = proc.user.chars().take(8).collect();
+                    let user: String = proc.user.chars().take(10).collect();
+                    // Calculate remaining width for bar after fixed columns
+                    // PID(8) + USER(11) + NAME(name_width+1) + MEM(8) + PCT(7) = fixed
+                    let fixed_cols = 8 + 11 + name_width + 1 + 8 + 7;
+                    let remaining_bar = (inner.width as usize).saturating_sub(fixed_cols).max(10);
+                    let filled = ((mem_pct / 100.0) * remaining_bar as f64) as usize;
+                    let bar = "█".repeat(filled.min(remaining_bar)) + &"░".repeat(remaining_bar.saturating_sub(filled));
+
                     Line::from(vec![
                         Span::styled(format!("{:>7} ", proc.pid), Style::default().fg(Color::DarkGray)),
-                        Span::styled(format!("{:<8} ", user), Style::default().fg(Color::Cyan)),
-                        Span::styled(format!("{:<30} ", name), Style::default().fg(Color::White)),
+                        Span::styled(format!("{:<10} ", user), Style::default().fg(Color::Cyan)),
+                        Span::styled(format!("{:<width$} ", name, width = name_width), Style::default().fg(Color::White)),
                         Span::styled(format!("{:>6.1}G ", mem_gb), Style::default().fg(Color::Magenta)),
                         Span::styled(format!("{:>5.1}% ", mem_pct), Style::default().fg(percent_color(mem_pct))),
                         Span::styled(bar, Style::default().fg(percent_color(mem_pct))),
                     ])
                 } else {
+                    let filled = ((mem_pct / 100.0) * bar_width as f64) as usize;
+                    let bar = "█".repeat(filled.min(bar_width)) + &"░".repeat(bar_width.saturating_sub(filled));
                     Line::from(vec![
                         Span::styled(format!("{:>6} ", proc.pid), Style::default().fg(Color::DarkGray)),
                         Span::styled(format!("{:<20} ", name), Style::default().fg(Color::White)),
@@ -770,11 +878,43 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
     let is_exploded = area.width > 82 || area.height > 22;
     let exploded_info = if is_exploded { " │ ▣ FULL" } else { "" };
 
+    // IOPS breakdown and queue depth for exploded mode
+    let iops_detail = if is_exploded && (app.disk_read_iops > 0.0 || app.disk_write_iops > 0.0) {
+        format!(" │ R:{:.0} W:{:.0}", app.disk_read_iops, app.disk_write_iops)
+    } else {
+        String::new()
+    };
+
+    let queue_info = if is_exploded && app.disk_queue_depth > 0.1 {
+        format!(" │ Q:{:.1}", app.disk_queue_depth)
+    } else {
+        String::new()
+    };
+
+    // Disk health summary for exploded mode
+    let health_info = if is_exploded && !app.disk_health.is_empty() {
+        let worst_health = app.disk_health.iter()
+            .map(|h| h.status)
+            .max_by_key(|s| match s {
+                DiskHealth::Critical => 3,
+                DiskHealth::Warning => 2,
+                DiskHealth::Good => 1,
+                DiskHealth::Unknown => 0,
+            })
+            .unwrap_or(DiskHealth::Unknown);
+        format!(" {}", worst_health.symbol())
+    } else {
+        String::new()
+    };
+
     let title = format!(
-        " Disk │ R: {} │ W: {} │ {:.0} IOPS │ {} │ E:{}{} ",
+        " Disk │ R: {} │ W: {} │ {:.0} IOPS{}{}{} │ {} │ E:{}{} ",
         theme::format_bytes_rate(total_read),
         theme::format_bytes_rate(total_write),
         total_iops,
+        iops_detail,
+        queue_info,
+        health_info,
         workload.description(),
         entropy_gauge,
         exploded_info
@@ -1118,11 +1258,27 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
     let is_exploded = area.width > 82 || area.height > 22;
     let exploded_info = if is_exploded { " │ ▣ FULL" } else { "" };
 
+    // Connection counts for exploded mode
+    let conn_info = if is_exploded && (app.net_established > 0 || app.net_listening > 0) {
+        format!(" │ Est:{} Lis:{}", app.net_established, app.net_listening)
+    } else {
+        String::new()
+    };
+
+    // Error/drop info for exploded mode
+    let error_info = if is_exploded && (app.net_errors > 0 || app.net_drops > 0) {
+        format!(" │ Err:{} Drop:{}", app.net_errors, app.net_drops)
+    } else {
+        String::new()
+    };
+
     let title = format!(
-        " Network ({}) │ ↓ {} │ ↑ {}{} ",
+        " Network ({}) │ ↓ {} │ ↑ {}{}{}{} ",
         iface,
         theme::format_bytes_rate(rx_rate),
         theme::format_bytes_rate(tx_rate),
+        conn_info,
+        error_info,
         exploded_info
     );
 
