@@ -1980,6 +1980,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "hostname"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "617aaa3557aef3810a6369d0a99fac8a080891b68bd9f9812a1eeda0c0730cbd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-link",
+]
+
+[[package]]
 name = "http"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4569,8 +4580,28 @@ dependencies = [
  "futures-intrusive",
  "num_cpus",
  "pollster",
- "rayon",
  "thiserror 2.0.17",
+ "wgpu 27.0.1",
+]
+
+[[package]]
+name = "trueno"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71b917d05fdb2467a1aa484f51e74e59ea5faaf968a115ed7d959ea6b00f1b46"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "chrono",
+ "futures-intrusive",
+ "hostname",
+ "num_cpus",
+ "pollster",
+ "rayon",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "toml",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -4662,7 +4693,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
- "trueno 0.11.0",
+ "trueno 0.12.1",
  "trueno-db",
  "trueno-graph",
  "wasm-bindgen",
