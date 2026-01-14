@@ -2109,9 +2109,9 @@ dependencies = [
 
 [[package]]
 name = "manzana"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48144f8ba7aa7ad229af84abd795a443004502f896ad0983a26f8b3708f70a42"
+checksum = "4b5eed7c777f2d9d8313bdbc671c19fae34769646b42e9ea2beeec9f5d872cb7"
 dependencies = [
  "bitflags 2.10.0",
  "core-foundation",
@@ -3925,9 +3925,9 @@ dependencies = [
 
 [[package]]
 name = "trueno-viz"
-version = "0.1.17"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f29b6256e9da1b78f75ec6ee44d17da9776326068c3416289b57864090eabe13"
+checksum = "5f479168c1c0e6f748b006a2b70fcc61e799bc77a5f76e6cbe59c1609fb01ce9"
 dependencies = [
  "base64",
  "crossterm",
