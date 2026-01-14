@@ -2618,11 +2618,11 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
                     Style::default().fg(state_color),
                 ),
                 Span::styled(
-                    format!("{:>3.0}", p.cpu_percent),
+                    format!("{:>5.0}", p.cpu_percent),
                     Style::default().fg(cpu_color),
                 ),
                 Span::styled(
-                    format!("{:>3.0}", p.mem_percent),
+                    format!("{:>5.0}", p.mem_percent),
                     Style::default().fg(mem_color),
                 ),
                 Span::styled(
@@ -2636,8 +2636,8 @@ pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
     let widths = [
         trueno_viz::monitor::ratatui::layout::Constraint::Length(6),  // PID
         trueno_viz::monitor::ratatui::layout::Constraint::Length(2),  // S
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(4),  // C%
-        trueno_viz::monitor::ratatui::layout::Constraint::Length(4),  // M%
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(5),  // C% (up to 9999%)
+        trueno_viz::monitor::ratatui::layout::Constraint::Length(5),  // M%
         trueno_viz::monitor::ratatui::layout::Constraint::Min(20),    // COMMAND (fills rest)
     ];
 
