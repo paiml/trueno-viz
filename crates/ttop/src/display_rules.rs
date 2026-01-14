@@ -49,9 +49,9 @@ pub enum ColumnAlign {
 /// use ttop::display_rules::format_bytes_si;
 /// assert_eq!(format_bytes_si(0), "0B");
 /// assert_eq!(format_bytes_si(500), "500B");
-/// assert_eq!(format_bytes_si(1500), "1.5K");
-/// assert_eq!(format_bytes_si(1_500_000), "1.5M");
-/// assert_eq!(format_bytes_si(1_500_000_000), "1.5G");
+/// assert_eq!(format_bytes_si(1500), "1.50K");
+/// assert_eq!(format_bytes_si(1_500_000), "1.50M");
+/// assert_eq!(format_bytes_si(1_500_000_000), "1.50G");
 /// ```
 #[must_use]
 pub fn format_bytes_si(bytes: u64) -> String {
@@ -119,8 +119,8 @@ pub fn format_bytes_iec(bytes: u64) -> String {
 /// # Examples
 /// ```
 /// use ttop::display_rules::format_bytes_column;
-/// assert_eq!(format_bytes_column(1500, 6), "  1.5K");
-/// assert_eq!(format_bytes_column(1_500_000_000, 6), "  1.5G");
+/// assert_eq!(format_bytes_column(1500, 6), " 1.50K");
+/// assert_eq!(format_bytes_column(1_500_000_000, 6), " 1.50G");
 /// ```
 #[must_use]
 pub fn format_bytes_column(bytes: u64, width: usize) -> String {
@@ -374,7 +374,7 @@ pub fn truncate(s: &str, max_width: usize, strategy: TruncateStrategy) -> String
 /// # Examples
 /// ```
 /// use ttop::display_rules::truncate_path;
-/// assert_eq!(truncate_path("/home/user/documents/file.txt", 20), "/home/u…/file.txt");
+/// assert_eq!(truncate_path("/home/user/documents/file.txt", 20), "/home/user…/file.txt");
 /// assert_eq!(truncate_path("/a/b/c.txt", 20), "/a/b/c.txt");
 /// ```
 #[must_use]
