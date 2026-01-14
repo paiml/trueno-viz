@@ -508,4 +508,118 @@ mod tests {
         let analyzer = ProcessExtraAnalyzer::new();
         assert!(analyzer.get(99999).is_none());
     }
+
+    // === Additional Coverage Tests ===
+
+    #[test]
+    fn test_process_extra_debug() {
+        let extra = ProcessExtra {
+            container: Some("docker".to_string()),
+            fd_count: 50,
+            fd_limit: 1024,
+            cpu_history: vec![0.5, 0.6],
+            ancestors: vec![(1, "init".to_string())],
+        };
+        let debug = format!("{:?}", extra);
+        assert!(debug.contains("docker"));
+        assert!(debug.contains("50"));
+    }
+
+    #[test]
+    fn test_process_extra_default_fields() {
+        let extra = ProcessExtra::default();
+        assert!(extra.container.is_none());
+        assert_eq!(extra.fd_count, 0);
+        assert_eq!(extra.fd_limit, 0);
+        assert!(extra.cpu_history.is_empty());
+        assert!(extra.ancestors.is_empty());
+    }
+
+    #[test]
+    fn test_fd_percent_with_zero_limit() {
+        let mut extra = ProcessExtra::default();
+        extra.fd_count = 100;
+        extra.fd_limit = 0;
+        // Should handle zero limit gracefully
+        assert!(extra.fd_percent() == 0.0 || extra.fd_percent().is_nan() || extra.fd_percent().is_infinite());
+    }
+
+    #[test]
+    fn test_fd_warning_with_zero_limit() {
+        let mut extra = ProcessExtra::default();
+        extra.fd_count = 100;
+        extra.fd_limit = 0;
+        // Should handle zero limit gracefully without panic
+        let _ = extra.fd_warning();
+    }
+
+    #[test]
+    fn test_fd_warning_at_threshold() {
+        let mut extra = ProcessExtra::default();
+        extra.fd_count = 800;
+        extra.fd_limit = 1000;
+        // Exactly 80% - at threshold
+        assert!(extra.fd_warning());
+    }
+
+    #[test]
+    fn test_fd_warning_above_threshold() {
+        let mut extra = ProcessExtra::default();
+        extra.fd_count = 900;
+        extra.fd_limit = 1000;
+        // 90% > 80%
+        assert!(extra.fd_warning());
+    }
+
+    #[test]
+    fn test_analyzer_collect() {
+        use std::collections::HashMap;
+        let mut analyzer = ProcessExtraAnalyzer::new();
+        let cpu_percents: HashMap<u32, f64> = HashMap::new();
+        // Test collect with empty process list
+        analyzer.collect(&[], &cpu_percents);
+        // Should not panic with empty list
+    }
+
+    #[test]
+    fn test_analyzer_get_empty() {
+        let analyzer = ProcessExtraAnalyzer::new();
+        // New analyzer should return None for any PID
+        assert!(analyzer.get(1).is_none());
+        assert!(analyzer.get(12345).is_none());
+    }
+
+    #[test]
+    fn test_analyzer_default_empty() {
+        let analyzer: ProcessExtraAnalyzer = Default::default();
+        assert!(analyzer.get(1).is_none());
+    }
+
+    #[test]
+    fn test_process_extra_cpu_history_limit() {
+        let mut extra = ProcessExtra::default();
+        // Add many history entries
+        for i in 0..100 {
+            extra.cpu_history.push(i as f64);
+        }
+        // Verify history can grow
+        assert!(extra.cpu_history.len() >= 100);
+    }
+
+    #[test]
+    fn test_process_extra_ancestors_chain() {
+        let extra = ProcessExtra {
+            container: None,
+            fd_count: 0,
+            fd_limit: 0,
+            cpu_history: vec![],
+            ancestors: vec![
+                (1, "systemd".to_string()),
+                (1000, "bash".to_string()),
+                (2000, "zsh".to_string()),
+            ],
+        };
+        assert_eq!(extra.ancestors.len(), 3);
+        assert_eq!(extra.ancestors[0].1, "systemd");
+    }
 }

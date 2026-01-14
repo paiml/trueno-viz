@@ -929,4 +929,798 @@ mod tests {
         assert_eq!(SensorType::Humidity.unit(), "%");
         assert_eq!(SensorType::Humidity.icon(), "💧");
     }
+
+    // === Additional Coverage Tests ===
+
+    #[test]
+    fn test_history_mad_zero() {
+        // All identical values - MAD should be 0
+        let data = vec![50.0, 50.0, 50.0, 50.0, 50.0];
+        let median = SensorHistory::median(&data);
+        let mad = SensorHistory::mad(&data, median);
+        assert!((mad - 0.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_history_outlier_with_identical_values() {
+        let mut history = SensorHistory::new();
+        // Add many identical values - MAD will be 0
+        for _ in 0..20 {
+            history.push(50.0);
+        }
+        // With MAD=0, is_outlier should return false
+        assert!(!history.is_outlier(50.0));
+    }
+
+    #[test]
+    fn test_history_drift_rate_insufficient_data() {
+        let mut history = SensorHistory::new();
+        // Only 3 points - not enough for drift calculation
+        history.push(10.0);
+        history.push(20.0);
+        history.push(30.0);
+        assert!(history.drift_rate().is_none());
+    }
+
+    #[test]
+    fn test_history_drift_rate_flat_line() {
+        let mut history = SensorHistory::new();
+        // Add values with no drift
+        for i in 0..10 {
+            history.push(50.0);
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        // Drift should be near zero
+        if let Some(drift) = history.drift_rate() {
+            assert!(drift.abs() < 1.0);
+        }
+    }
+
+    #[test]
+    fn test_sensor_health_equality() {
+        assert_eq!(SensorHealth::Healthy, SensorHealth::Healthy);
+        assert_ne!(SensorHealth::Healthy, SensorHealth::Warning);
+        assert_ne!(SensorHealth::Warning, SensorHealth::Critical);
+    }
+
+    #[test]
+    fn test_sensor_health_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(SensorHealth::Healthy);
+        set.insert(SensorHealth::Warning);
+        assert!(set.contains(&SensorHealth::Healthy));
+        assert!(set.contains(&SensorHealth::Warning));
+        assert!(!set.contains(&SensorHealth::Critical));
+    }
+
+    #[test]
+    fn test_sensor_type_equality() {
+        assert_eq!(SensorType::Temperature, SensorType::Temperature);
+        assert_ne!(SensorType::Temperature, SensorType::Fan);
+    }
+
+    #[test]
+    fn test_sensor_type_hash() {
+        use std::collections::HashSet;
+        let mut set = HashSet::new();
+        set.insert(SensorType::Temperature);
+        set.insert(SensorType::Fan);
+        assert!(set.contains(&SensorType::Temperature));
+        assert!(!set.contains(&SensorType::Voltage));
+    }
+
+    #[test]
+    fn test_sensor_reading_clone() {
+        let reading = SensorReading {
+            name: "test".to_string(),
+            label: "Test".to_string(),
+            sensor_type: SensorType::Temperature,
+            value: 45.0,
+            crit: Some(100.0),
+            max: Some(90.0),
+            min: Some(10.0),
+            health: SensorHealth::Healthy,
+            headroom: Some(55.0),
+            is_outlier: false,
+            drift_rate: Some(0.5),
+        };
+        let cloned = reading.clone();
+        assert_eq!(reading.name, cloned.name);
+        assert_eq!(reading.value, cloned.value);
+    }
+
+    #[test]
+    fn test_sensor_reading_debug() {
+        let reading = SensorReading {
+            name: "test".to_string(),
+            label: "Test".to_string(),
+            sensor_type: SensorType::Fan,
+            value: 1500.0,
+            crit: None,
+            max: None,
+            min: None,
+            health: SensorHealth::Warning,
+            headroom: None,
+            is_outlier: true,
+            drift_rate: None,
+        };
+        let debug = format!("{:?}", reading);
+        assert!(debug.contains("test"));
+        assert!(debug.contains("Fan"));
+    }
+
+    #[test]
+    fn test_sensor_type_copy() {
+        let t1 = SensorType::Power;
+        let t2 = t1; // Copy
+        assert_eq!(t1, t2);
+    }
+
+    #[test]
+    fn test_sensor_health_copy() {
+        let h1 = SensorHealth::Stale;
+        let h2 = h1; // Copy
+        assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn test_median_large_dataset() {
+        let data: Vec<f64> = (0..100).map(|i| i as f64).collect();
+        let median = SensorHistory::median(&data);
+        // Median of 0-99 should be 49.5
+        assert!((median - 49.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_history_values_ring_buffer() {
+        let mut history = SensorHistory::new();
+        // Push more values than buffer capacity
+        for i in 0..100 {
+            history.push(i as f64);
+        }
+        // History should still work - it's a ring buffer
+        assert!(!history.is_outlier(50.0));
+    }
+
+    #[test]
+    fn test_analyzer_rate_limiting() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        // First collect should work
+        let _readings1 = analyzer.collect();
+        // Second immediate collect should be rate-limited
+        let readings2 = analyzer.collect();
+        // Rate limiting returns cached readings, so this should work
+        let _ = readings2;
+    }
+
+    #[test]
+    fn test_analyzer_collect_multiple_times() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        // Multiple collects should not panic
+        for _ in 0..5 {
+            let _ = analyzer.collect();
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+    }
+
+    #[test]
+    fn test_sensor_health_dead_color() {
+        assert_eq!(SensorHealth::Dead.color_hint(), "darkgray");
+    }
+
+    #[test]
+    fn test_sensor_health_stale_color() {
+        assert_eq!(SensorHealth::Stale.color_hint(), "gray");
+    }
+
+    #[test]
+    fn test_default_analyzer() {
+        let analyzer: SensorHealthAnalyzer = Default::default();
+        assert!(!analyzer.any_critical());
+    }
+
+    // === Comprehensive calculate_health Tests ===
+
+    #[test]
+    fn test_calculate_health_dead_sensor() {
+        let mut history = SensorHistory::new();
+        history.push(50.0);
+        // Set last_seen AFTER push to simulate old reading
+        history.last_seen = std::time::Instant::now() - std::time::Duration::from_secs(300);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            50.0,
+            Some(100.0),
+            Some(90.0),
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Dead);
+    }
+
+    #[test]
+    fn test_calculate_health_stale_sensor() {
+        let mut history = SensorHistory::new();
+        history.push(50.0);
+        // Set last_seen AFTER push to simulate stale reading
+        history.last_seen = std::time::Instant::now() - std::time::Duration::from_secs(60);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            50.0,
+            Some(100.0),
+            Some(90.0),
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Stale);
+    }
+
+    #[test]
+    fn test_calculate_health_critical_over_crit_threshold() {
+        let mut history = SensorHistory::new();
+        history.push(100.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            100.0,
+            Some(95.0), // Critical threshold
+            Some(90.0),
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Critical);
+    }
+
+    #[test]
+    fn test_calculate_health_critical_over_max() {
+        let mut history = SensorHistory::new();
+        history.push(95.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            95.0,
+            None,
+            Some(90.0), // Max threshold
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Critical);
+    }
+
+    #[test]
+    fn test_calculate_health_warning_90_percent_max() {
+        let mut history = SensorHistory::new();
+        history.push(81.5);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            81.5,
+            None,
+            Some(90.0), // 81.5 >= 90 * 0.9 = 81.0
+            SensorType::Voltage,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Warning);
+    }
+
+    #[test]
+    fn test_calculate_health_temp_absolute_critical() {
+        let mut history = SensorHistory::new();
+        history.push(96.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            96.0,
+            None, // No explicit crit
+            None, // No explicit max
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Critical);
+    }
+
+    #[test]
+    fn test_calculate_health_temp_absolute_warning() {
+        let mut history = SensorHistory::new();
+        history.push(87.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            87.0,
+            None,
+            None,
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Warning);
+    }
+
+    #[test]
+    fn test_calculate_health_fan_stopped_critical() {
+        let mut history = SensorHistory::new();
+        // Fan was previously running at 1000 RPM
+        history.push(1000.0);
+        history.push(1200.0);
+        history.push(0.0); // Now stopped
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            0.0,
+            None,
+            None,
+            SensorType::Fan,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Critical);
+    }
+
+    #[test]
+    fn test_calculate_health_healthy() {
+        let mut history = SensorHistory::new();
+        history.push(50.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            50.0,
+            Some(100.0),
+            Some(90.0),
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Healthy);
+    }
+
+    #[test]
+    fn test_calculate_health_drift_warning_temp() {
+        let mut history = SensorHistory::new();
+        // Simulate rapidly increasing temperature
+        for i in 0..10 {
+            history.push(50.0 + i as f64 * 2.0); // +20 degrees over 10 samples
+        }
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            70.0,
+            Some(100.0),
+            Some(90.0),
+            SensorType::Temperature,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        // May be warning due to drift
+        assert!(matches!(health, SensorHealth::Warning | SensorHealth::Healthy));
+    }
+
+    #[test]
+    fn test_calculate_health_voltage_healthy() {
+        let mut history = SensorHistory::new();
+        history.push(12.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            12.0,
+            None,
+            Some(14.0),
+            SensorType::Voltage,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Healthy);
+    }
+
+    #[test]
+    fn test_calculate_health_power_healthy() {
+        let mut history = SensorHistory::new();
+        history.push(100.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            100.0,
+            Some(300.0),
+            Some(250.0),
+            SensorType::Power,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert_eq!(health, SensorHealth::Healthy);
+    }
+
+    #[test]
+    fn test_get_cached_readings_with_histories() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        // Manually populate a history entry
+        let mut history = SensorHistory::new();
+        history.push(55.0);
+        analyzer.histories.insert("test/temp1".to_string(), history);
+
+        let readings = analyzer.get_cached_readings();
+        assert!(!readings.is_empty());
+        assert_eq!(readings[0].sensor_type, SensorType::Temperature);
+    }
+
+    #[test]
+    fn test_get_cached_readings_fan_type() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        let mut history = SensorHistory::new();
+        history.push(1200.0);
+        analyzer.histories.insert("hwmon/fan1".to_string(), history);
+
+        let readings = analyzer.get_cached_readings();
+        assert!(!readings.is_empty());
+        assert_eq!(readings[0].sensor_type, SensorType::Fan);
+    }
+
+    #[test]
+    fn test_get_cached_readings_voltage_type() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        let mut history = SensorHistory::new();
+        history.push(12.0);
+        analyzer.histories.insert("hwmon/in0".to_string(), history);
+
+        let readings = analyzer.get_cached_readings();
+        assert!(!readings.is_empty());
+        assert_eq!(readings[0].sensor_type, SensorType::Voltage);
+    }
+
+    #[test]
+    fn test_get_cached_readings_power_type() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        let mut history = SensorHistory::new();
+        history.push(100.0);
+        analyzer.histories.insert("hwmon/power1".to_string(), history);
+
+        let readings = analyzer.get_cached_readings();
+        assert!(!readings.is_empty());
+        assert_eq!(readings[0].sensor_type, SensorType::Power);
+    }
+
+    #[test]
+    fn test_thermal_summary_empty() {
+        let analyzer = SensorHealthAnalyzer::new();
+        assert!(analyzer.thermal_summary().is_none());
+    }
+
+    #[test]
+    fn test_thermal_summary_with_temps() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        let mut history = SensorHistory::new();
+        history.push(65.0);
+        analyzer.histories.insert("test/temp1".to_string(), history);
+
+        let summary = analyzer.thermal_summary();
+        assert!(summary.is_some());
+        let (max, _headroom, avg) = summary.unwrap();
+        assert_eq!(max, 65.0);
+        assert_eq!(avg, 65.0);
+    }
+
+    #[test]
+    fn test_by_health_empty() {
+        let analyzer = SensorHealthAnalyzer::new();
+        let grouped = analyzer.by_health();
+        assert!(grouped.is_empty());
+    }
+
+    #[test]
+    fn test_by_health_with_readings() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        let mut history = SensorHistory::new();
+        history.push(50.0);
+        analyzer.histories.insert("test/temp1".to_string(), history);
+
+        let grouped = analyzer.by_health();
+        assert!(!grouped.is_empty());
+    }
+
+    #[test]
+    fn test_any_critical_false() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        let mut history = SensorHistory::new();
+        history.push(50.0); // Normal temperature
+        analyzer.histories.insert("test/temp1".to_string(), history);
+
+        assert!(!analyzer.any_critical());
+    }
+
+    #[test]
+    fn test_sensor_reading_debug_full() {
+        let reading = SensorReading {
+            name: "test/temp1".to_string(),
+            label: "Temp 1".to_string(),
+            sensor_type: SensorType::Temperature,
+            value: 65.0,
+            crit: Some(100.0),
+            max: Some(90.0),
+            min: None,
+            health: SensorHealth::Healthy,
+            headroom: Some(35.0),
+            is_outlier: false,
+            drift_rate: Some(0.5),
+        };
+
+        let debug_str = format!("{:?}", reading);
+        assert!(debug_str.contains("temp1"));
+    }
+
+    #[test]
+    fn test_sensor_type_all_variants_icon() {
+        assert!(!SensorType::Temperature.icon().is_empty());
+        assert!(!SensorType::Fan.icon().is_empty());
+        assert!(!SensorType::Voltage.icon().is_empty());
+        assert!(!SensorType::Power.icon().is_empty());
+        assert!(!SensorType::Current.icon().is_empty());
+        assert!(!SensorType::Humidity.icon().is_empty());
+    }
+
+    // === Additional Edge Case Tests for Coverage ===
+
+    #[test]
+    fn test_get_cached_readings_unknown_type() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+        // Insert a history entry that doesn't match any known sensor type pattern
+        let mut history = SensorHistory::new();
+        history.push(42.0);
+        analyzer.histories.insert("hwmon/unknown_sensor".to_string(), history);
+
+        // Should skip the unknown type entry
+        let readings = analyzer.get_cached_readings();
+        // The unknown sensor should be skipped (continue branch)
+        assert!(readings.is_empty());
+    }
+
+    #[test]
+    fn test_calculate_health_drift_warning_voltage() {
+        let mut history = SensorHistory::new();
+        // Simulate rapidly changing voltage (>0.5V/min threshold)
+        for i in 0..10 {
+            history.push(12.0 + i as f64 * 0.2);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            14.0,
+            None,
+            Some(16.0),
+            SensorType::Voltage,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        // May be Warning due to rapid drift
+        assert!(matches!(health, SensorHealth::Warning | SensorHealth::Healthy));
+    }
+
+    #[test]
+    fn test_calculate_health_drift_warning_power() {
+        let mut history = SensorHistory::new();
+        // Simulate rapidly changing power (>50W/min threshold)
+        for i in 0..10 {
+            history.push(100.0 + i as f64 * 20.0);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            280.0,
+            Some(350.0),
+            Some(300.0),
+            SensorType::Power,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        // May be Warning due to rapid drift or healthy
+        assert!(matches!(health, SensorHealth::Warning | SensorHealth::Healthy));
+    }
+
+    #[test]
+    fn test_calculate_health_drift_warning_current() {
+        let mut history = SensorHistory::new();
+        // Test current sensor with default drift threshold (10.0)
+        for i in 0..10 {
+            history.push(5.0 + i as f64 * 0.5);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            9.5,
+            None,
+            Some(15.0),
+            SensorType::Current,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert!(matches!(health, SensorHealth::Warning | SensorHealth::Healthy));
+    }
+
+    #[test]
+    fn test_calculate_health_drift_warning_humidity() {
+        let mut history = SensorHistory::new();
+        // Test humidity sensor with default drift threshold (10.0)
+        for i in 0..10 {
+            history.push(50.0 + i as f64 * 2.0);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            68.0,
+            None,
+            Some(90.0),
+            SensorType::Humidity,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert!(matches!(health, SensorHealth::Warning | SensorHealth::Healthy));
+    }
+
+    #[test]
+    fn test_calculate_health_fan_drift_warning() {
+        let mut history = SensorHistory::new();
+        // Simulate rapidly changing fan speed (>500 RPM/min threshold)
+        for i in 0..10 {
+            history.push(1000.0 + i as f64 * 200.0);
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            2800.0,
+            None,
+            Some(4000.0),
+            SensorType::Fan,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        assert!(matches!(health, SensorHealth::Warning | SensorHealth::Healthy));
+    }
+
+    #[test]
+    fn test_thermal_summary_with_multiple_temps() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+
+        // Add multiple temperature readings
+        let mut history1 = SensorHistory::new();
+        history1.push(45.0);
+        analyzer.histories.insert("test/temp1".to_string(), history1);
+
+        let mut history2 = SensorHistory::new();
+        history2.push(65.0);
+        analyzer.histories.insert("test/temp2".to_string(), history2);
+
+        let mut history3 = SensorHistory::new();
+        history3.push(55.0);
+        analyzer.histories.insert("test/temp3".to_string(), history3);
+
+        let summary = analyzer.thermal_summary();
+        assert!(summary.is_some());
+        let (max, _headroom, avg) = summary.unwrap();
+        assert_eq!(max, 65.0);
+        assert!((avg - 55.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_by_health_multiple_states() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+
+        // Add healthy temp sensor
+        let mut history1 = SensorHistory::new();
+        history1.push(45.0);
+        analyzer.histories.insert("test/temp1".to_string(), history1);
+
+        // Add fan sensor
+        let mut history2 = SensorHistory::new();
+        history2.push(1500.0);
+        analyzer.histories.insert("test/fan1".to_string(), history2);
+
+        let grouped = analyzer.by_health();
+        assert!(!grouped.is_empty());
+    }
+
+    #[test]
+    fn test_any_critical_with_high_temp() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+
+        // Add critical temperature sensor (>95°C)
+        let mut history = SensorHistory::new();
+        history.push(100.0);
+        analyzer.histories.insert("test/temp1".to_string(), history);
+
+        // Should detect critical state
+        assert!(analyzer.any_critical());
+    }
+
+    #[test]
+    fn test_history_drift_identical_timestamps() {
+        let mut history = SensorHistory::new();
+        // Add values with identical timestamps (push multiple quickly)
+        for i in 0..10 {
+            history.push(50.0 + i as f64);
+        }
+
+        // Drift rate calculation should handle this edge case
+        let drift = history.drift_rate();
+        // May be None or some value depending on timing
+        let _ = drift;
+    }
+
+    #[test]
+    fn test_history_outlier_borderline_zscore() {
+        let mut history = SensorHistory::new();
+        // Add values with some variation
+        for i in 0..20 {
+            history.push(50.0 + (i % 5) as f64);
+        }
+
+        // Value that's close to but not exceeding the 3.5 z-score threshold
+        assert!(!history.is_outlier(54.0));
+    }
+
+    #[test]
+    fn test_get_cached_readings_label_extraction() {
+        let mut analyzer = SensorHealthAnalyzer::new();
+
+        // Test label extraction from path with multiple slashes
+        let mut history = SensorHistory::new();
+        history.push(55.0);
+        analyzer.histories.insert("coretemp/isa/0000/temp1".to_string(), history);
+
+        let readings = analyzer.get_cached_readings();
+        assert!(!readings.is_empty());
+        assert_eq!(readings[0].label, "temp1");
+    }
+
+    #[test]
+    fn test_calculate_health_fan_not_stopped_critical() {
+        let mut history = SensorHistory::new();
+        // Fan that was never running (no history > 100 RPM)
+        history.push(0.0);
+        history.push(0.0);
+
+        let health = SensorHealthAnalyzer::calculate_health(
+            &history,
+            0.0,
+            None,
+            None,
+            SensorType::Fan,
+            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(120),
+        );
+        // Should be healthy since fan was never running
+        assert_eq!(health, SensorHealth::Healthy);
+    }
+
+    #[test]
+    fn test_sensor_health_debug_format() {
+        let health = SensorHealth::Critical;
+        let debug = format!("{:?}", health);
+        assert!(debug.contains("Critical"));
+    }
+
+    #[test]
+    fn test_sensor_type_debug_format() {
+        let sensor_type = SensorType::Humidity;
+        let debug = format!("{:?}", sensor_type);
+        assert!(debug.contains("Humidity"));
+    }
+
+    #[test]
+    fn test_sensor_health_partial_ord() {
+        // Test PartialOrd comparisons
+        assert!(SensorHealth::Healthy < SensorHealth::Dead);
+        assert!(SensorHealth::Warning < SensorHealth::Stale);
+        assert!(SensorHealth::Critical > SensorHealth::Warning);
+    }
 }

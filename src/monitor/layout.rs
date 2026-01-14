@@ -169,4 +169,62 @@ mod tests {
         manager.switch_to(999); // Should not panic
         assert_eq!(manager.current, 0);
     }
+
+    #[test]
+    fn test_preset_default_trait() {
+        let preset = Preset::default();
+        assert_eq!(preset.rows.len(), 3);
+    }
+
+    #[test]
+    fn test_layout_manager_default_trait() {
+        let manager = LayoutManager::default();
+        assert_eq!(manager.current().rows.len(), 3);
+    }
+
+    #[test]
+    fn test_preset_calculate_empty_row() {
+        let preset = Preset {
+            rows: vec![
+                LayoutRow {
+                    panels: vec![], // Empty row
+                    height: Constraint::Percentage(50),
+                },
+                LayoutRow {
+                    panels: vec!["cpu".to_string()],
+                    height: Constraint::Percentage(50),
+                },
+            ],
+        };
+        let area = Rect::new(0, 0, 100, 50);
+        let areas = preset.calculate(area);
+
+        assert_eq!(areas.len(), 2);
+        assert!(areas[0].is_empty()); // Empty row should produce empty vec
+        assert!(!areas[1].is_empty()); // Non-empty row should have areas
+    }
+
+    #[test]
+    fn test_preset_debug_clone() {
+        let preset = Preset::default();
+        let cloned = preset.clone();
+        let _ = format!("{:?}", cloned);
+    }
+
+    #[test]
+    fn test_layout_row_debug_clone() {
+        let row = LayoutRow {
+            panels: vec!["test".to_string()],
+            height: Constraint::Percentage(50),
+        };
+        let cloned = row.clone();
+        let _ = format!("{:?}", cloned);
+    }
+
+    #[test]
+    fn test_layout_manager_debug_clone() {
+        let manager = LayoutManager::new();
+        let cloned = manager.clone();
+        let _ = format!("{:?}", cloned);
+    }
 }

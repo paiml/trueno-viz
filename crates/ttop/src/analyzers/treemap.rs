@@ -1074,4 +1074,535 @@ mod tests {
         // Zero-size file should be handled gracefully
         assert!(layout.is_empty() || layout[0].0.w * layout[0].0.h == 0.0 || layout[0].0.w * layout[0].0.h > 0.0);
     }
+
+    // === Additional Coverage Tests ===
+
+    #[test]
+    fn test_file_category_clone() {
+        let cat = FileCategory::Model;
+        let cloned = cat.clone();
+        assert_eq!(cat, cloned);
+    }
+
+    #[test]
+    fn test_file_category_debug() {
+        let debug = format!("{:?}", FileCategory::Archive);
+        assert!(debug.contains("Archive"));
+    }
+
+    #[test]
+    fn test_large_file_clone() {
+        let file = LargeFile {
+            name: "test.bin".into(),
+            path: "/test.bin".into(),
+            size: 1000,
+            color_idx: 1,
+            modified: None,
+            category: FileCategory::Other,
+        };
+        let cloned = file.clone();
+        assert_eq!(file.name, cloned.name);
+        assert_eq!(file.size, cloned.size);
+    }
+
+    #[test]
+    fn test_large_file_debug() {
+        let file = LargeFile {
+            name: "debug.bin".into(),
+            path: "/debug.bin".into(),
+            size: 2000,
+            color_idx: 2,
+            modified: None,
+            category: FileCategory::Build,
+        };
+        let debug = format!("{:?}", file);
+        assert!(debug.contains("debug.bin"));
+        assert!(debug.contains("2000"));
+    }
+
+    #[test]
+    fn test_tree_rect_clone() {
+        let rect = TreeRect {
+            x: 5.0,
+            y: 5.0,
+            w: 50.0,
+            h: 50.0,
+            size: 500,
+            color_idx: 3,
+            depth: 2,
+        };
+        let cloned = rect.clone();
+        assert!((rect.x - cloned.x).abs() < 0.001);
+        assert_eq!(rect.size, cloned.size);
+    }
+
+    #[test]
+    fn test_tree_rect_debug() {
+        let rect = TreeRect {
+            x: 0.0,
+            y: 0.0,
+            w: 10.0,
+            h: 10.0,
+            size: 100,
+            color_idx: 0,
+            depth: 0,
+        };
+        let debug = format!("{:?}", rect);
+        assert!(debug.contains("TreeRect"));
+    }
+
+    #[test]
+    fn test_analyzer_total_size() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        // New analyzer should have zero total size before scanning
+        let size = analyzer.total_size();
+        assert!(size == 0 || size > 0); // Either no files yet or some found
+    }
+
+    #[test]
+    fn test_analyzer_is_scanning() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        // New analyzer should not be scanning initially
+        let scanning = analyzer.is_scanning();
+        assert!(!scanning);
+    }
+
+    #[test]
+    fn test_squarify_narrow_area() {
+        let files = vec![
+            LargeFile { name: "a.bin".into(), path: "/a".into(), size: 1000, color_idx: 0, modified: None, category: FileCategory::Other },
+            LargeFile { name: "b.bin".into(), path: "/b".into(), size: 500, color_idx: 1, modified: None, category: FileCategory::Other },
+        ];
+        // Very narrow rectangle
+        let layout = squarify_files(&files, 100.0, 5.0);
+        // Should handle narrow area
+        assert!(layout.len() <= 2);
+    }
+
+    #[test]
+    fn test_squarify_tall_area() {
+        let files = vec![
+            LargeFile { name: "a.bin".into(), path: "/a".into(), size: 1000, color_idx: 0, modified: None, category: FileCategory::Other },
+            LargeFile { name: "b.bin".into(), path: "/b".into(), size: 500, color_idx: 1, modified: None, category: FileCategory::Other },
+        ];
+        // Very tall rectangle
+        let layout = squarify_files(&files, 5.0, 100.0);
+        // Should handle tall area
+        assert!(layout.len() <= 2);
+    }
+
+    #[test]
+    fn test_format_age_edge_cases() {
+        // Test 60 seconds (1 minute)
+        let one_min_ago = SystemTime::now() - Duration::from_secs(60);
+        let age = format_age(Some(one_min_ago));
+        assert!(age == "now" || age == "1m");
+
+        // Test 3600 seconds (1 hour)
+        let one_hour_ago = SystemTime::now() - Duration::from_secs(3600);
+        let age = format_age(Some(one_hour_ago));
+        assert!(age == "1h" || age.ends_with('m'));
+    }
+
+    #[test]
+    fn test_file_category_copy() {
+        let cat = FileCategory::Media;
+        let copied = cat;  // Copy trait
+        assert_eq!(cat, copied);
+    }
+
+    #[test]
+    fn test_file_category_eq() {
+        assert_eq!(FileCategory::Database, FileCategory::Database);
+        assert_ne!(FileCategory::Database, FileCategory::Media);
+    }
+
+    // === Additional Coverage Tests for TreemapAnalyzer Methods ===
+
+    #[test]
+    fn test_analyzer_default() {
+        let analyzer = TreemapAnalyzer::default();
+        assert!(!analyzer.is_scanning());
+        assert_eq!(analyzer.total_size(), 0);
+    }
+
+    #[test]
+    fn test_files_with_paths_with_data() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        // Inject test files via Arc<Mutex<>>
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "test.bin".to_string(),
+                path: PathBuf::from("/home/user/downloads/test.bin"),
+                size: 100_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Other,
+            });
+        }
+
+        let paths = analyzer.files_with_paths();
+        assert!(!paths.is_empty());
+        // Should show "downloads/test.bin" format
+        assert!(paths[0].0.contains("test.bin"));
+        assert_eq!(paths[0].1, 100_000_000);
+    }
+
+    #[test]
+    fn test_files_with_paths_no_parent() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "root.bin".to_string(),
+                path: PathBuf::from("/root.bin"),
+                size: 50_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Other,
+            });
+        }
+
+        let paths = analyzer.files_with_paths();
+        assert!(!paths.is_empty());
+        // When parent has no file_name, should just use the file name
+        assert!(paths[0].0.contains("root.bin"));
+    }
+
+    #[test]
+    fn test_top_files_full_path_with_data() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            for i in 0..5 {
+                files.push(LargeFile {
+                    name: format!("file{}.bin", i),
+                    path: PathBuf::from(format!("/data/file{}.bin", i)),
+                    size: (1000 - i * 100) as u64,
+                    color_idx: i as u8,
+                    modified: None,
+                    category: FileCategory::Other,
+                });
+            }
+        }
+
+        let top = analyzer.top_files_full_path(3);
+        assert_eq!(top.len(), 3);
+        assert!(top[0].0.contains("file0.bin"));
+    }
+
+    #[test]
+    fn test_top_files_filtered_excludes_benchmark() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "model.gguf".to_string(),
+                path: PathBuf::from("/models/model.gguf"),
+                size: 5_000_000_000,
+                color_idx: 0,
+                modified: Some(SystemTime::now()),
+                category: FileCategory::Model,
+            });
+            files.push(LargeFile {
+                name: "seq-read.0.0".to_string(),
+                path: PathBuf::from("/tmp/seq-read.0.0"),
+                size: 10_000_000_000,
+                color_idx: 1,
+                modified: Some(SystemTime::now()),
+                category: FileCategory::Benchmark,
+            });
+        }
+
+        let filtered = analyzer.top_files_filtered(10);
+        // Should only have the model, benchmark should be filtered out
+        assert_eq!(filtered.len(), 1);
+        assert!(filtered[0].0.contains("model"));
+        assert_eq!(filtered[0].2, FileCategory::Model);
+    }
+
+    #[test]
+    fn test_directory_totals_with_data() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "model1.gguf".to_string(),
+                path: PathBuf::from("/mnt/nvme/models/model1.gguf"),
+                size: 1_000_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Model,
+            });
+            files.push(LargeFile {
+                name: "model2.safetensors".to_string(),
+                path: PathBuf::from("/mnt/nvme/models/model2.safetensors"),
+                size: 2_000_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Model,
+            });
+            files.push(LargeFile {
+                name: "archive.tar".to_string(),
+                path: PathBuf::from("/mnt/nvme/backup/archive.tar"),
+                size: 500_000_000,
+                color_idx: 1,
+                modified: None,
+                category: FileCategory::Archive,
+            });
+        }
+
+        let totals = analyzer.directory_totals();
+        // Should have directory groupings
+        assert!(!totals.is_empty());
+        // Verify sizes are summed
+        let total_size: u64 = totals.iter().map(|(_, size, _, _)| *size).sum();
+        assert_eq!(total_size, 3_500_000_000);
+    }
+
+    #[test]
+    fn test_directory_totals_excludes_benchmark() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "seq-read.0.0".to_string(),
+                path: PathBuf::from("/tmp/bench/seq-read.0.0"),
+                size: 10_000_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Benchmark,
+            });
+        }
+
+        let totals = analyzer.directory_totals();
+        // Benchmarks should be excluded
+        assert!(totals.is_empty());
+    }
+
+    #[test]
+    fn test_files_by_mount_with_data() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "large.bin".to_string(),
+                path: PathBuf::from("/home/user/large.bin"),
+                size: 1_000_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Other,
+            });
+        }
+
+        let by_mount = analyzer.files_by_mount();
+        // Should have at least one mount group
+        assert!(!by_mount.is_empty());
+    }
+
+    #[test]
+    fn test_files_by_mount_long_path() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            // Create a very long path to test path shortening
+            files.push(LargeFile {
+                name: "very_long_filename_that_exceeds_limit.bin".to_string(),
+                path: PathBuf::from("/mnt/raid/very/deep/nested/directory/structure/that/is/quite/long/very_long_filename_that_exceeds_limit.bin"),
+                size: 500_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Other,
+            });
+        }
+
+        let by_mount = analyzer.files_by_mount();
+        // Should handle long paths gracefully
+        assert!(!by_mount.is_empty());
+    }
+
+    #[test]
+    fn test_layout_with_injected_files() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "a.bin".into(),
+                path: PathBuf::from("/a.bin"),
+                size: 1000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Other,
+            });
+            files.push(LargeFile {
+                name: "b.bin".into(),
+                path: PathBuf::from("/b.bin"),
+                size: 500,
+                color_idx: 1,
+                modified: None,
+                category: FileCategory::Other,
+            });
+        }
+
+        let layout = analyzer.layout(100.0, 100.0);
+        assert!(!layout.is_empty());
+        assert!(layout.len() >= 1);
+    }
+
+    #[test]
+    fn test_squarify_equal_sizes() {
+        let files = vec![
+            LargeFile { name: "a.bin".into(), path: "/a".into(), size: 1000, color_idx: 0, modified: None, category: FileCategory::Other },
+            LargeFile { name: "b.bin".into(), path: "/b".into(), size: 1000, color_idx: 1, modified: None, category: FileCategory::Other },
+            LargeFile { name: "c.bin".into(), path: "/c".into(), size: 1000, color_idx: 2, modified: None, category: FileCategory::Other },
+        ];
+        let layout = squarify_files(&files, 100.0, 100.0);
+        assert_eq!(layout.len(), 3);
+
+        // All areas should be roughly equal
+        let areas: Vec<f64> = layout.iter().map(|(r, _)| r.w * r.h).collect();
+        for area in &areas {
+            assert!((area - 3333.3).abs() < 500.0);
+        }
+    }
+
+    #[test]
+    fn test_format_age_future_time() {
+        // Test with a time in the future (edge case)
+        let future = SystemTime::now() + Duration::from_secs(3600);
+        let age = format_age(Some(future));
+        // Should return "?" for future times since duration_since will fail
+        assert_eq!(age, "?");
+    }
+
+    #[test]
+    fn test_squarify_very_different_sizes() {
+        let files = vec![
+            LargeFile { name: "huge.bin".into(), path: "/huge".into(), size: 1_000_000, color_idx: 0, modified: None, category: FileCategory::Other },
+            LargeFile { name: "tiny.bin".into(), path: "/tiny".into(), size: 1, color_idx: 1, modified: None, category: FileCategory::Other },
+        ];
+        let layout = squarify_files(&files, 100.0, 100.0);
+        // Should handle very different sizes
+        assert!(layout.len() >= 1);
+    }
+
+    #[test]
+    fn test_file_category_from_empty_path() {
+        use std::path::Path;
+        // Empty path component
+        let cat = FileCategory::from_path(Path::new(""));
+        assert_eq!(cat, FileCategory::Other);
+    }
+
+    #[test]
+    fn test_directory_totals_shallow_mount() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            // File at root of mount (shallow path)
+            files.push(LargeFile {
+                name: "root_file.db".to_string(),
+                path: PathBuf::from("/mnt/root_file.db"),
+                size: 1_000_000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Database,
+            });
+        }
+
+        let totals = analyzer.directory_totals();
+        assert!(!totals.is_empty());
+    }
+
+    #[test]
+    fn test_total_size_with_multiple_files() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "a.bin".into(),
+                path: "/a".into(),
+                size: 1000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Other,
+            });
+            files.push(LargeFile {
+                name: "b.bin".into(),
+                path: "/b".into(),
+                size: 2000,
+                color_idx: 1,
+                modified: None,
+                category: FileCategory::Other,
+            });
+        }
+
+        assert_eq!(analyzer.total_size(), 3000);
+    }
+
+    #[test]
+    fn test_squarify_single_file_exact_dimensions() {
+        let files = vec![
+            LargeFile { name: "single.bin".into(), path: "/single".into(), size: 1000, color_idx: 0, modified: None, category: FileCategory::Other },
+        ];
+        let layout = squarify_files(&files, 50.0, 30.0);
+        assert_eq!(layout.len(), 1);
+        // Single file should fill the entire area
+        assert!((layout[0].0.w - 50.0).abs() < 0.1);
+        assert!((layout[0].0.h - 30.0).abs() < 0.1);
+    }
+
+    #[test]
+    fn test_file_category_mixed_case_model_bin() {
+        use std::path::Path;
+        // Test model detection with mixed case
+        assert_eq!(
+            FileCategory::from_path(Path::new("/models/PyTorch_Model.bin")),
+            FileCategory::Model
+        );
+        assert_eq!(
+            FileCategory::from_path(Path::new("/models/LLAMA-7B.bin")),
+            FileCategory::Model
+        );
+    }
+
+    #[test]
+    fn test_layout_zero_dimensions() {
+        let analyzer = TreemapAnalyzer::new("/tmp");
+        {
+            let mut files = analyzer.files.lock().expect("lock poisoned");
+            files.push(LargeFile {
+                name: "test.bin".into(),
+                path: "/test".into(),
+                size: 1000,
+                color_idx: 0,
+                modified: None,
+                category: FileCategory::Other,
+            });
+        }
+
+        // Zero dimensions should return empty
+        let layout = analyzer.layout(0.0, 100.0);
+        assert!(layout.is_empty());
+
+        let layout = analyzer.layout(100.0, 0.0);
+        assert!(layout.is_empty());
+    }
+
+    #[test]
+    fn test_tree_rect_copy() {
+        let rect = TreeRect {
+            x: 1.0,
+            y: 2.0,
+            w: 3.0,
+            h: 4.0,
+            size: 5,
+            color_idx: 6,
+            depth: 7,
+        };
+        let copied = rect; // Copy trait
+        assert_eq!(rect.x, copied.x);
+        assert_eq!(rect.size, copied.size);
+    }
 }

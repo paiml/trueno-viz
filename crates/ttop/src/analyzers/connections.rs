@@ -206,6 +206,10 @@ pub struct ConnectionAnalyzer {
     prev_queues: HashMap<ConnKey, (u64, u64)>, // (tx, rx)
     /// Current bandwidth deltas
     bandwidth_deltas: HashMap<ConnKey, (u64, u64)>, // (tx_delta, rx_delta)
+    /// Last collection time for rate limiting
+    last_collect: Instant,
+    /// Last inode map build time (expensive operation)
+    last_inode_map: Instant,
 }
 
 impl ConnectionAnalyzer {
@@ -217,11 +221,22 @@ impl ConnectionAnalyzer {
             dns_cache: HashMap::new(),
             prev_queues: HashMap::new(),
             bandwidth_deltas: HashMap::new(),
+            last_collect: Instant::now() - Duration::from_secs(10),
+            last_inode_map: Instant::now() - Duration::from_secs(60),
         }
     }
 
     /// Collect connection data
+    ///
+    /// Rate limited to avoid blocking the UI. Connection parsing happens
+    /// at most every 1 second. Inode mapping (very expensive) at most every 10 seconds.
     pub fn collect(&mut self) {
+        // Rate limit connection collection to 1 second
+        if self.last_collect.elapsed() < Duration::from_secs(1) {
+            return;
+        }
+        self.last_collect = Instant::now();
+
         self.connections.clear();
         self.bandwidth_deltas.clear();
 
@@ -237,8 +252,12 @@ impl ConnectionAnalyzer {
                 self.parse_proc_net(&content, Protocol::Udp);
             }
 
-            // Build inode -> pid mapping (expensive, do periodically)
-            self.build_inode_map();
+            // Build inode -> pid mapping (VERY expensive - scans all /proc/*/fd)
+            // Only do this every 10 seconds
+            if self.last_inode_map.elapsed() >= Duration::from_secs(10) {
+                self.build_inode_map();
+                self.last_inode_map = Instant::now();
+            }
         }
 
         #[cfg(target_os = "macos")]
@@ -1058,4 +1077,242 @@ mod tests {
         // Unknown IP should return None
         assert!(analyzer.get_hostname(ip).is_none());
     }
+
+    // === Additional Coverage Tests ===
+
+    #[test]
+    fn test_conn_state_debug() {
+        let debug = format!("{:?}", ConnState::Established);
+        assert!(debug.contains("Established"));
+    }
+
+    #[test]
+    fn test_conn_state_clone() {
+        let state = ConnState::Listen;
+        let cloned = state.clone();
+        assert_eq!(state, cloned);
+    }
+
+    #[test]
+    fn test_conn_state_all_variants() {
+        // Test all state variants can be created
+        let _states = [
+            ConnState::Listen,
+            ConnState::Established,
+            ConnState::TimeWait,
+            ConnState::CloseWait,
+            ConnState::SynSent,
+            ConnState::SynRecv,
+            ConnState::FinWait1,
+            ConnState::FinWait2,
+            ConnState::LastAck,
+            ConnState::Closing,
+            ConnState::Close,
+            ConnState::Unknown,
+        ];
+    }
+
+    #[test]
+    fn test_connection_clone() {
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(127, 0, 0, 1),
+            local_port: 8080,
+            remote_ip: Ipv4Addr::new(192, 168, 1, 1),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 12345,
+            uid: 1000,
+            tx_queue: 100,
+            rx_queue: 50,
+        };
+        let cloned = conn.clone();
+        assert_eq!(conn.local_port, cloned.local_port);
+        assert_eq!(conn.inode, cloned.inode);
+    }
+
+    #[test]
+    fn test_connection_debug() {
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(127, 0, 0, 1),
+            local_port: 80,
+            remote_ip: Ipv4Addr::LOCALHOST,
+            remote_port: 12345,
+            state: ConnState::Listen,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        let debug = format!("{:?}", conn);
+        assert!(debug.contains("80"));
+        assert!(debug.contains("Listen"));
+    }
+
+    #[test]
+    fn test_connection_is_outbound() {
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(127, 0, 0, 1),
+            local_port: 50000, // High port
+            remote_ip: Ipv4Addr::new(8, 8, 8, 8),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        assert!(conn.is_outbound());
+    }
+
+    #[test]
+    fn test_connection_is_listening() {
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(0, 0, 0, 0),
+            local_port: 80,
+            remote_ip: Ipv4Addr::UNSPECIFIED,
+            remote_port: 0,
+            state: ConnState::Listen,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        assert!(conn.is_listening());
+    }
+
+    #[test]
+    fn test_connection_remote_addr() {
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(127, 0, 0, 1),
+            local_port: 8080,
+            remote_ip: Ipv4Addr::new(192, 168, 1, 100),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        assert_eq!(conn.remote_addr(), "192.168.1.100:443");
+    }
+
+    #[test]
+    fn test_connection_remote_addr_star() {
+        let conn = Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(0, 0, 0, 0),
+            local_port: 80,
+            remote_ip: Ipv4Addr::UNSPECIFIED,
+            remote_port: 0,
+            state: ConnState::Listen,
+            inode: 0,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        };
+        assert_eq!(conn.remote_addr(), "*");
+    }
+
+    #[test]
+    fn test_analyzer_collect_connections() {
+        let mut analyzer = ConnectionAnalyzer::new();
+        // Should not panic
+        analyzer.collect();
+        // Get connections
+        let conns = analyzer.connections();
+        // May or may not have connections depending on system
+        let _ = conns;
+    }
+
+    #[test]
+    fn test_analyzer_count_by_state() {
+        let mut analyzer = ConnectionAnalyzer::new();
+        analyzer.collect();
+        // Get count by state
+        let counts = analyzer.count_by_state();
+        // Should return a valid map (possibly empty)
+        let _ = counts;
+    }
+
+    #[test]
+    fn test_analyzer_active_connections() {
+        let mut analyzer = ConnectionAnalyzer::new();
+        analyzer.collect();
+        // Get active connections
+        let active = analyzer.active_connections();
+        // Should return a vec
+        let _ = active;
+    }
+
+    #[test]
+    fn test_analyzer_listening() {
+        let mut analyzer = ConnectionAnalyzer::new();
+        analyzer.collect();
+        // Get listening connections
+        let listening = analyzer.listening();
+        // Should return a vec
+        let _ = listening;
+    }
+
+    #[test]
+    fn test_default_analyzer() {
+        let analyzer: ConnectionAnalyzer = Default::default();
+        let conns = analyzer.connections();
+        // Default analyzer should have empty connections
+        assert!(conns.is_empty());
+    }
+
+    #[test]
+    fn test_protocol_debug() {
+        let debug = format!("{:?}", Protocol::Tcp);
+        assert!(debug.contains("Tcp"));
+        let debug = format!("{:?}", Protocol::Udp);
+        assert!(debug.contains("Udp"));
+    }
+
+    #[test]
+    fn test_collect_rate_limiting() {
+        let mut analyzer = ConnectionAnalyzer::new();
+
+        // First collect should work (we initialized with last_collect in the past)
+        analyzer.collect();
+        let count1 = analyzer.connections().len();
+
+        // Immediate second collect should be rate-limited (no actual collection)
+        // Set up data that would change if collection happened
+        analyzer.connections.push(Connection {
+            protocol: Protocol::Tcp,
+            local_ip: Ipv4Addr::new(1, 2, 3, 4),
+            local_port: 12345,
+            remote_ip: Ipv4Addr::new(5, 6, 7, 8),
+            remote_port: 443,
+            state: ConnState::Established,
+            inode: 99999,
+            uid: 0,
+            tx_queue: 0,
+            rx_queue: 0,
+        });
+        let count_with_fake = analyzer.connections().len();
+
+        // Collect should be rate-limited - won't clear connections
+        analyzer.collect();
+
+        // If rate limiting works, fake connection should still be there
+        // (collect() returns early without clearing)
+        assert_eq!(analyzer.connections().len(), count_with_fake);
+    }
+
+    #[test]
+    fn test_collect_rate_limiting_fields() {
+        let analyzer = ConnectionAnalyzer::new();
+        // Verify rate limiting fields are initialized to allow immediate first collect
+        assert!(analyzer.last_collect.elapsed() >= Duration::from_secs(1));
+        assert!(analyzer.last_inode_map.elapsed() >= Duration::from_secs(10));
+    }
+
 }

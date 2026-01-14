@@ -21,6 +21,91 @@ use trueno_viz::monitor::collectors::AppleGpuCollector;
 use crate::analyzers::{ContainerAnalyzer, DiskEntropyAnalyzer, DiskIoAnalyzer, GpuProcessAnalyzer, NetworkStatsAnalyzer, PsiAnalyzer, SensorHealthAnalyzer, StorageAnalyzer, SwapAnalyzer, ThrashingSeverity};
 use crate::state::{PanelType, ProcessSortColumn, SignalType};
 
+/// Allocation-free case-insensitive substring search.
+///
+/// Checks if `haystack` contains `needle` (which must already be lowercase).
+/// This avoids the O(n) allocation of `haystack.to_lowercase()` on every call.
+#[inline]
+fn contains_ignore_case(haystack: &str, needle_lower: &str) -> bool {
+    if needle_lower.is_empty() {
+        return true;
+    }
+    if haystack.len() < needle_lower.len() {
+        return false;
+    }
+
+    // Fast path for ASCII-only strings (common for process names)
+    let needle_bytes = needle_lower.as_bytes();
+    let haystack_bytes = haystack.as_bytes();
+
+    'outer: for i in 0..=(haystack_bytes.len() - needle_bytes.len()) {
+        for (j, &nb) in needle_bytes.iter().enumerate() {
+            let hb = haystack_bytes[i + j];
+            // Compare lowercase ASCII bytes
+            let hb_lower = if hb.is_ascii_uppercase() { hb + 32 } else { hb };
+            if hb_lower != nb {
+                continue 'outer;
+            }
+        }
+        return true;
+    }
+    false
+}
+
+/// Mock GPU data for testing panel rendering
+#[derive(Debug, Clone)]
+pub struct MockGpuData {
+    pub name: String,
+    pub gpu_util: f64,
+    pub vram_used: u64,
+    pub vram_total: u64,
+    pub temperature: f64,
+    pub power_watts: u32,
+    pub power_limit_watts: u32,
+    pub clock_mhz: u32,
+    pub history: Vec<f64>,
+}
+
+/// Mock battery data for testing panel rendering
+#[derive(Debug, Clone)]
+pub struct MockBatteryData {
+    pub percent: f64,
+    pub charging: bool,
+    pub time_remaining_mins: Option<u32>,
+    pub power_watts: f64,
+    pub health_percent: f64,
+    pub cycle_count: u32,
+}
+
+/// Mock sensor data for testing panel rendering
+#[derive(Debug, Clone)]
+pub struct MockSensorData {
+    pub name: String,
+    pub label: String,
+    pub value: f64,
+    pub max: Option<f64>,
+    pub crit: Option<f64>,
+    pub sensor_type: MockSensorType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum MockSensorType {
+    Temperature,
+    Fan,
+    Voltage,
+    Power,
+}
+
+/// Mock container data for testing panel rendering
+#[derive(Debug, Clone)]
+pub struct MockContainerData {
+    pub name: String,
+    pub status: String,
+    pub cpu_percent: f64,
+    pub mem_used: u64,
+    pub mem_limit: u64,
+}
+
 /// Panel visibility state
 #[derive(Debug, Clone, Copy)]
 pub struct PanelVisibility {
@@ -149,6 +234,12 @@ pub struct App {
 
     // Mode flags
     pub deterministic: bool,
+
+    // Mock data for testing (dependency injection)
+    pub mock_gpus: Vec<MockGpuData>,
+    pub mock_battery: Option<MockBatteryData>,
+    pub mock_sensors: Vec<MockSensorData>,
+    pub mock_containers: Vec<MockContainerData>,
 }
 
 impl App {
@@ -307,6 +398,12 @@ impl App {
             show_fps,
 
             deterministic,
+
+            // No mock data in production mode
+            mock_gpus: Vec::new(),
+            mock_battery: None,
+            mock_sensors: Vec::new(),
+            mock_containers: Vec::new(),
         };
 
         // Initial collection (need 2 for deltas)
@@ -410,6 +507,113 @@ impl App {
             show_fps: false,
 
             deterministic: true,
+
+            // Populate mock data for testing hardware-dependent panel rendering
+            mock_gpus: vec![
+                MockGpuData {
+                    name: "NVIDIA RTX 4090".to_string(),
+                    gpu_util: 75.0,
+                    vram_used: 20 * 1024 * 1024 * 1024, // 20 GB
+                    vram_total: 24 * 1024 * 1024 * 1024, // 24 GB
+                    temperature: 72.0,
+                    power_watts: 350,
+                    power_limit_watts: 450,
+                    clock_mhz: 2520,
+                    history: vec![0.65, 0.70, 0.75, 0.80, 0.75, 0.70, 0.75, 0.80],
+                },
+                MockGpuData {
+                    name: "NVIDIA RTX 3080".to_string(),
+                    gpu_util: 45.0,
+                    vram_used: 6 * 1024 * 1024 * 1024, // 6 GB
+                    vram_total: 10 * 1024 * 1024 * 1024, // 10 GB
+                    temperature: 65.0,
+                    power_watts: 220,
+                    power_limit_watts: 320,
+                    clock_mhz: 1950,
+                    history: vec![0.40, 0.45, 0.50, 0.45, 0.40, 0.45, 0.50, 0.45],
+                },
+            ],
+            mock_battery: Some(MockBatteryData {
+                percent: 72.5,
+                charging: false,
+                time_remaining_mins: Some(185),
+                power_watts: 15.2,
+                health_percent: 94.0,
+                cycle_count: 342,
+            }),
+            mock_sensors: vec![
+                MockSensorData {
+                    name: "coretemp/temp1".to_string(),
+                    label: "Package".to_string(),
+                    value: 65.0,
+                    max: Some(100.0),
+                    crit: Some(105.0),
+                    sensor_type: MockSensorType::Temperature,
+                },
+                MockSensorData {
+                    name: "coretemp/temp2".to_string(),
+                    label: "Core 0".to_string(),
+                    value: 62.0,
+                    max: Some(100.0),
+                    crit: Some(105.0),
+                    sensor_type: MockSensorType::Temperature,
+                },
+                MockSensorData {
+                    name: "coretemp/temp3".to_string(),
+                    label: "Core 1".to_string(),
+                    value: 64.0,
+                    max: Some(100.0),
+                    crit: Some(105.0),
+                    sensor_type: MockSensorType::Temperature,
+                },
+                MockSensorData {
+                    name: "nct6798/fan1".to_string(),
+                    label: "CPU Fan".to_string(),
+                    value: 1200.0,
+                    max: Some(3000.0),
+                    crit: None,
+                    sensor_type: MockSensorType::Fan,
+                },
+                MockSensorData {
+                    name: "nct6798/fan2".to_string(),
+                    label: "Chassis Fan".to_string(),
+                    value: 800.0,
+                    max: Some(2000.0),
+                    crit: None,
+                    sensor_type: MockSensorType::Fan,
+                },
+                MockSensorData {
+                    name: "nct6798/in0".to_string(),
+                    label: "Vcore".to_string(),
+                    value: 1.25,
+                    max: Some(1.50),
+                    crit: None,
+                    sensor_type: MockSensorType::Voltage,
+                },
+            ],
+            mock_containers: vec![
+                MockContainerData {
+                    name: "nginx-proxy".to_string(),
+                    status: "running".to_string(),
+                    cpu_percent: 2.5,
+                    mem_used: 128 * 1024 * 1024, // 128 MB
+                    mem_limit: 512 * 1024 * 1024, // 512 MB
+                },
+                MockContainerData {
+                    name: "postgres-db".to_string(),
+                    status: "running".to_string(),
+                    cpu_percent: 8.2,
+                    mem_used: 512 * 1024 * 1024, // 512 MB
+                    mem_limit: 2 * 1024 * 1024 * 1024, // 2 GB
+                },
+                MockContainerData {
+                    name: "redis-cache".to_string(),
+                    status: "running".to_string(),
+                    cpu_percent: 1.1,
+                    mem_used: 64 * 1024 * 1024, // 64 MB
+                    mem_limit: 256 * 1024 * 1024, // 256 MB
+                },
+            ],
         }
     }
 
@@ -988,17 +1192,17 @@ impl App {
     }
 
     fn process_count(&self) -> usize {
+        let filter_lower = self.filter.to_lowercase();
         self.process
             .processes()
             .values()
             .filter(|p| {
-                if self.filter.is_empty() {
+                if filter_lower.is_empty() {
                     true
                 } else {
-                    p.name.to_lowercase().contains(&self.filter.to_lowercase())
-                        || p.cmdline
-                            .to_lowercase()
-                            .contains(&self.filter.to_lowercase())
+                    // Use allocation-free case-insensitive contains
+                    contains_ignore_case(&p.name, &filter_lower)
+                        || contains_ignore_case(&p.cmdline, &filter_lower)
                 }
             })
             .count()
@@ -1006,18 +1210,20 @@ impl App {
 
     /// Get sorted and filtered processes
     pub fn sorted_processes(&self) -> Vec<&trueno_viz::monitor::collectors::process::ProcessInfo> {
+        // Cache lowercase filter once per call
+        let filter_lower = self.filter.to_lowercase();
+
         let mut procs: Vec<_> = self
             .process
             .processes()
             .values()
             .filter(|p| {
-                if self.filter.is_empty() {
+                if filter_lower.is_empty() {
                     true
                 } else {
-                    p.name.to_lowercase().contains(&self.filter.to_lowercase())
-                        || p.cmdline
-                            .to_lowercase()
-                            .contains(&self.filter.to_lowercase())
+                    // Use allocation-free case-insensitive contains
+                    contains_ignore_case(&p.name, &filter_lower)
+                        || contains_ignore_case(&p.cmdline, &filter_lower)
                 }
             })
             .collect();
@@ -1791,5 +1997,962 @@ mod tests {
         }
         // Should be capped at 300
         assert_eq!(history.len(), 300);
+    }
+
+    // === Micro-benchmark Performance Tests ===
+
+    /// Verify collect_metrics completes within reasonable time
+    /// Note: Real metrics collection involves many system calls (reading /proc, /sys, etc.)
+    #[test]
+    fn test_collect_metrics_performance() {
+        use std::time::Instant;
+
+        let mut app = App::new(false, false);
+        let iterations = 5;
+        let start = Instant::now();
+
+        for _ in 0..iterations {
+            app.collect_metrics();
+        }
+
+        let elapsed = start.elapsed();
+        let avg_ms = elapsed.as_millis() / iterations as u128;
+
+        // Real metrics collection with all collectors can take several seconds
+        // on systems with many disks, network interfaces, and processes
+        assert!(avg_ms < 5000, "collect_metrics too slow: {}ms avg", avg_ms);
+    }
+
+    /// Verify history push is O(1) amortized
+    #[test]
+    fn test_history_push_performance() {
+        use std::time::Instant;
+
+        let mut history = Vec::new();
+        let iterations = 10000;
+        let start = Instant::now();
+
+        for i in 0..iterations {
+            App::push_to_history(&mut history, i as f64 / iterations as f64);
+        }
+
+        let elapsed = start.elapsed();
+        let per_op_ns = elapsed.as_nanos() / iterations as u128;
+
+        // Each push should be sub-microsecond
+        assert!(per_op_ns < 1000, "push_to_history too slow: {}ns per op", per_op_ns);
+    }
+
+    /// Verify App::new_mock is reasonably fast for testing
+    /// Note: Mock creation initializes many analyzers which may read system state
+    #[test]
+    fn test_app_mock_creation_performance() {
+        use std::time::Instant;
+
+        let iterations = 50;
+        let start = Instant::now();
+
+        for _ in 0..iterations {
+            let _ = App::new_mock();
+        }
+
+        let elapsed = start.elapsed();
+        let avg_us = elapsed.as_micros() / iterations as u128;
+
+        // Mock creation includes initializing analyzers which may touch system state
+        // Allow up to 100ms each
+        assert!(avg_us < 100000, "new_mock too slow: {}us avg", avg_us);
+    }
+
+    // === Additional Coverage Tests ===
+
+    #[test]
+    fn test_visible_panels_files_enabled() {
+        let mut app = App::new_mock();
+        app.panels.files = true;
+        let panels = app.visible_panels();
+        assert!(panels.contains(&PanelType::Files));
+    }
+
+    #[test]
+    fn test_cancel_signal_with_pending() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test_proc".to_string(), SignalType::Term));
+        app.cancel_signal();
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_pending_signal_hup() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "proc".to_string(), SignalType::Hup));
+        assert!(app.pending_signal.is_some());
+        if let Some((pid, name, signal)) = &app.pending_signal {
+            assert_eq!(*pid, 1234);
+            assert_eq!(name, "proc");
+            assert_eq!(*signal, SignalType::Hup);
+        }
+    }
+
+    #[test]
+    fn test_pending_signal_int() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((5678, "daemon".to_string(), SignalType::Int));
+        if let Some((_, _, signal)) = &app.pending_signal {
+            assert_eq!(*signal, SignalType::Int);
+        }
+    }
+
+    #[test]
+    fn test_pending_signal_usr1() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1000, "app".to_string(), SignalType::Usr1));
+        if let Some((_, _, signal)) = &app.pending_signal {
+            assert_eq!(*signal, SignalType::Usr1);
+        }
+    }
+
+    #[test]
+    fn test_pending_signal_usr2() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((2000, "service".to_string(), SignalType::Usr2));
+        if let Some((_, _, signal)) = &app.pending_signal {
+            assert_eq!(*signal, SignalType::Usr2);
+        }
+    }
+
+    #[test]
+    fn test_pending_signal_stop() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((3000, "worker".to_string(), SignalType::Stop));
+        if let Some((_, _, signal)) = &app.pending_signal {
+            assert_eq!(*signal, SignalType::Stop);
+        }
+    }
+
+    #[test]
+    fn test_pending_signal_cont() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((4000, "bg_task".to_string(), SignalType::Cont));
+        if let Some((_, _, signal)) = &app.pending_signal {
+            assert_eq!(*signal, SignalType::Cont);
+        }
+    }
+
+    #[test]
+    fn test_pending_signal_kill() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((9999, "zombie".to_string(), SignalType::Kill));
+        if let Some((_, _, signal)) = &app.pending_signal {
+            assert_eq!(*signal, SignalType::Kill);
+        }
+    }
+
+    #[test]
+    fn test_signal_menu_key_i_int() {
+        let mut app = App::new_mock();
+        app.process_selected = 0;
+        app.show_signal_menu = true;
+        app.handle_key(KeyCode::Char('i'), KeyModifiers::NONE);
+        assert!(!app.show_signal_menu);
+    }
+
+    #[test]
+    fn test_signal_menu_key_p_stop() {
+        let mut app = App::new_mock();
+        app.process_selected = 0;
+        app.show_signal_menu = true;
+        app.handle_key(KeyCode::Char('p'), KeyModifiers::NONE);
+        assert!(!app.show_signal_menu);
+    }
+
+    #[test]
+    fn test_signal_menu_key_c_cont() {
+        let mut app = App::new_mock();
+        app.process_selected = 0;
+        app.show_signal_menu = true;
+        app.handle_key(KeyCode::Char('c'), KeyModifiers::NONE);
+        assert!(!app.show_signal_menu);
+    }
+
+    #[test]
+    fn test_signal_menu_key_unknown_ignored() {
+        let mut app = App::new_mock();
+        app.show_signal_menu = true;
+        // Unknown key should not close menu
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(app.show_signal_menu);
+    }
+
+    #[test]
+    fn test_filter_input_escape_clears() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "test".to_string();
+        app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!app.show_filter_input);
+        assert!(app.filter.is_empty());
+    }
+
+    #[test]
+    fn test_filter_input_backspace() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "test".to_string();
+        app.handle_key(KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(app.filter, "tes");
+    }
+
+    #[test]
+    fn test_filter_input_char_append() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "te".to_string();
+        app.handle_key(KeyCode::Char('s'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('t'), KeyModifiers::NONE);
+        assert_eq!(app.filter, "test");
+    }
+
+    #[test]
+    fn test_filter_input_enter_closes() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "search".to_string();
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert!(!app.show_filter_input);
+        assert_eq!(app.filter, "search"); // Filter kept
+    }
+
+    // === Mock Data Verification Tests ===
+
+    #[test]
+    fn test_mock_gpus_populated() {
+        let app = App::new_mock();
+        assert!(!app.mock_gpus.is_empty(), "mock_gpus should be populated");
+        assert_eq!(app.mock_gpus.len(), 2, "should have 2 mock GPUs");
+        assert!(app.mock_gpus[0].name.contains("RTX"));
+    }
+
+    #[test]
+    fn test_mock_battery_populated() {
+        let app = App::new_mock();
+        assert!(app.mock_battery.is_some(), "mock_battery should be populated");
+        let bat = app.mock_battery.as_ref().expect("battery");
+        assert!(bat.percent > 0.0);
+        assert!(bat.health_percent > 0.0);
+    }
+
+    #[test]
+    fn test_mock_sensors_populated() {
+        let app = App::new_mock();
+        assert!(!app.mock_sensors.is_empty(), "mock_sensors should be populated");
+        assert!(app.mock_sensors.len() >= 3);
+    }
+
+    #[test]
+    fn test_mock_containers_populated() {
+        let app = App::new_mock();
+        assert!(!app.mock_containers.is_empty(), "mock_containers should be populated");
+        assert_eq!(app.mock_containers.len(), 3);
+    }
+
+    // === Additional Key Handling Tests ===
+
+    #[test]
+    fn test_panel_toggle_keys() {
+        let mut app = App::new_mock();
+
+        // Test panel 3 (disk)
+        let original = app.panels.disk;
+        app.handle_key(KeyCode::Char('3'), KeyModifiers::NONE);
+        assert_ne!(app.panels.disk, original);
+
+        // Test panel 4 (network)
+        let original = app.panels.network;
+        app.handle_key(KeyCode::Char('4'), KeyModifiers::NONE);
+        assert_ne!(app.panels.network, original);
+
+        // Test panel 5 (process)
+        let original = app.panels.process;
+        app.handle_key(KeyCode::Char('5'), KeyModifiers::NONE);
+        assert_ne!(app.panels.process, original);
+
+        // Test panel 6 (gpu)
+        let original = app.panels.gpu;
+        app.handle_key(KeyCode::Char('6'), KeyModifiers::NONE);
+        assert_ne!(app.panels.gpu, original);
+
+        // Test panel 7 (battery)
+        let original = app.panels.battery;
+        app.handle_key(KeyCode::Char('7'), KeyModifiers::NONE);
+        assert_ne!(app.panels.battery, original);
+
+        // Test panel 8 (sensors)
+        let original = app.panels.sensors;
+        app.handle_key(KeyCode::Char('8'), KeyModifiers::NONE);
+        assert_ne!(app.panels.sensors, original);
+    }
+
+    #[test]
+    fn test_navigation_when_focused() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+
+        // h should navigate left
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        // l should navigate right
+        app.handle_key(KeyCode::Char('l'), KeyModifiers::NONE);
+        // j should navigate down
+        app.handle_key(KeyCode::Char('j'), KeyModifiers::NONE);
+        // k should navigate up
+        app.handle_key(KeyCode::Char('k'), KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_navigation_when_not_focused() {
+        let mut app = App::new_mock();
+        app.focused_panel = None;
+
+        // h should start focus
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        assert!(app.focused_panel.is_some());
+
+        // Reset and try l
+        app.focused_panel = None;
+        app.handle_key(KeyCode::Char('l'), KeyModifiers::NONE);
+        assert!(app.focused_panel.is_some());
+    }
+
+    #[test]
+    fn test_process_navigation_pageup_pagedown() {
+        let mut app = App::new_mock();
+        app.process_selected = 5;
+
+        // Just test that keys are handled without panicking
+        app.handle_key(KeyCode::PageDown, KeyModifiers::NONE);
+        app.handle_key(KeyCode::PageUp, KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_process_navigation_home_end() {
+        let mut app = App::new_mock();
+        app.process_selected = 5;
+
+        // g should go to start
+        app.handle_key(KeyCode::Char('g'), KeyModifiers::NONE);
+        assert_eq!(app.process_selected, 0);
+
+        // G should go to end
+        app.handle_key(KeyCode::Char('G'), KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_process_navigation_arrow_keys() {
+        let mut app = App::new_mock();
+        app.focused_panel = None;
+        app.exploded_panel = None;
+        app.process_selected = 5;
+
+        // Just test that arrow keys are handled without panicking
+        app.handle_key(KeyCode::Down, KeyModifiers::NONE);
+        app.handle_key(KeyCode::Up, KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_process_navigation_with_exploded_panel() {
+        let mut app = App::new_mock();
+        app.exploded_panel = Some(PanelType::Process);
+        app.process_selected = 0;
+
+        // Just test that j/k are handled
+        app.handle_key(KeyCode::Char('j'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('k'), KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_help_toggle() {
+        let mut app = App::new_mock();
+        assert!(!app.show_help);
+
+        app.handle_key(KeyCode::Char('?'), KeyModifiers::NONE);
+        assert!(app.show_help);
+
+        app.handle_key(KeyCode::Char('?'), KeyModifiers::NONE);
+        assert!(!app.show_help);
+    }
+
+    #[test]
+    fn test_f1_help_toggle() {
+        let mut app = App::new_mock();
+        assert!(!app.show_help);
+
+        app.handle_key(KeyCode::F(1), KeyModifiers::NONE);
+        assert!(app.show_help);
+    }
+
+    #[test]
+    fn test_quit_key() {
+        let mut app = App::new_mock();
+        let quit = app.handle_key(KeyCode::Char('q'), KeyModifiers::NONE);
+        assert!(quit);
+    }
+
+    #[test]
+    fn test_esc_clears_focus() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+
+        app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(app.focused_panel.is_none());
+    }
+
+    #[test]
+    fn test_ctrl_c_returns_true() {
+        let mut app = App::new_mock();
+        let quit = app.handle_key(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        assert!(quit);
+    }
+
+    #[test]
+    fn test_view_mode_cycle() {
+        let mut app = App::new_mock();
+        let original = app.files_view_mode;
+
+        app.handle_key(KeyCode::Char('v'), KeyModifiers::NONE);
+        // Should have cycled to next mode
+        assert_ne!(app.files_view_mode, original);
+    }
+
+    #[test]
+    fn test_pending_signal_confirm() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        // y confirms
+        app.handle_key(KeyCode::Char('y'), KeyModifiers::NONE);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_pending_signal_cancel_with_n_key() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        // n cancels
+        app.handle_key(KeyCode::Char('n'), KeyModifiers::NONE);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_panel_explode_toggle() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+        app.exploded_panel = None;
+
+        // z or Enter should toggle explode
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(app.exploded_panel.is_some());
+
+        app.handle_key(KeyCode::Char('z'), KeyModifiers::NONE);
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn test_signal_menu_keys_huk() {
+        let mut app = App::new_mock();
+        app.show_signal_menu = true;
+        app.process_selected = 0;
+
+        // Test H for HUP
+        app.handle_key(KeyCode::Char('H'), KeyModifiers::NONE);
+
+        app.show_signal_menu = true;
+        // Test u for USR1
+        app.handle_key(KeyCode::Char('u'), KeyModifiers::NONE);
+
+        app.show_signal_menu = true;
+        // Test U for USR2
+        app.handle_key(KeyCode::Char('U'), KeyModifiers::NONE);
+        // These keys should be handled without panicking
+    }
+
+    // === Additional Edge Case Tests ===
+
+    #[test]
+    fn test_signal_menu_all_signal_types() {
+        let mut app = App::new_mock();
+
+        // Test all signal menu keys
+        for (key, _) in [
+            ('x', SignalType::Term),
+            ('K', SignalType::Kill),
+            ('i', SignalType::Int),
+            ('p', SignalType::Stop),
+            ('c', SignalType::Cont),
+        ] {
+            app.show_signal_menu = true;
+            app.pending_signal = None;
+            app.handle_key(KeyCode::Char(key), KeyModifiers::NONE);
+            assert!(!app.show_signal_menu);
+        }
+    }
+
+    #[test]
+    fn test_signal_menu_esc_closes_menu() {
+        let mut app = App::new_mock();
+        app.show_signal_menu = true;
+
+        app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!app.show_signal_menu);
+    }
+
+    #[test]
+    fn test_filter_input_backspace_removal() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "test".to_string();
+
+        app.handle_key(KeyCode::Backspace, KeyModifiers::NONE);
+        assert_eq!(app.filter, "tes");
+    }
+
+    #[test]
+    fn test_filter_input_esc_clears_text() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "test".to_string();
+
+        app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(!app.show_filter_input);
+        assert!(app.filter.is_empty());
+    }
+
+    #[test]
+    fn test_filter_input_enter_preserves() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = "test".to_string();
+
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert!(!app.show_filter_input);
+        assert_eq!(app.filter, "test"); // Filter preserved
+    }
+
+    #[test]
+    fn test_filter_input_add_char() {
+        let mut app = App::new_mock();
+        app.show_filter_input = true;
+        app.filter = String::new();
+
+        app.handle_key(KeyCode::Char('a'), KeyModifiers::NONE);
+        assert_eq!(app.filter, "a");
+    }
+
+    #[test]
+    fn test_pending_signal_enter_confirms() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_pending_signal_capital_y_confirms() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        app.handle_key(KeyCode::Char('Y'), KeyModifiers::NONE);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_pending_signal_capital_n_cancels() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        app.handle_key(KeyCode::Char('N'), KeyModifiers::NONE);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_pending_signal_esc_cancels_prompt() {
+        let mut app = App::new_mock();
+        app.pending_signal = Some((1234, "test".to_string(), SignalType::Term));
+
+        app.handle_key(KeyCode::Esc, KeyModifiers::NONE);
+        assert!(app.pending_signal.is_none());
+    }
+
+    #[test]
+    fn test_exploded_panel_enter_exits() {
+        let mut app = App::new_mock();
+        app.exploded_panel = Some(PanelType::Cpu);
+
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert!(app.exploded_panel.is_none());
+    }
+
+    #[test]
+    fn test_focused_panel_arrow_navigation() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Cpu);
+        app.exploded_panel = None;
+
+        // Test all arrow directions
+        app.handle_key(KeyCode::Left, KeyModifiers::NONE);
+        app.handle_key(KeyCode::Right, KeyModifiers::NONE);
+        app.handle_key(KeyCode::Up, KeyModifiers::NONE);
+        app.handle_key(KeyCode::Down, KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_focused_panel_hjkl_navigation() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Memory);
+        app.exploded_panel = None;
+
+        // Test h/l navigation
+        app.handle_key(KeyCode::Char('h'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('l'), KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_focused_panel_enter_explodes() {
+        let mut app = App::new_mock();
+        app.focused_panel = Some(PanelType::Disk);
+        app.exploded_panel = None;
+
+        app.handle_key(KeyCode::Enter, KeyModifiers::NONE);
+        assert_eq!(app.exploded_panel, Some(PanelType::Disk));
+    }
+
+    #[test]
+    fn test_unfocused_process_navigation_jk() {
+        let mut app = App::new_mock();
+        app.focused_panel = None;
+        app.exploded_panel = None;
+        app.process_selected = 5;
+
+        app.handle_key(KeyCode::Char('j'), KeyModifiers::NONE);
+        app.handle_key(KeyCode::Char('k'), KeyModifiers::NONE);
+    }
+
+    #[test]
+    fn test_push_to_history_overflow() {
+        let mut history = Vec::new();
+        for i in 0..305 {
+            App::push_to_history(&mut history, i as f64);
+        }
+        assert_eq!(history.len(), 300);
+        assert_eq!(history[0], 5.0); // First 5 elements should be removed
+    }
+
+    #[test]
+    fn test_panel_visibility_all_fields() {
+        let vis = PanelVisibility {
+            cpu: false,
+            memory: false,
+            disk: false,
+            network: false,
+            process: false,
+            gpu: false,
+            battery: false,
+            sensors: false,
+            files: true,
+        };
+        assert!(!vis.cpu);
+        assert!(vis.files);
+    }
+
+    #[test]
+    fn test_mock_gpu_data_debug() {
+        let gpu = MockGpuData {
+            name: "Test GPU".to_string(),
+            gpu_util: 50.0,
+            vram_used: 1000,
+            vram_total: 8000,
+            temperature: 65.0,
+            power_watts: 150,
+            power_limit_watts: 300,
+            clock_mhz: 1500,
+            history: vec![0.5],
+        };
+        let debug = format!("{:?}", gpu);
+        assert!(debug.contains("Test GPU"));
+    }
+
+    #[test]
+    fn test_mock_battery_data_debug() {
+        let bat = MockBatteryData {
+            percent: 75.0,
+            charging: true,
+            time_remaining_mins: Some(120),
+            power_watts: 45.0,
+            health_percent: 95.0,
+            cycle_count: 500,
+        };
+        let debug = format!("{:?}", bat);
+        assert!(debug.contains("75"));
+    }
+
+    #[test]
+    fn test_mock_sensor_data_debug() {
+        let sensor = MockSensorData {
+            name: "cpu/temp1".to_string(),
+            label: "CPU".to_string(),
+            value: 65.0,
+            max: Some(90.0),
+            crit: Some(100.0),
+            sensor_type: MockSensorType::Temperature,
+        };
+        let debug = format!("{:?}", sensor);
+        assert!(debug.contains("cpu/temp1"));
+    }
+
+    #[test]
+    fn test_mock_container_data_debug() {
+        let container = MockContainerData {
+            name: "nginx".to_string(),
+            status: "running".to_string(),
+            cpu_percent: 5.0,
+            mem_used: 100_000_000,
+            mem_limit: 1_000_000_000,
+        };
+        let debug = format!("{:?}", container);
+        assert!(debug.contains("nginx"));
+    }
+
+    #[test]
+    fn test_mock_sensor_type_equality() {
+        assert_eq!(MockSensorType::Temperature, MockSensorType::Temperature);
+        assert_ne!(MockSensorType::Temperature, MockSensorType::Fan);
+        assert_ne!(MockSensorType::Voltage, MockSensorType::Power);
+    }
+
+    #[test]
+    fn test_toggle_panel_9_files_toggle() {
+        let mut app = App::new_mock();
+        let initial = app.panels.files;
+
+        app.handle_key(KeyCode::Char('9'), KeyModifiers::NONE);
+        assert_ne!(app.panels.files, initial);
+    }
+
+    // =========================================================================
+    // TUI Load Testing (probar integration)
+    // =========================================================================
+
+    /// Test filter performance with large dataset using probar's TUI load testing.
+    /// This test uses probar's synthetic data generator and detects hangs.
+    #[test]
+    fn test_filter_no_hang_with_5000_items() {
+        use jugar_probar::tui_load::{DataGenerator, TuiLoadTest};
+        use std::time::{Duration, Instant};
+
+        // Generate 5000 synthetic process-like items
+        let generator = DataGenerator::new(5000);
+        let items = generator.generate();
+
+        // Test filter performance with timeout
+        let timeout = Duration::from_millis(1000);
+        let filters = ["", "a", "sys", "chrome", "nonexistent_long_filter_string"];
+
+        for filter in filters {
+            let filter_lower = filter.to_lowercase();
+            let start = Instant::now();
+
+            // Simulate what sorted_processes does: filter then collect
+            let filtered: Vec<_> = items
+                .iter()
+                .filter(|item| {
+                    if filter_lower.is_empty() {
+                        true
+                    } else {
+                        item.name.to_lowercase().contains(&filter_lower)
+                            || item.description.to_lowercase().contains(&filter_lower)
+                    }
+                })
+                .collect();
+
+            let elapsed = start.elapsed();
+
+            assert!(
+                elapsed < timeout,
+                "Filter '{}' took {:?} (timeout: {:?}) - HANG DETECTED with {} items, {} results",
+                filter, elapsed, timeout, items.len(), filtered.len()
+            );
+        }
+    }
+
+    /// Test that filter performance is O(n) not O(n²) using probar load testing.
+    #[test]
+    fn test_filter_scales_linearly() {
+        use jugar_probar::tui_load::DataGenerator;
+        use std::time::Instant;
+
+        let sizes = [100, 500, 1000, 2000, 5000];
+        let mut times_us = Vec::new();
+
+        for size in sizes {
+            let items = DataGenerator::new(size).generate();
+            let filter_lower = "sys".to_lowercase();
+
+            let start = Instant::now();
+            // Run filter 10 times for stable measurement
+            for _ in 0..10 {
+                let _: Vec<_> = items
+                    .iter()
+                    .filter(|item| {
+                        item.name.to_lowercase().contains(&filter_lower)
+                            || item.description.to_lowercase().contains(&filter_lower)
+                    })
+                    .collect();
+            }
+            let elapsed = start.elapsed().as_micros() as u64;
+            times_us.push((size, elapsed));
+        }
+
+        // Check that time grows roughly linearly (< 3x for 5x data)
+        // From 1000 to 5000 items should take roughly 5x longer (with tolerance)
+        let time_1k = times_us.iter().find(|(s, _)| *s == 1000).map(|(_, t)| *t).unwrap_or(1);
+        let time_5k = times_us.iter().find(|(s, _)| *s == 5000).map(|(_, t)| *t).unwrap_or(1);
+
+        let ratio = time_5k as f64 / time_1k as f64;
+
+        // Should scale roughly linearly: 5x data = ~5x time (allow up to 8x for overhead)
+        assert!(
+            ratio < 8.0,
+            "Filter time scaled {}x from 1K to 5K items (expected ~5x). \
+             Times: {:?}. May indicate O(n²) complexity.",
+            ratio, times_us
+        );
+    }
+
+    /// Stress test with probar's TuiLoadTest harness - tests for hangs, not microbenchmarks
+    #[test]
+    fn test_filter_stress_with_probar() {
+        use jugar_probar::tui_load::TuiLoadTest;
+
+        let load_test = TuiLoadTest::new()
+            .with_item_count(5000)     // Test with 5000 items
+            .with_timeout_ms(2000)      // 2 second timeout per frame
+            .with_frames_per_filter(3);
+
+        // Run filter stress test using allocation-free matching (like ttop's optimized code)
+        let result = load_test.run_filter_stress(|items, filter| {
+            let filter_lower = filter.to_lowercase();
+            items
+                .iter()
+                .filter(|item| {
+                    if filter_lower.is_empty() {
+                        true
+                    } else {
+                        // Use allocation-free case-insensitive contains
+                        contains_ignore_case(&item.name, &filter_lower)
+                            || contains_ignore_case(&item.description, &filter_lower)
+                    }
+                })
+                .cloned()
+                .collect()
+        });
+
+        // The main assertion: no frame should timeout (no hangs)
+        assert!(result.is_ok(), "TUI filter stress test detected hang: {:?}", result.err());
+
+        // Verify we actually ran all the filters
+        let results = result.expect("result should be ok");
+        assert!(!results.is_empty(), "Should have run at least one filter");
+
+        // Log performance for manual review (not a hard failure)
+        for (filter, metrics) in &results {
+            let avg = metrics.avg_frame_ms();
+            assert!(
+                avg < 500.0,
+                "Filter '{}' took {:.1}ms avg - too slow for responsive UI",
+                filter, avg
+            );
+        }
+    }
+
+    /// Integration load test that tests REAL App with REAL collectors.
+    ///
+    /// This test would have caught the container_analyzer hang because it:
+    /// 1. Creates a real App (not mock)
+    /// 2. Calls real collect methods
+    /// 3. Measures component-level timings
+    /// 4. Enforces per-component budgets (container_analyzer: 200ms max)
+    ///
+    /// The synthetic load tests missed the hang because they only tested
+    /// filter performance with fake data, not actual system calls.
+    #[test]
+    fn test_integration_load_real_app_no_hang() {
+        use jugar_probar::tui_load::{ComponentTimings, IntegrationLoadTest};
+
+        // Set up integration test with component budgets
+        let test = IntegrationLoadTest::new()
+            .with_frame_budget_ms(500.0)   // 500ms total frame budget
+            .with_timeout_ms(5000)          // 5 second timeout for hang detection
+            .with_frame_count(3)            // Test 3 frames
+            // Per-component budgets - this is what would catch the container_analyzer issue
+            .with_component_budget("container_analyzer", 200.0)  // Max 200ms
+            .with_component_budget("disk_analyzer", 200.0)
+            .with_component_budget("network_analyzer", 200.0)
+            .with_component_budget("sensor_analyzer", 100.0);
+
+        // Track whether we're on first frame (initialization is slower)
+        let first_frame = std::sync::atomic::AtomicBool::new(true);
+        let app = std::sync::Mutex::new(None::<App>);
+
+        let result = test.run(|| {
+            let mut timings = ComponentTimings::new();
+
+            // Get or create app
+            let mut guard = app.lock().expect("lock");
+            let app = guard.get_or_insert_with(|| {
+                // First frame includes App::new() which is slower
+                App::new(false, false) // deterministic=false, show_fps=false
+            });
+
+            // Measure individual analyzer times
+            let start = Instant::now();
+            app.container_analyzer.collect();
+            timings.record("container_analyzer", start.elapsed().as_secs_f64() * 1000.0);
+
+            let start = Instant::now();
+            app.disk_io_analyzer.collect();
+            timings.record("disk_analyzer", start.elapsed().as_secs_f64() * 1000.0);
+
+            let start = Instant::now();
+            app.network_stats.collect();
+            timings.record("network_analyzer", start.elapsed().as_secs_f64() * 1000.0);
+
+            let start = Instant::now();
+            app.sensor_health.collect();
+            timings.record("sensor_analyzer", start.elapsed().as_secs_f64() * 1000.0);
+
+            // Skip strict budget check on first frame (initialization)
+            if first_frame.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                // Return empty timings for first frame so budget checks are skipped
+                return ComponentTimings::new();
+            }
+
+            timings
+        });
+
+        // This assertion WOULD HAVE FAILED before fixing container_analyzer
+        // because docker stats --no-stream was blocking for 1.5+ seconds
+        assert!(
+            result.is_ok(),
+            "Integration load test failed! This catches real collector hangs: {:?}",
+            result.err()
+        );
+
+        let metrics = result.expect("test passed");
+        assert!(
+            metrics.p95_frame_ms() < 1000.0,
+            "Frame time p95 {:.1}ms is too slow",
+            metrics.p95_frame_ms()
+        );
     }
 }

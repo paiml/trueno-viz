@@ -347,18 +347,18 @@ roadmap:
   assigned_to: null
   created: 2025-11-25T07:15:00Z
   updated: 2025-11-25T08:30:00Z
-  spec: "Verified zero unwrap() in production code (all 335 occurrences in #[cfg(test)] only). Added clippy::unwrap_used=deny lint with test exception."
+  spec: 'Verified zero unwrap() in production code (all 335 occurrences in #[cfg(test)] only). Added clippy::unwrap_used=deny lint with test exception.'
   acceptance_criteria:
-    - Zero unwrap() calls in src/ (excluding tests) - VERIFIED
-    - All error paths have meaningful messages - VERIFIED
-    - clippy::unwrap_used lint enabled - DONE (deny in Cargo.toml)
+  - Zero unwrap() calls in src/ (excluding tests) - VERIFIED
+  - All error paths have meaningful messages - VERIFIED
+  - clippy::unwrap_used lint enabled - DONE (deny in Cargo.toml)
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
-    - security
-    - reliability
-  notes: "Verified: All unwrap() calls are in #[cfg(test)] blocks. clippy::unwrap_used=deny prevents future production unwraps."
+  - security
+  - reliability
+  notes: 'Verified: All unwrap() calls are in #[cfg(test)] blocks. clippy::unwrap_used=deny prevents future production unwraps.'
 - id: TV-023
   github_issue: null
   item_type: task
@@ -368,18 +368,18 @@ roadmap:
   assigned_to: null
   created: 2025-11-25T08:45:00Z
   updated: 2025-11-25T08:45:00Z
-  spec: "Add criterion benchmarks for all major plot types and encoders"
+  spec: Add criterion benchmarks for all major plot types and encoders
   acceptance_criteria:
-    - Histogram benchmark (data size scaling)
-    - Heatmap benchmark (grid size, palette comparisons)
-    - Line chart benchmark (simplification, multi-series)
-    - Encoder benchmark (PNG/SVG, compression)
+  - Histogram benchmark (data size scaling)
+  - Heatmap benchmark (grid size, palette comparisons)
+  - Line chart benchmark (simplification, multi-series)
+  - Encoder benchmark (PNG/SVG, compression)
   phases: []
   subtasks: []
   estimated_effort: null
   labels:
-    - performance
-  notes: "6 benchmark files covering scatter, framebuffer, histogram, heatmap, line, encoder"
+  - performance
+  notes: 6 benchmark files covering scatter, framebuffer, histogram, heatmap, line, encoder
 - id: TV-024
   github_issue: null
   item_type: task
@@ -389,23 +389,74 @@ roadmap:
   assigned_to: null
   created: 2025-11-25T09:00:00Z
   updated: 2025-11-25T09:00:00Z
-  spec: "GPU-first showcase with WebGPU compute, WASM SIMD fallback, WebSocket streaming, Grammar of Graphics API"
+  spec: GPU-first showcase with WebGPU compute, WASM SIMD fallback, WebSocket streaming, Grammar of Graphics API
   acceptance_criteria:
-    - WebGPU compute tier with SIMD128/256 fallbacks
-    - 60fps rendering of 1M+ points
-    - WebSocket binary streaming protocol
-    - 6 demo scenes (scatter, heatmap, line, network, violin, ROC)
-    - Interactive code editor for Grammar of Graphics
-    - Performance metrics overlay
+  - WebGPU compute tier with SIMD128/256 fallbacks
+  - 60fps rendering of 1M+ points
+  - WebSocket binary streaming protocol
+  - 6 demo scenes (scatter, heatmap, line, network, violin, ROC)
+  - Interactive code editor for Grammar of Graphics
+  - Performance metrics overlay
   phases:
-    - Foundation (WebGPU/WASM, ring buffer, scatter)
-    - Grammar API (aesthetics, scales, coords, themes)
-    - Advanced Geometries (heatmap, line, graph, violin)
-    - Streaming (WebSocket, data generators, polish)
+  - name: Foundation (WebGPU/WASM, ring buffer, scatter)
+    status: planned
+    estimated_effort: null
+    completion: 0
+  - name: Grammar API (aesthetics, scales, coords, themes)
+    status: planned
+    estimated_effort: null
+    completion: 0
+  - name: Advanced Geometries (heatmap, line, graph, violin)
+    status: planned
+    estimated_effort: null
+    completion: 0
+  - name: Streaming (WebSocket, data generators, polish)
+    status: planned
+    estimated_effort: null
+    completion: 0
   subtasks: []
   estimated_effort: null
   labels:
-    - showcase
-    - gpu
-    - webgpu
-  notes: "Specification: docs/specifications/real-time-gpu-demo-spec.md. 10 peer-reviewed citations."
+  - showcase
+  - gpu
+  - webgpu
+  notes: 'Specification: docs/specifications/real-time-gpu-demo-spec.md. 10 peer-reviewed citations.'
+- id: PMAT-025
+  github_issue: null
+  item_type: task
+  title: 'ttop: Additional tests and benchmark verification'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-01-14T09:53:45Z
+  updated: 2026-01-14T10:02:25.707303153+00:00
+  spec: null
+  acceptance_criteria:
+  - Add more tests to improve coverage and verify micro/macro benchmarking
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - testing
+  - benchmarks
+  notes: null
+- id: PMAT-026
+  github_issue: null
+  item_type: task
+  title: 'ttop: 95% coverage - mandatory target'
+  status: inprogress
+  priority: critical
+  assigned_to: null
+  created: 2026-01-14T10:06:01Z
+  updated: 2026-01-14T10:06:06.807921928+00:00
+  spec: null
+  acceptance_criteria:
+  - Achieve 95% line coverage through comprehensive probador testing and performance optimization
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels:
+  - coverage
+  - testing
+  - performance
+  notes: null

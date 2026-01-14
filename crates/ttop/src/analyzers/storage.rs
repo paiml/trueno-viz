@@ -721,4 +721,223 @@ mod tests {
         assert!((mount.usage_percent() - 90.0).abs() < 0.1);
         assert!((mount.inode_usage_percent() - 100.0).abs() < 0.1);
     }
+
+    // === Additional Coverage Tests ===
+
+    #[test]
+    fn test_anomaly_description_seconds() {
+        let anomaly = Anomaly {
+            path: PathBuf::from("/tmp/large_file"),
+            size: 1_000_000_000, // 1GB
+            z_score: 5.5,
+            timestamp: std::time::Instant::now(),
+        };
+        let desc = anomaly.description();
+        assert!(desc.contains("/tmp/large_file"));
+        assert!(desc.contains("z=5.5"));
+        assert!(desc.contains("s ago")); // Just created, so seconds
+    }
+
+    #[test]
+    fn test_detector_clear() {
+        let mut detector = LargeFileDetector::new();
+
+        // Add some data
+        for i in 0..10 {
+            detector.on_file_created(PathBuf::from(format!("/tmp/file{}", i)), i as u64 * 1000);
+        }
+
+        // Create an anomaly
+        detector.on_file_created(PathBuf::from("/tmp/huge"), 10_000_000_000);
+
+        assert!(detector.sample_count() > 0);
+        assert!(detector.recent_anomalies().count() > 0);
+
+        // Clear
+        detector.clear();
+
+        assert_eq!(detector.sample_count(), 0);
+        assert_eq!(detector.median(), 0);
+        assert_eq!(detector.mad(), 0);
+        assert_eq!(detector.recent_anomalies().count(), 0);
+    }
+
+    #[test]
+    fn test_detector_max_anomalies() {
+        let mut detector = LargeFileDetector::with_capacity(100, 3, 2.0); // Only keep 3 anomalies
+
+        // Add baseline data
+        for i in 0..50 {
+            detector.on_file_created(PathBuf::from(format!("/tmp/normal{}", i)), 1000);
+        }
+
+        // Add many anomalies
+        for i in 0..10 {
+            detector.on_file_created(PathBuf::from(format!("/tmp/huge{}", i)), 1_000_000_000);
+        }
+
+        // Should only keep last 3
+        assert!(detector.recent_anomalies().count() <= 3);
+    }
+
+    #[test]
+    fn test_detector_median_and_mad() {
+        let mut detector = LargeFileDetector::with_capacity(10, 10, 3.5);
+
+        // Add some files
+        detector.size_history.push(100);
+        detector.size_history.push(200);
+        detector.size_history.push(300);
+        detector.update_statistics();
+
+        assert!(detector.median() > 0);
+    }
+
+    #[test]
+    fn test_mount_info_used_gb() {
+        let mount = MountInfo {
+            mount_point: "/".to_string(),
+            device: "/dev/sda1".to_string(),
+            fs_type: "ext4".to_string(),
+            total_bytes: 500 * 1024 * 1024 * 1024, // 500GB
+            used_bytes: 250 * 1024 * 1024 * 1024,  // 250GB
+            free_bytes: 250 * 1024 * 1024 * 1024,
+            available_bytes: 220 * 1024 * 1024 * 1024,
+            inodes_total: 1000000,
+            inodes_used: 100000,
+            inodes_free: 900000,
+        };
+
+        assert!((mount.used_gb() - 250.0).abs() < 1.0);
+        assert!((mount.free_gb() - 250.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_storage_analyzer_total_storage() {
+        let analyzer = StorageAnalyzer::new();
+        // Will return 0 if no mounts collected
+        let _ = analyzer.total_storage_bytes();
+        let _ = analyzer.total_used_bytes();
+        let _ = analyzer.overall_usage_percent();
+    }
+
+    #[test]
+    fn test_storage_analyzer_usage_history() {
+        let analyzer = StorageAnalyzer::new();
+        // Query non-existent mount
+        assert!(analyzer.usage_history("/nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_storage_analyzer_detector_access() {
+        let mut analyzer = StorageAnalyzer::new();
+
+        // Get immutable reference
+        let _ = analyzer.detector();
+
+        // Get mutable reference
+        let detector = analyzer.detector_mut();
+        detector.clear();
+    }
+
+    #[test]
+    fn test_format_bytes_large_values() {
+        // Test petabyte range (should still show TB)
+        assert_eq!(format_bytes(1500u64 * 1024 * 1024 * 1024 * 1024), "1500.0 TB");
+    }
+
+    #[test]
+    fn test_mount_info_clone() {
+        let mount = MountInfo {
+            mount_point: "/home".to_string(),
+            device: "/dev/sda2".to_string(),
+            fs_type: "ext4".to_string(),
+            total_bytes: 100 * 1024 * 1024 * 1024,
+            used_bytes: 50 * 1024 * 1024 * 1024,
+            free_bytes: 50 * 1024 * 1024 * 1024,
+            available_bytes: 45 * 1024 * 1024 * 1024,
+            inodes_total: 500000,
+            inodes_used: 100000,
+            inodes_free: 400000,
+        };
+
+        let cloned = mount.clone();
+        assert_eq!(mount.mount_point, cloned.mount_point);
+        assert_eq!(mount.device, cloned.device);
+    }
+
+    #[test]
+    fn test_mount_info_debug() {
+        let mount = MountInfo {
+            mount_point: "/".to_string(),
+            device: "/dev/sda1".to_string(),
+            fs_type: "ext4".to_string(),
+            total_bytes: 100,
+            used_bytes: 50,
+            free_bytes: 50,
+            available_bytes: 45,
+            inodes_total: 1000,
+            inodes_used: 500,
+            inodes_free: 500,
+        };
+
+        let debug = format!("{:?}", mount);
+        assert!(debug.contains("ext4"));
+        assert!(debug.contains("/dev/sda1"));
+    }
+
+    #[test]
+    fn test_anomaly_clone() {
+        let anomaly = Anomaly {
+            path: PathBuf::from("/test"),
+            size: 12345,
+            z_score: 4.0,
+            timestamp: std::time::Instant::now(),
+        };
+
+        let cloned = anomaly.clone();
+        assert_eq!(anomaly.path, cloned.path);
+        assert_eq!(anomaly.size, cloned.size);
+    }
+
+    #[test]
+    fn test_anomaly_debug() {
+        let anomaly = Anomaly {
+            path: PathBuf::from("/debug/test"),
+            size: 99999,
+            z_score: 3.6,
+            timestamp: std::time::Instant::now(),
+        };
+
+        let debug = format!("{:?}", anomaly);
+        assert!(debug.contains("/debug/test"));
+        assert!(debug.contains("99999"));
+    }
+
+    #[test]
+    fn test_detector_debug() {
+        let detector = LargeFileDetector::new();
+        let debug = format!("{:?}", detector);
+        assert!(debug.contains("LargeFileDetector"));
+    }
+
+    #[test]
+    fn test_detector_calculate_z_score_with_mad() {
+        let mut detector = LargeFileDetector::with_capacity(10, 10, 3.5);
+
+        // Add varied data to get non-zero MAD
+        for i in 1..=10 {
+            detector.size_history.push(i as u64 * 100);
+        }
+        detector.update_statistics();
+
+        // Z-score for median value should be 0 or close
+        let median = detector.median();
+        let z = detector.calculate_z_score(median);
+        assert!(z < 0.1);
+
+        // Z-score for very different value should be higher
+        let z_high = detector.calculate_z_score(10000);
+        assert!(z_high > 1.0);
+    }
 }

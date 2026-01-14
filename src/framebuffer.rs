@@ -556,4 +556,128 @@ mod tests {
         // Should return a valid backend
         println!("Selected backend: {:?}", backend);
     }
+
+    #[test]
+    fn test_pixels_access() {
+        let fb = Framebuffer::new(10, 10).unwrap();
+        let pixels = fb.pixels();
+        // Buffer size is stride * height (includes alignment padding)
+        assert_eq!(pixels.len(), fb.stride() * 10);
+        // Stride is at least width * 4
+        assert!(pixels.len() >= 10 * 10 * 4);
+    }
+
+    #[test]
+    fn test_pixels_mut_access() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        // Buffer size is stride * height
+        let expected_size = fb.stride() * 10;
+        let pixels = fb.pixels_mut();
+        assert_eq!(pixels.len(), expected_size);
+        // Modify a pixel directly
+        pixels[0] = 255;
+        pixels[1] = 0;
+        pixels[2] = 0;
+        pixels[3] = 255;
+        assert_eq!(fb.get_pixel(0, 0), Some(Rgba::RED));
+    }
+
+    #[test]
+    fn test_row_out_of_bounds() {
+        let fb = Framebuffer::new(10, 5).unwrap();
+        assert!(fb.row(5).is_none());
+        assert!(fb.row(100).is_none());
+    }
+
+    #[test]
+    fn test_row_mut_out_of_bounds() {
+        let mut fb = Framebuffer::new(10, 5).unwrap();
+        assert!(fb.row_mut(5).is_none());
+        assert!(fb.row_mut(100).is_none());
+    }
+
+    #[test]
+    fn test_fill_rect_empty() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        fb.clear(Rgba::WHITE);
+        // Zero-width rect
+        fb.fill_rect(10, 10, 0, 20, Rgba::RED);
+        assert_eq!(fb.get_pixel(10, 10), Some(Rgba::WHITE));
+
+        // Zero-height rect
+        fb.fill_rect(10, 10, 20, 0, Rgba::RED);
+        assert_eq!(fb.get_pixel(10, 10), Some(Rgba::WHITE));
+    }
+
+    #[test]
+    fn test_fill_rect_out_of_bounds() {
+        let mut fb = Framebuffer::new(100, 100).unwrap();
+        fb.clear(Rgba::WHITE);
+        // Rect starting outside
+        fb.fill_rect(200, 200, 20, 20, Rgba::RED);
+        assert_eq!(fb.get_pixel(50, 50), Some(Rgba::WHITE));
+    }
+
+    #[test]
+    fn test_blend_pixel_out_of_bounds() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(Rgba::WHITE);
+        // Out of bounds - should be no-op
+        fb.blend_pixel(100, 100, Rgba::RED);
+        fb.blend_pixel(10, 5, Rgba::RED);
+        fb.blend_pixel(5, 10, Rgba::RED);
+        // Original pixels unchanged
+        assert_eq!(fb.get_pixel(5, 5), Some(Rgba::WHITE));
+    }
+
+    #[test]
+    fn test_blend_over_dimension_mismatch() {
+        let mut fb1 = Framebuffer::new(100, 100).unwrap();
+        let fb2 = Framebuffer::new(50, 50).unwrap();
+
+        let result = fb1.blend_over(&fb2, 0.5);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_is_aligned() {
+        let fb = Framebuffer::new(100, 100).unwrap();
+        // Just verify it returns a bool (alignment depends on allocator)
+        let _aligned = fb.is_aligned();
+    }
+
+    #[test]
+    fn test_to_compact_pixels() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        fb.clear(Rgba::RED);
+        let compact = fb.to_compact_pixels();
+        // Compact size should be width * height * 4 (no stride padding)
+        assert_eq!(compact.len(), 10 * 10 * 4);
+        // First pixel should be red
+        assert_eq!(&compact[0..4], &[255, 0, 0, 255]);
+    }
+
+    #[test]
+    fn test_to_compact_pixels_with_stride() {
+        // Width that requires stride padding (not a multiple of 16)
+        let mut fb = Framebuffer::new(10, 5).unwrap();
+        fb.clear(Rgba::GREEN);
+
+        let compact = fb.to_compact_pixels();
+        assert_eq!(compact.len(), 10 * 5 * 4);
+
+        // Verify all pixels are green (stride padding should be excluded)
+        for chunk in compact.chunks_exact(4) {
+            assert_eq!(chunk, &[0, 255, 0, 255]);
+        }
+    }
+
+    #[test]
+    fn test_set_pixel_out_of_bounds() {
+        let mut fb = Framebuffer::new(10, 10).unwrap();
+        // Out of bounds - should be no-op
+        fb.set_pixel(100, 100, Rgba::RED);
+        fb.set_pixel(10, 5, Rgba::RED);
+        fb.set_pixel(5, 10, Rgba::RED);
+    }
 }

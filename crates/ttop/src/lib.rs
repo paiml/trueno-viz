@@ -25,6 +25,7 @@
 
 pub mod analyzers;
 pub mod app;
+pub mod display_rules;
 pub mod panels;
 pub mod ring_buffer;
 pub mod state;

@@ -217,4 +217,121 @@ mod tests {
         );
         assert_eq!(handler.handle_key(key_event(KeyCode::F(1))), Action::Help);
     }
+
+    #[test]
+    fn test_select_action() {
+        let handler = InputHandler::new(true);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Enter)), Action::Select);
+    }
+
+    #[test]
+    fn test_filter_action() {
+        let handler = InputHandler::new(true);
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('/'))),
+            Action::Filter
+        );
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('f'))),
+            Action::Filter
+        );
+    }
+
+    #[test]
+    fn test_tree_action() {
+        let handler = InputHandler::new(true);
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('t'))),
+            Action::Tree
+        );
+    }
+
+    #[test]
+    fn test_kill_action() {
+        let handler = InputHandler::new(true);
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('K'))),
+            Action::Kill
+        );
+    }
+
+    #[test]
+    fn test_refresh_action() {
+        let handler = InputHandler::new(true);
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Char('r'))),
+            Action::Refresh
+        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::F(5))), Action::Refresh);
+    }
+
+    #[test]
+    fn test_ctrl_q_quits() {
+        let handler = InputHandler::new(true);
+        assert_eq!(
+            handler.handle_key(key_event_ctrl(KeyCode::Char('q'))),
+            Action::Quit
+        );
+    }
+
+    #[test]
+    fn test_ctrl_other_key_no_action() {
+        let handler = InputHandler::new(true);
+        // Ctrl+X should not quit, falls through to match
+        assert_eq!(
+            handler.handle_key(key_event_ctrl(KeyCode::Char('x'))),
+            Action::None
+        );
+    }
+
+    #[test]
+    fn test_handle_mouse_returns_none() {
+        use crossterm::event::{MouseButton, MouseEventKind};
+
+        let handler = InputHandler::new(true);
+        let mouse_event = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::empty(),
+        };
+        assert_eq!(handler.handle_mouse(mouse_event), Action::None);
+    }
+
+    #[test]
+    fn test_default_handler() {
+        let handler = InputHandler::default();
+        assert!(handler.vim_keys); // Default has vim keys enabled
+    }
+
+    #[test]
+    fn test_unknown_key_returns_none() {
+        let handler = InputHandler::new(true);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Tab)), Action::None);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Insert)), Action::None);
+    }
+
+    #[test]
+    fn test_action_clone_and_debug() {
+        let action = Action::Quit;
+        let cloned = action.clone();
+        assert_eq!(action, cloned);
+
+        let debug = format!("{:?}", Action::Preset(5));
+        assert!(debug.contains("Preset"));
+    }
+
+    #[test]
+    fn test_input_handler_debug() {
+        let handler = InputHandler::new(false);
+        let debug = format!("{:?}", handler);
+        assert!(debug.contains("InputHandler"));
+    }
+
+    #[test]
+    fn test_input_handler_clone() {
+        let handler = InputHandler::new(true);
+        let cloned = handler.clone();
+        assert_eq!(handler.vim_keys, cloned.vim_keys);
+    }
 }

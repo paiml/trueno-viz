@@ -531,4 +531,116 @@ mod tests {
             })
             .expect("Should handle small area gracefully");
     }
+
+    #[test]
+    fn test_gauge_bg_color() {
+        let gauge = Gauge::new(0.5).bg_color(Color::DarkGray);
+        assert_eq!(gauge.bg_color, Color::DarkGray);
+    }
+
+    #[test]
+    fn test_gauge_compact_no_percent() {
+        let mut terminal = create_test_terminal();
+
+        terminal
+            .draw(|frame| {
+                let gauge = Gauge::new(0.5)
+                    .mode(GaugeMode::Compact)
+                    .show_percent(false);
+                frame.render_widget(gauge, frame.area());
+            })
+            .expect("Should render compact without percent");
+    }
+
+    #[test]
+    fn test_gauge_half_no_percent_no_label() {
+        let backend = TestBackend::new(20, 5);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let gauge = Gauge::new(0.75)
+                    .mode(GaugeMode::Half)
+                    .show_percent(false);
+                frame.render_widget(gauge, frame.area());
+            })
+            .expect("Should render half without percent or label");
+    }
+
+    #[test]
+    fn test_gauge_half_no_percent_with_label() {
+        let backend = TestBackend::new(20, 5);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let gauge = Gauge::new(0.75)
+                    .mode(GaugeMode::Half)
+                    .label("CPU")
+                    .show_percent(false);
+                frame.render_widget(gauge, frame.area());
+            })
+            .expect("Should render half with label but no percent");
+    }
+
+    #[test]
+    fn test_gauge_half_with_percent_no_label() {
+        let backend = TestBackend::new(20, 5);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let gauge = Gauge::new(0.25)
+                    .mode(GaugeMode::Half)
+                    .show_percent(true);
+                frame.render_widget(gauge, frame.area());
+            })
+            .expect("Should render half with percent only");
+    }
+
+    #[test]
+    fn test_gauge_full_with_bar_and_label() {
+        let backend = TestBackend::new(20, 8);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let gauge = Gauge::new(0.8)
+                    .mode(GaugeMode::Full)
+                    .label("DISK")
+                    .bg_color(Color::DarkGray);
+                frame.render_widget(gauge, frame.area());
+            })
+            .expect("Should render full gauge with bar");
+    }
+
+    #[test]
+    fn test_gauge_full_with_bg_color_used() {
+        let backend = TestBackend::new(15, 6);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let gauge = Gauge::new(0.3)
+                    .mode(GaugeMode::Full)
+                    .bg_color(Color::Blue);
+                frame.render_widget(gauge, frame.area());
+            })
+            .expect("Should use bg_color for unfilled portion");
+    }
+
+    #[test]
+    fn test_gauge_quarter_mode() {
+        let backend = TestBackend::new(15, 5);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let gauge = Gauge::new(0.5)
+                    .mode(GaugeMode::Quarter)
+                    .label("Q");
+                frame.render_widget(gauge, frame.area());
+            })
+            .expect("Quarter mode should render as half");
+    }
 }

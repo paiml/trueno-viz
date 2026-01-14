@@ -463,4 +463,57 @@ mod tests {
             })
             .expect("Should render with labels");
     }
+
+    #[test]
+    fn test_heatmap_palette_empty_defaults() {
+        // Empty colors should use default palette
+        let palette = HeatmapPalette::new(vec![]);
+        assert_eq!(palette.colors.len(), 5);
+        assert_eq!(palette.colors[0], Color::Blue);
+        assert_eq!(palette.colors[4], Color::Red);
+    }
+
+    #[test]
+    fn test_heatmap_palette_color_for_empty() {
+        // Create palette then manually empty it
+        let mut palette = HeatmapPalette::new(vec![Color::Red]);
+        palette.colors.clear();
+        // Should return White for empty palette
+        assert_eq!(palette.color_for(0.5), Color::White);
+    }
+
+    #[test]
+    fn test_heatmap_palette_color_for_single() {
+        let palette = HeatmapPalette::new(vec![Color::Magenta]);
+        // Single color should always return that color
+        assert_eq!(palette.color_for(0.0), Color::Magenta);
+        assert_eq!(palette.color_for(0.5), Color::Magenta);
+        assert_eq!(palette.color_for(1.0), Color::Magenta);
+    }
+
+    #[test]
+    fn test_heatmap_render_larger_with_labels() {
+        // Render with larger cells to ensure label text_color branch is hit
+        let backend = TestBackend::new(60, 15);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        terminal
+            .draw(|frame| {
+                let cells = vec![
+                    vec![
+                        HeatmapCell::with_label(0.1, "Low"),
+                        HeatmapCell::with_label(0.9, "High"),
+                    ],
+                    vec![
+                        HeatmapCell::with_label(0.5, "Mid"),
+                        HeatmapCell::with_label(0.3, "Med"),
+                    ],
+                ];
+                let heatmap = Heatmap::new(cells)
+                    .show_labels(true)
+                    .cell_size(12, 4);
+                frame.render_widget(heatmap, frame.area());
+            })
+            .expect("Should render larger heatmap with labels");
+    }
 }
