@@ -4,7 +4,7 @@ exclude = ["crates/ttop"]
 
 [package]
 name = "trueno-viz"
-version = "0.1.18"
+version = "0.1.19"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -18,7 +18,7 @@ categories = ["visualization", "graphics", "science", "wasm"]
 
 [dependencies]
 # Core SIMD/GPU acceleration
-trueno = { version = "0.12", default-features = false }
+trueno = { version = "0.13", default-features = false }
 
 # PNG encoding (pure Rust, no libpng)
 png = "0.17"
