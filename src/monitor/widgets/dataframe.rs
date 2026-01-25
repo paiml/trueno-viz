@@ -38,9 +38,10 @@ impl StatusLevel {
 }
 
 /// Cell value types including inline visualizations.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum CellValue {
     /// Null/empty value.
+    #[default]
     Null,
     /// Boolean value.
     Bool(bool),
@@ -67,12 +68,6 @@ pub enum CellValue {
     },
 }
 
-impl Default for CellValue {
-    fn default() -> Self {
-        Self::Null
-    }
-}
-
 impl CellValue {
     /// Render cell value to string and color.
     #[must_use]
@@ -90,7 +85,9 @@ impl CellValue {
                 (ch.to_string(), color)
             }
             Self::Trend(delta) => Self::render_trend(*delta),
-            Self::MicroBar { value, max } => (Self::render_microbar(*value, *max, width), Color::Blue),
+            Self::MicroBar { value, max } => {
+                (Self::render_microbar(*value, *max, width), Color::Blue)
+            }
         }
     }
 
@@ -101,8 +98,16 @@ impl CellValue {
             return " ".repeat(width);
         }
 
-        let min = values.iter().filter(|x| x.is_finite()).copied().fold(f64::INFINITY, f64::min);
-        let max = values.iter().filter(|x| x.is_finite()).copied().fold(f64::NEG_INFINITY, f64::max);
+        let min = values
+            .iter()
+            .filter(|x| x.is_finite())
+            .copied()
+            .fold(f64::INFINITY, f64::min);
+        let max = values
+            .iter()
+            .filter(|x| x.is_finite())
+            .copied()
+            .fold(f64::NEG_INFINITY, f64::max);
         let range = (max - min).max(1e-10);
 
         let sample_width = width.min(values.len());
@@ -237,7 +242,10 @@ impl Column {
     pub fn from_strings(name: impl Into<String>, values: &[&str]) -> Self {
         Self {
             name: name.into(),
-            values: values.iter().map(|&s| CellValue::Text(s.to_string())).collect(),
+            values: values
+                .iter()
+                .map(|&s| CellValue::Text(s.to_string()))
+                .collect(),
             width: 15,
             align: ColumnAlign::Left,
         }
@@ -567,8 +575,8 @@ mod tests {
 
         #[test]
         fn test_float() {
-            let (rendered, _) = CellValue::Float(3.14159).render(10);
-            assert!(rendered.starts_with("3.14"));
+            let (rendered, _) = CellValue::Float(1.23456).render(10);
+            assert!(rendered.starts_with("1.23"));
         }
 
         #[test]
@@ -636,14 +644,22 @@ mod tests {
 
         #[test]
         fn test_microbar() {
-            let (rendered, _) = CellValue::MicroBar { value: 5.0, max: 10.0 }.render(10);
+            let (rendered, _) = CellValue::MicroBar {
+                value: 5.0,
+                max: 10.0,
+            }
+            .render(10);
             assert!(rendered.contains('█'));
             assert!(rendered.contains('░'));
         }
 
         #[test]
         fn test_microbar_full() {
-            let (rendered, _) = CellValue::MicroBar { value: 10.0, max: 10.0 }.render(10);
+            let (rendered, _) = CellValue::MicroBar {
+                value: 10.0,
+                max: 10.0,
+            }
+            .render(10);
             assert_eq!(rendered.chars().filter(|&c| c == '█').count(), 10);
         }
     }
@@ -789,7 +805,10 @@ mod tests {
         #[test]
         fn test_scroll_to() {
             let mut df = DataFrame::new()
-                .column(Column::from_f64("A", &(0..100).map(|i| i as f64).collect::<Vec<_>>()))
+                .column(Column::from_f64(
+                    "A",
+                    &(0..100).map(|i| i as f64).collect::<Vec<_>>(),
+                ))
                 .visible_rows(10);
             df.scroll_to(50);
             assert_eq!(df.scroll_offset, 50);
@@ -890,19 +909,25 @@ mod tests {
         #[test]
         fn test_render_all_cell_types() {
             let (area, mut buf) = create_test_buffer(80, 20);
-            let df = DataFrame::new()
-                .column(Column::new("Types").values(vec![
-                    CellValue::Null,
-                    CellValue::Bool(true),
-                    CellValue::Int(42),
-                    CellValue::Float(3.14),
-                    CellValue::Text("text".to_string()),
-                    CellValue::Sparkline(vec![1.0, 2.0, 3.0]),
-                    CellValue::Progress(75.0),
-                    CellValue::Status(StatusLevel::Ok),
-                    CellValue::Trend(0.05),
-                    CellValue::MicroBar { value: 5.0, max: 10.0 },
-                ]).width(20));
+            let df = DataFrame::new().column(
+                Column::new("Types")
+                    .values(vec![
+                        CellValue::Null,
+                        CellValue::Bool(true),
+                        CellValue::Int(42),
+                        CellValue::Float(1.23),
+                        CellValue::Text("text".to_string()),
+                        CellValue::Sparkline(vec![1.0, 2.0, 3.0]),
+                        CellValue::Progress(75.0),
+                        CellValue::Status(StatusLevel::Ok),
+                        CellValue::Trend(0.05),
+                        CellValue::MicroBar {
+                            value: 5.0,
+                            max: 10.0,
+                        },
+                    ])
+                    .width(20),
+            );
             df.render(area, &mut buf);
         }
 
@@ -923,10 +948,14 @@ mod tests {
             let df = DataFrame::new()
                 .column(Column::from_strings("Left", &["a", "b"]).align(ColumnAlign::Left))
                 .column(Column::from_f64("Right", &[1.0, 2.0]).align(ColumnAlign::Right))
-                .column(Column::new("Center").values(vec![
-                    CellValue::Text("x".to_string()),
-                    CellValue::Text("y".to_string()),
-                ]).align(ColumnAlign::Center));
+                .column(
+                    Column::new("Center")
+                        .values(vec![
+                            CellValue::Text("x".to_string()),
+                            CellValue::Text("y".to_string()),
+                        ])
+                        .align(ColumnAlign::Center),
+                );
             df.render(area, &mut buf);
         }
 
@@ -935,7 +964,9 @@ mod tests {
             // Very narrow area - tests width boundary clipping
             let (area, mut buf) = create_test_buffer(10, 15);
             let df = DataFrame::new()
-                .column(Column::from_strings("Name", &["VeryLongName", "AnotherLongName"]).width(15))
+                .column(
+                    Column::from_strings("Name", &["VeryLongName", "AnotherLongName"]).width(15),
+                )
                 .column(Column::from_f64("Score", &[95.0, 87.0]).width(10))
                 .title("Test");
             df.render(area, &mut buf);
@@ -956,14 +987,17 @@ mod tests {
         #[test]
         fn test_render_with_trend_variations() {
             let (area, mut buf) = create_test_buffer(60, 15);
-            let df = DataFrame::new()
-                .column(Column::new("Trend").values(vec![
-                    CellValue::Trend(0.15),   // Up (> 0.1)
-                    CellValue::Trend(0.05),   // Slightly up (> 0.02, < 0.1)
-                    CellValue::Trend(0.0),    // Flat (> -0.02, < 0.02)
-                    CellValue::Trend(-0.05),  // Slightly down (> -0.1, < -0.02)
-                    CellValue::Trend(-0.15),  // Down (< -0.1)
-                ]).width(12));
+            let df = DataFrame::new().column(
+                Column::new("Trend")
+                    .values(vec![
+                        CellValue::Trend(0.15),  // Up (> 0.1)
+                        CellValue::Trend(0.05),  // Slightly up (> 0.02, < 0.1)
+                        CellValue::Trend(0.0),   // Flat (> -0.02, < 0.02)
+                        CellValue::Trend(-0.05), // Slightly down (> -0.1, < -0.02)
+                        CellValue::Trend(-0.15), // Down (< -0.1)
+                    ])
+                    .width(12),
+            );
             df.render(area, &mut buf);
         }
 
@@ -979,8 +1013,11 @@ mod tests {
         #[test]
         fn test_render_header_clipping() {
             let (area, mut buf) = create_test_buffer(8, 10);
-            let df = DataFrame::new()
-                .column(Column::new("VeryLongColumnName").values(vec![CellValue::Int(1)]).width(15));
+            let df = DataFrame::new().column(
+                Column::new("VeryLongColumnName")
+                    .values(vec![CellValue::Int(1)])
+                    .width(15),
+            );
             df.render(area, &mut buf);
         }
     }

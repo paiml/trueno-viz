@@ -544,9 +544,7 @@ mod tests {
 
         terminal
             .draw(|frame| {
-                let gauge = Gauge::new(0.5)
-                    .mode(GaugeMode::Compact)
-                    .show_percent(false);
+                let gauge = Gauge::new(0.5).mode(GaugeMode::Compact).show_percent(false);
                 frame.render_widget(gauge, frame.area());
             })
             .expect("Should render compact without percent");
@@ -559,9 +557,7 @@ mod tests {
 
         terminal
             .draw(|frame| {
-                let gauge = Gauge::new(0.75)
-                    .mode(GaugeMode::Half)
-                    .show_percent(false);
+                let gauge = Gauge::new(0.75).mode(GaugeMode::Half).show_percent(false);
                 frame.render_widget(gauge, frame.area());
             })
             .expect("Should render half without percent or label");
@@ -590,9 +586,7 @@ mod tests {
 
         terminal
             .draw(|frame| {
-                let gauge = Gauge::new(0.25)
-                    .mode(GaugeMode::Half)
-                    .show_percent(true);
+                let gauge = Gauge::new(0.25).mode(GaugeMode::Half).show_percent(true);
                 frame.render_widget(gauge, frame.area());
             })
             .expect("Should render half with percent only");
@@ -621,9 +615,7 @@ mod tests {
 
         terminal
             .draw(|frame| {
-                let gauge = Gauge::new(0.3)
-                    .mode(GaugeMode::Full)
-                    .bg_color(Color::Blue);
+                let gauge = Gauge::new(0.3).mode(GaugeMode::Full).bg_color(Color::Blue);
                 frame.render_widget(gauge, frame.area());
             })
             .expect("Should use bg_color for unfilled portion");
@@ -636,9 +628,7 @@ mod tests {
 
         terminal
             .draw(|frame| {
-                let gauge = Gauge::new(0.5)
-                    .mode(GaugeMode::Quarter)
-                    .label("Q");
+                let gauge = Gauge::new(0.5).mode(GaugeMode::Quarter).label("Q");
                 frame.render_widget(gauge, frame.area());
             })
             .expect("Quarter mode should render as half");

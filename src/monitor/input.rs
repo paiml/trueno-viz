@@ -221,7 +221,10 @@ mod tests {
     #[test]
     fn test_select_action() {
         let handler = InputHandler::new(true);
-        assert_eq!(handler.handle_key(key_event(KeyCode::Enter)), Action::Select);
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::Enter)),
+            Action::Select
+        );
     }
 
     #[test]
@@ -262,7 +265,10 @@ mod tests {
             handler.handle_key(key_event(KeyCode::Char('r'))),
             Action::Refresh
         );
-        assert_eq!(handler.handle_key(key_event(KeyCode::F(5))), Action::Refresh);
+        assert_eq!(
+            handler.handle_key(key_event(KeyCode::F(5))),
+            Action::Refresh
+        );
     }
 
     #[test]

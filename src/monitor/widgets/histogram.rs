@@ -184,20 +184,31 @@ impl Histogram {
 
     /// Compute standard deviation.
     fn std_dev(&self) -> f64 {
-        let finite_data: Vec<f64> = self.data.iter().filter(|x| x.is_finite()).copied().collect();
+        let finite_data: Vec<f64> = self
+            .data
+            .iter()
+            .filter(|x| x.is_finite())
+            .copied()
+            .collect();
         let n = finite_data.len();
         if n < 2 {
             return 0.0;
         }
 
         let mean: f64 = finite_data.iter().sum::<f64>() / n as f64;
-        let variance: f64 = finite_data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
+        let variance: f64 =
+            finite_data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (n - 1) as f64;
         variance.sqrt()
     }
 
     /// Compute interquartile range.
     fn iqr(&self) -> f64 {
-        let mut sorted: Vec<f64> = self.data.iter().filter(|x| x.is_finite()).copied().collect();
+        let mut sorted: Vec<f64> = self
+            .data
+            .iter()
+            .filter(|x| x.is_finite())
+            .copied()
+            .collect();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         if sorted.len() < 4 {
@@ -257,7 +268,7 @@ impl Histogram {
             }
         };
 
-        count.max(1).min(100) // Cap at 100 bins
+        count.clamp(1, 100) // Cap at 100 bins
     }
 
     /// Compute bins and counts.
@@ -293,7 +304,13 @@ impl Histogram {
             return;
         }
 
-        let max_count = self.computed_bins.iter().map(|b| b.count).max().unwrap_or(1).max(1);
+        let max_count = self
+            .computed_bins
+            .iter()
+            .map(|b| b.count)
+            .max()
+            .unwrap_or(1)
+            .max(1);
         let n_bins = self.computed_bins.len();
 
         // Calculate layout
@@ -317,7 +334,8 @@ impl Histogram {
             let max_label = format!("{:>4}", max_count);
             for (i, ch) in max_label.chars().enumerate() {
                 if let Some(cell) = buf.cell_mut((area.x + i as u16, plot_y)) {
-                    cell.set_char(ch).set_style(Style::default().fg(Color::DarkGray));
+                    cell.set_char(ch)
+                        .set_style(Style::default().fg(Color::DarkGray));
                 }
             }
         }
@@ -372,7 +390,13 @@ impl Histogram {
             return;
         }
 
-        let max_count = self.computed_bins.iter().map(|b| b.count).max().unwrap_or(1).max(1);
+        let max_count = self
+            .computed_bins
+            .iter()
+            .map(|b| b.count)
+            .max()
+            .unwrap_or(1)
+            .max(1);
         let n_bins = self.computed_bins.len();
 
         // Calculate layout
@@ -406,7 +430,8 @@ impl Histogram {
                     let lx = area.x + j as u16;
                     if lx < area.x + area.width {
                         if let Some(cell) = buf.cell_mut((lx, y)) {
-                            cell.set_char(ch).set_style(Style::default().fg(Color::DarkGray));
+                            cell.set_char(ch)
+                                .set_style(Style::default().fg(Color::DarkGray));
                         }
                     }
                 }
@@ -495,13 +520,22 @@ mod tests {
 
         #[test]
         fn test_default() {
-            assert_eq!(HistogramOrientation::default(), HistogramOrientation::Vertical);
+            assert_eq!(
+                HistogramOrientation::default(),
+                HistogramOrientation::Vertical
+            );
         }
 
         #[test]
         fn test_equality() {
-            assert_eq!(HistogramOrientation::Vertical, HistogramOrientation::Vertical);
-            assert_ne!(HistogramOrientation::Vertical, HistogramOrientation::Horizontal);
+            assert_eq!(
+                HistogramOrientation::Vertical,
+                HistogramOrientation::Vertical
+            );
+            assert_ne!(
+                HistogramOrientation::Vertical,
+                HistogramOrientation::Horizontal
+            );
         }
     }
 
@@ -628,9 +662,10 @@ mod tests {
 
         #[test]
         fn test_count() {
-            let hist = Histogram::new(vec![1.0, 2.0, 3.0, 4.0, 5.0]).bin_strategy(BinStrategy::Count(3));
+            let hist =
+                Histogram::new(vec![1.0, 2.0, 3.0, 4.0, 5.0]).bin_strategy(BinStrategy::Count(3));
             // With count strategy, we might get close to 3 bins
-            assert!(hist.computed_bins.len() >= 1);
+            assert!(!hist.computed_bins.is_empty());
         }
 
         #[test]
@@ -755,14 +790,26 @@ mod tests {
 
         #[test]
         fn test_bin_equality() {
-            let a = Bin { start: 0.0, end: 1.0, count: 5 };
-            let b = Bin { start: 0.0, end: 1.0, count: 5 };
+            let a = Bin {
+                start: 0.0,
+                end: 1.0,
+                count: 5,
+            };
+            let b = Bin {
+                start: 0.0,
+                end: 1.0,
+                count: 5,
+            };
             assert_eq!(a, b);
         }
 
         #[test]
         fn test_bin_debug() {
-            let bin = Bin { start: 0.0, end: 1.0, count: 5 };
+            let bin = Bin {
+                start: 0.0,
+                end: 1.0,
+                count: 5,
+            };
             let debug = format!("{:?}", bin);
             assert!(debug.contains("Bin"));
         }
@@ -883,8 +930,8 @@ mod tests {
             // Area too short for horizontal (height < 3)
             let area = Rect::new(0, 0, 20, 2);
             let mut buf = Buffer::empty(Rect::new(0, 0, 30, 10));
-            let hist = Histogram::new(vec![1.0, 2.0, 3.0])
-                .orientation(HistogramOrientation::Horizontal);
+            let hist =
+                Histogram::new(vec![1.0, 2.0, 3.0]).orientation(HistogramOrientation::Horizontal);
             hist.render(area, &mut buf);
         }
 
@@ -909,9 +956,9 @@ mod tests {
         #[test]
         fn test_bin_count_scott_constant_data() {
             // Constant data has std dev = 0, should return 1 bin
-            let hist = Histogram::new(vec![5.0, 5.0, 5.0, 5.0, 5.0])
-                .bin_strategy(BinStrategy::Scott);
-            assert!(hist.computed_bins.len() >= 1);
+            let hist =
+                Histogram::new(vec![5.0, 5.0, 5.0, 5.0, 5.0]).bin_strategy(BinStrategy::Scott);
+            assert!(!hist.computed_bins.is_empty());
         }
 
         #[test]
@@ -919,7 +966,7 @@ mod tests {
             // Constant data has IQR = 0, should return 1 bin
             let hist = Histogram::new(vec![5.0, 5.0, 5.0, 5.0, 5.0])
                 .bin_strategy(BinStrategy::FreedmanDiaconis);
-            assert!(hist.computed_bins.len() >= 1);
+            assert!(!hist.computed_bins.is_empty());
         }
 
         #[test]
@@ -934,8 +981,7 @@ mod tests {
         #[test]
         fn test_render_vertical_with_labels() {
             let (area, mut buf) = create_test_buffer(50, 20);
-            let hist = Histogram::new(vec![1.0, 2.0, 3.0, 4.0, 5.0])
-                .show_labels(true);
+            let hist = Histogram::new(vec![1.0, 2.0, 3.0, 4.0, 5.0]).show_labels(true);
             hist.render(area, &mut buf);
         }
 

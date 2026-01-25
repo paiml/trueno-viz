@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn test_level_clone() {
         let level = Level::Warn;
-        let cloned = level.clone();
+        let cloned = level;
         assert_eq!(level, cloned);
     }
 
