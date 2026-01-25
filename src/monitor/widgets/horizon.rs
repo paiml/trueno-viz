@@ -263,7 +263,10 @@ impl Widget for HorizonGraph<'_> {
             let label_len = label.chars().count().min(area.width as usize);
             for (i, ch) in label.chars().take(label_len).enumerate() {
                 let x = area.x + i as u16;
-                buf[(x, area.y)].set_char(ch).set_fg(Color::White).set_bg(bg);
+                buf[(x, area.y)]
+                    .set_char(ch)
+                    .set_fg(Color::White)
+                    .set_bg(bg);
             }
         }
     }
@@ -360,7 +363,11 @@ mod tests {
             // Generally, later bands should have higher luminance (darker in this context means higher factor)
             // Just verify they're all different
             for i in 1..values.len() {
-                assert_ne!(values[i], values[i - 1], "Adjacent bands should have different colors");
+                assert_ne!(
+                    values[i],
+                    values[i - 1],
+                    "Adjacent bands should have different colors"
+                );
             }
         }
     }
@@ -605,7 +612,11 @@ mod tests {
             graph.render(area, &mut buf);
 
             // Buffer should be modified
-            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
+            let content: String = buf
+                .content()
+                .iter()
+                .map(|c| c.symbol().to_string())
+                .collect();
             assert!(!content.chars().all(|c| c == ' '));
         }
 

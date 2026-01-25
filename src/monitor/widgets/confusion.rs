@@ -60,11 +60,11 @@ impl MatrixPalette {
             Self::DiagonalGreen => {
                 if is_diagonal {
                     // Green for correct predictions (diagonal)
-                    let g = (80 + (v * 175.0) as u8).min(255);
+                    let g = 80 + (v * 175.0) as u8;
                     Color::Rgb(50, g, 50)
                 } else {
                     // Red for errors (off-diagonal)
-                    let r = (80 + (v * 175.0) as u8).min(255);
+                    let r = 80 + (v * 175.0) as u8;
                     Color::Rgb(r, 50, 50)
                 }
             }
@@ -75,7 +75,7 @@ impl MatrixPalette {
             Self::Blues => {
                 // Light blue to dark blue
                 let intensity = (50.0 + v * 180.0) as u8;
-                Color::Rgb(50, intensity, (150 + (v * 105.0) as u8).min(255))
+                Color::Rgb(50, intensity, 150 + (v * 105.0) as u8)
             }
         }
     }
@@ -613,15 +613,13 @@ mod tests {
 
         #[test]
         fn test_normalization() {
-            let cm =
-                ConfusionMatrix::new(vec![vec![5]]).normalization(Normalization::Row);
+            let cm = ConfusionMatrix::new(vec![vec![5]]).normalization(Normalization::Row);
             assert_eq!(cm.normalization, Normalization::Row);
         }
 
         #[test]
         fn test_palette() {
-            let cm =
-                ConfusionMatrix::new(vec![vec![5]]).palette(MatrixPalette::DiagonalGreen);
+            let cm = ConfusionMatrix::new(vec![vec![5]]).palette(MatrixPalette::DiagonalGreen);
             assert_eq!(cm.palette, MatrixPalette::DiagonalGreen);
         }
 
@@ -803,8 +801,8 @@ mod tests {
 
         #[test]
         fn test_normalize_row() {
-            let cm =
-                ConfusionMatrix::new(vec![vec![10, 2], vec![3, 15]]).normalization(Normalization::Row);
+            let cm = ConfusionMatrix::new(vec![vec![10, 2], vec![3, 15]])
+                .normalization(Normalization::Row);
             // Row 0 sum = 12, so 10/12 ≈ 0.833
             let normalized = cm.normalize_value(0, 0, 10);
             assert!((normalized - 0.833).abs() < 0.01);
@@ -956,8 +954,7 @@ mod tests {
                 MatrixPalette::Grayscale,
                 MatrixPalette::Blues,
             ] {
-                let cm =
-                    ConfusionMatrix::new(vec![vec![10, 2], vec![3, 15]]).palette(palette);
+                let cm = ConfusionMatrix::new(vec![vec![10, 2], vec![3, 15]]).palette(palette);
                 cm.render(area, &mut buf);
             }
         }
@@ -971,8 +968,7 @@ mod tests {
                 Normalization::Column,
                 Normalization::Total,
             ] {
-                let cm =
-                    ConfusionMatrix::new(vec![vec![10, 2], vec![3, 15]]).normalization(norm);
+                let cm = ConfusionMatrix::new(vec![vec![10, 2], vec![3, 15]]).normalization(norm);
                 cm.render(area, &mut buf);
             }
         }
@@ -980,12 +976,8 @@ mod tests {
         #[test]
         fn test_render_3x3() {
             let (area, mut buf) = create_test_buffer(60, 25);
-            let cm = ConfusionMatrix::new(vec![
-                vec![45, 3, 2],
-                vec![5, 40, 5],
-                vec![1, 4, 45],
-            ])
-            .labels(vec!["A".to_string(), "B".to_string(), "C".to_string()]);
+            let cm = ConfusionMatrix::new(vec![vec![45, 3, 2], vec![5, 40, 5], vec![1, 4, 45]])
+                .labels(vec!["A".to_string(), "B".to_string(), "C".to_string()]);
             cm.render(area, &mut buf);
         }
 

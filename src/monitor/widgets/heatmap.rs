@@ -509,9 +509,7 @@ mod tests {
                         HeatmapCell::with_label(0.3, "Med"),
                     ],
                 ];
-                let heatmap = Heatmap::new(cells)
-                    .show_labels(true)
-                    .cell_size(12, 4);
+                let heatmap = Heatmap::new(cells).show_labels(true).cell_size(12, 4);
                 frame.render_widget(heatmap, frame.area());
             })
             .expect("Should render larger heatmap with labels");

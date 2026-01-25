@@ -89,7 +89,7 @@ impl BoxStats {
             return Self::default();
         }
 
-        let mut sorted: Vec<f64> = data.iter().copied().collect();
+        let mut sorted: Vec<f64> = data.to_vec();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let n = sorted.len();
@@ -105,7 +105,11 @@ impl BoxStats {
         let upper_fence = q3 + 1.5 * iqr;
 
         // Find whisker bounds (within fences)
-        let min_whisker = sorted.iter().copied().find(|&x| x >= lower_fence).unwrap_or(sorted[0]);
+        let min_whisker = sorted
+            .iter()
+            .copied()
+            .find(|&x| x >= lower_fence)
+            .unwrap_or(sorted[0]);
         let max_whisker = sorted
             .iter()
             .rev()
@@ -114,8 +118,16 @@ impl BoxStats {
             .unwrap_or(sorted[n - 1]);
 
         // Collect outliers
-        let outliers_low: Vec<f64> = sorted.iter().copied().filter(|&x| x < lower_fence).collect();
-        let outliers_high: Vec<f64> = sorted.iter().copied().filter(|&x| x > upper_fence).collect();
+        let outliers_low: Vec<f64> = sorted
+            .iter()
+            .copied()
+            .filter(|&x| x < lower_fence)
+            .collect();
+        let outliers_high: Vec<f64> = sorted
+            .iter()
+            .copied()
+            .filter(|&x| x > upper_fence)
+            .collect();
 
         Self {
             min: min_whisker,
@@ -414,11 +426,21 @@ impl BoxPlot {
             let box_x = x + (box_width as u16 / 2);
 
             // Map positions (inverted for vertical: high values at top)
-            let min_y = area.y + area.height - 1 - self.map_value(stats.min, data_min, data_max, area.height);
-            let q1_y = area.y + area.height - 1 - self.map_value(stats.q1, data_min, data_max, area.height);
-            let med_y = area.y + area.height - 1 - self.map_value(stats.median, data_min, data_max, area.height);
-            let q3_y = area.y + area.height - 1 - self.map_value(stats.q3, data_min, data_max, area.height);
-            let max_y = area.y + area.height - 1 - self.map_value(stats.max, data_min, data_max, area.height);
+            let min_y = area.y + area.height
+                - 1
+                - self.map_value(stats.min, data_min, data_max, area.height);
+            let q1_y = area.y + area.height
+                - 1
+                - self.map_value(stats.q1, data_min, data_max, area.height);
+            let med_y = area.y + area.height
+                - 1
+                - self.map_value(stats.median, data_min, data_max, area.height);
+            let q3_y = area.y + area.height
+                - 1
+                - self.map_value(stats.q3, data_min, data_max, area.height);
+            let max_y = area.y + area.height
+                - 1
+                - self.map_value(stats.max, data_min, data_max, area.height);
 
             // Draw whisker line (max_y to min_y, since y increases downward)
             for y in max_y..=min_y {
@@ -450,13 +472,17 @@ impl BoxPlot {
             // Draw outliers
             if self.show_outliers {
                 for &o in &stats.outliers_low {
-                    let oy = area.y + area.height - 1 - self.map_value(o, data_min, data_max, area.height);
+                    let oy = area.y + area.height
+                        - 1
+                        - self.map_value(o, data_min, data_max, area.height);
                     if oy < area.y + area.height {
                         buf[(box_x, oy)].set_char('○').set_fg(stats.color);
                     }
                 }
                 for &o in &stats.outliers_high {
-                    let oy = area.y + area.height - 1 - self.map_value(o, data_min, data_max, area.height);
+                    let oy = area.y + area.height
+                        - 1
+                        - self.map_value(o, data_min, data_max, area.height);
                     if oy < area.y + area.height {
                         buf[(box_x, oy)].set_char('○').set_fg(stats.color);
                     }
@@ -787,7 +813,11 @@ mod tests {
             plot.render(area, &mut buf);
 
             // Buffer should have content
-            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
+            let content: String = buf
+                .content()
+                .iter()
+                .map(|c| c.symbol().to_string())
+                .collect();
             assert!(!content.chars().all(|c| c == ' '));
         }
 
@@ -799,7 +829,11 @@ mod tests {
             plot.render(area, &mut buf);
 
             // Buffer should have content
-            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
+            let content: String = buf
+                .content()
+                .iter()
+                .map(|c| c.symbol().to_string())
+                .collect();
             assert!(!content.chars().all(|c| c == ' '));
         }
 
@@ -818,7 +852,8 @@ mod tests {
             let (area, mut buf) = create_test_buffer(10, 20);
             let stats1 = BoxStats::new(1.0, 2.0, 3.0, 4.0, 5.0);
             let stats2 = BoxStats::new(2.0, 3.0, 4.0, 5.0, 6.0);
-            let plot = BoxPlot::new(vec![stats1, stats2]).with_orientation(BoxOrientation::Vertical);
+            let plot =
+                BoxPlot::new(vec![stats1, stats2]).with_orientation(BoxOrientation::Vertical);
             plot.render(area, &mut buf);
             // Should render without panic
         }
@@ -835,7 +870,11 @@ mod tests {
             plot.render(area, &mut buf);
 
             // Should contain outlier markers
-            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
+            let content: String = buf
+                .content()
+                .iter()
+                .map(|c| c.symbol().to_string())
+                .collect();
             assert!(content.contains("○") || !has_outliers);
         }
 
@@ -858,7 +897,7 @@ mod tests {
             // Background should be set - verify at least one cell has black background
             let cell = buf.cell((area.x, area.y)).unwrap();
             // Cell exists (test doesn't panic) confirms rendering worked
-            assert!(cell.symbol().len() > 0 || area.width > 0);
+            assert!(!cell.symbol().is_empty() || area.width > 0);
         }
 
         #[test]
@@ -965,7 +1004,15 @@ mod tests {
         fn test_render_many_boxes_horizontal_overflow() {
             // Many boxes in small vertical space - should break early
             let boxes: Vec<BoxStats> = (0..20)
-                .map(|i| BoxStats::new(i as f64, i as f64 + 1.0, i as f64 + 2.0, i as f64 + 3.0, i as f64 + 4.0))
+                .map(|i| {
+                    BoxStats::new(
+                        i as f64,
+                        i as f64 + 1.0,
+                        i as f64 + 2.0,
+                        i as f64 + 3.0,
+                        i as f64 + 4.0,
+                    )
+                })
                 .collect();
             let (area, mut buf) = create_test_buffer(40, 3); // Only 3 height for 20 boxes
             let plot = BoxPlot::new(boxes);
@@ -977,7 +1024,15 @@ mod tests {
         fn test_render_many_boxes_vertical_overflow() {
             // Many boxes in small horizontal space - should break early
             let boxes: Vec<BoxStats> = (0..20)
-                .map(|i| BoxStats::new(i as f64, i as f64 + 1.0, i as f64 + 2.0, i as f64 + 3.0, i as f64 + 4.0))
+                .map(|i| {
+                    BoxStats::new(
+                        i as f64,
+                        i as f64 + 1.0,
+                        i as f64 + 2.0,
+                        i as f64 + 3.0,
+                        i as f64 + 4.0,
+                    )
+                })
                 .collect();
             let (area, mut buf) = create_test_buffer(5, 20); // Only 5 width for 20 boxes
             let plot = BoxPlot::new(boxes).with_orientation(BoxOrientation::Vertical);
@@ -997,7 +1052,11 @@ mod tests {
                 .with_outliers(true);
             plot.render(area, &mut buf);
             // Should render outliers
-            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
+            let content: String = buf
+                .content()
+                .iter()
+                .map(|c| c.symbol().to_string())
+                .collect();
             assert!(content.contains("○"));
         }
 
@@ -1031,7 +1090,11 @@ mod tests {
             let (area, mut buf) = create_test_buffer(60, 5);
             let plot = BoxPlot::new(vec![stats]).with_outliers(true);
             plot.render(area, &mut buf);
-            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
+            let content: String = buf
+                .content()
+                .iter()
+                .map(|c| c.symbol().to_string())
+                .collect();
             assert!(content.contains("○"));
         }
 
@@ -1049,7 +1112,11 @@ mod tests {
                 .with_outliers(true);
             plot.render(area, &mut buf);
             // Multiple outliers should render
-            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
+            let content: String = buf
+                .content()
+                .iter()
+                .map(|c| c.symbol().to_string())
+                .collect();
             let outlier_count = content.matches('○').count();
             assert!(outlier_count >= 2);
         }

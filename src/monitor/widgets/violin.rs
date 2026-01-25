@@ -191,12 +191,8 @@ impl ViolinData {
             return 1.0;
         }
         let mean = self.values.iter().sum::<f64>() / self.values.len() as f64;
-        let variance = self
-            .values
-            .iter()
-            .map(|x| (x - mean).powi(2))
-            .sum::<f64>()
-            / self.values.len() as f64;
+        let variance =
+            self.values.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / self.values.len() as f64;
         variance.sqrt().max(0.001)
     }
 
@@ -850,7 +846,7 @@ mod tests {
             let densities = data.densities().expect("computed");
             assert_eq!(densities.len(), 20);
             // Densities should be in [0, 1] after normalization
-            assert!(densities.iter().all(|&d| d >= 0.0 && d <= 1.0));
+            assert!(densities.iter().all(|&d| (0.0..=1.0).contains(&d)));
             // At least one density should be 1.0 (the max)
             assert!(densities.iter().any(|&d| d > 0.9));
         }
@@ -917,10 +913,7 @@ mod tests {
         #[test]
         fn test_equality() {
             assert_eq!(ViolinOrientation::Vertical, ViolinOrientation::Vertical);
-            assert_eq!(
-                ViolinOrientation::Horizontal,
-                ViolinOrientation::Horizontal
-            );
+            assert_eq!(ViolinOrientation::Horizontal, ViolinOrientation::Horizontal);
             assert_ne!(ViolinOrientation::Vertical, ViolinOrientation::Horizontal);
         }
     }
@@ -1146,8 +1139,7 @@ mod tests {
                 ViolinData::new("A", &[1.0, 2.0, 3.0]),
                 ViolinData::new("B", &[2.0, 3.0, 4.0]),
             ];
-            let plot =
-                ViolinPlot::with_data(data).orientation(ViolinOrientation::Horizontal);
+            let plot = ViolinPlot::with_data(data).orientation(ViolinOrientation::Horizontal);
             plot.render(area, &mut buf);
         }
 
@@ -1196,8 +1188,7 @@ mod tests {
         fn test_render_short_horizontal() {
             let (area, mut buf) = create_test_buffer(60, 5);
             let data = vec![ViolinData::new("A", &[1.0, 2.0, 3.0])];
-            let plot =
-                ViolinPlot::with_data(data).orientation(ViolinOrientation::Horizontal);
+            let plot = ViolinPlot::with_data(data).orientation(ViolinOrientation::Horizontal);
             plot.render(area, &mut buf);
         }
 
@@ -1250,7 +1241,12 @@ mod tests {
         fn test_render_vertical_many_violins() {
             let (area, mut buf) = create_test_buffer(15, 30);
             let data: Vec<ViolinData> = (0..5)
-                .map(|i| ViolinData::new(&format!("V{}", i), &[i as f64, i as f64 + 1.0, i as f64 + 2.0]))
+                .map(|i| {
+                    ViolinData::new(
+                        format!("V{}", i),
+                        &[i as f64, i as f64 + 1.0, i as f64 + 2.0],
+                    )
+                })
                 .collect();
             let plot = ViolinPlot::with_data(data);
             plot.render(area, &mut buf);
@@ -1260,7 +1256,12 @@ mod tests {
         fn test_render_horizontal_many_violins() {
             let (area, mut buf) = create_test_buffer(60, 10);
             let data: Vec<ViolinData> = (0..5)
-                .map(|i| ViolinData::new(&format!("V{}", i), &[i as f64, i as f64 + 1.0, i as f64 + 2.0]))
+                .map(|i| {
+                    ViolinData::new(
+                        format!("V{}", i),
+                        &[i as f64, i as f64 + 1.0, i as f64 + 2.0],
+                    )
+                })
                 .collect();
             let plot = ViolinPlot::with_data(data).orientation(ViolinOrientation::Horizontal);
             plot.render(area, &mut buf);
@@ -1269,10 +1270,11 @@ mod tests {
         #[test]
         fn test_render_vertical_with_box_and_median() {
             let (area, mut buf) = create_test_buffer(40, 20);
-            let data = vec![ViolinData::new("Test", &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])];
-            let plot = ViolinPlot::with_data(data)
-                .show_box(true)
-                .show_median(true);
+            let data = vec![ViolinData::new(
+                "Test",
+                &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+            )];
+            let plot = ViolinPlot::with_data(data).show_box(true).show_median(true);
             plot.render(area, &mut buf);
         }
 
@@ -1295,8 +1297,7 @@ mod tests {
         fn test_render_title_clipping() {
             let (area, mut buf) = create_test_buffer(15, 10);
             let data = vec![ViolinData::new("A", &[1.0, 2.0, 3.0])];
-            let plot = ViolinPlot::with_data(data)
-                .title("Very Long Title That Will Be Clipped");
+            let plot = ViolinPlot::with_data(data).title("Very Long Title That Will Be Clipped");
             plot.render(area, &mut buf);
         }
     }
