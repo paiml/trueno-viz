@@ -4,7 +4,7 @@ exclude = ["crates/ttop"]
 
 [package]
 name = "trueno-viz"
-version = "0.1.22"
+version = "0.1.23"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -30,7 +30,7 @@ base64 = "0.22"
 thiserror = "2.0"
 
 # Optional: ML integration
-aprender = { version = "0.24", optional = true }
+aprender = { version = "0.25", optional = true }
 
 # Optional: Graph integration
 trueno-graph = { version = "0.1.13", optional = true }
