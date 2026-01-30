@@ -208,6 +208,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "aprender"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3c85734a8105872bdc276d1271b93eadf2954e5d9016d92e7c8421292f0a5f6"
+dependencies = [
+ "bincode",
+ "getrandom 0.2.17",
+ "memmap2",
+ "minijinja",
+ "rand 0.8.5",
+ "rand_chacha 0.3.1",
+ "rayon",
+ "rmp-serde",
+ "serde",
+ "serde_json",
+ "trueno 0.14.4",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1792,7 +1811,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b2f37ff57ef82eac0033c6aa46c31c531b0f066553f06e240f560759ef53182"
 dependencies = [
  "alimentar",
- "aprender",
+ "aprender 0.24.1",
  "arrow 57.2.0",
  "bytemuck",
  "chrono",
@@ -5484,9 +5503,9 @@ dependencies = [
 
 [[package]]
 name = "trueno"
-version = "0.14.2"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "21985b663e54cfc00fa6ff43422f810385d19f3565320fcd8bdf9f38e7fc0de5"
+checksum = "35d2c230ebde5da651c4dc89c32bfe0d277f4e36750a5849d2e69af50b646211"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -5529,7 +5548,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "trueno 0.14.2",
+ "trueno 0.14.4",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -5542,12 +5561,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cef95fd0065cc9b79ad21e62fa22beae19550a790c2ac1f9c88d0a0d7c68e05"
 dependencies = [
  "anyhow",
- "aprender",
+ "aprender 0.24.1",
  "arrow 54.3.1",
  "parquet 54.3.1",
  "thiserror 2.0.18",
  "tokio",
- "trueno 0.14.2",
+ "trueno 0.14.4",
  "trueno-db",
 ]
 
@@ -5561,15 +5580,15 @@ dependencies = [
  "libc",
  "png 0.17.16",
  "thiserror 2.0.18",
- "trueno 0.14.2",
+ "trueno 0.14.4",
 ]
 
 [[package]]
 name = "trueno-viz"
-version = "0.1.22"
+version = "0.1.23"
 dependencies = [
  "approx",
- "aprender",
+ "aprender 0.25.1",
  "base64",
  "criterion",
  "crossterm",
@@ -5591,7 +5610,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "trueno 0.14.2",
+ "trueno 0.14.4",
  "trueno-db",
  "trueno-graph",
  "wasm-bindgen",
