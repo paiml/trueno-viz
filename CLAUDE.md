@@ -4,6 +4,37 @@
 
 trueno-viz — Terminal/PNG visualization for the Sovereign AI Stack
 
+## Code Search (pmat query)
+
+**NEVER use grep or rg for code discovery.** Use `pmat query` instead -- it returns quality-annotated, ranked results with TDG scores and fault annotations.
+
+```bash
+# Find functions by intent
+pmat query "chart rendering" --limit 10
+
+# Find high-quality code
+pmat query "terminal output" --min-grade A --exclude-tests
+
+# Find with fault annotations (unwrap, panic, unsafe, etc.)
+pmat query "plot data" --faults
+
+# Filter by complexity
+pmat query "color mapping" --max-complexity 10
+
+# Cross-project search
+pmat query "tensor visualization" --include-project ../trueno
+
+# Git history search (find code by commit intent via RRF fusion)
+pmat query "fix axis labels" -G
+pmat query "fix axis labels" --git-history
+
+# Enrichment flags (combine freely)
+pmat query "renderer" --churn              # git volatility (commit count, churn score)
+pmat query "chart builder" --duplicates          # code clone detection (MinHash+LSH)
+pmat query "layout" --entropy             # pattern diversity (repetitive vs unique)
+pmat query "visualization" --churn --duplicates --entropy --faults -G  # full audit
+```
+
 ## Stack Documentation Search (RAG Oracle)
 
 **IMPORTANT: Proactively use the batuta RAG oracle when:**
