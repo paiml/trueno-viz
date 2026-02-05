@@ -28,3 +28,10 @@ wasm-pkg/test-results/
 wasm-pkg/playwright-report/
 .pmat-gates.toml
 .cargo/config.local.toml
+
+# PMAT
+.pmat/backup/
+.pmat-qa/
+.pmat/context.idx/
+.pmat/workspace.idx/
+.pmat/deps-cache.json
