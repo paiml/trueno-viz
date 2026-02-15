@@ -5585,7 +5585,7 @@ dependencies = [
 
 [[package]]
 name = "trueno-viz"
-version = "0.1.23"
+version = "0.1.24"
 dependencies = [
  "approx",
  "aprender 0.25.1",
