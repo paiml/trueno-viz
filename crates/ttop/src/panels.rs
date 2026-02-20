@@ -24,15 +24,10 @@ fn btop_block(title: &str, color: trueno_viz::monitor::ratatui::style::Color) ->
         .border_style(Style::default().fg(color))
 }
 
-/// Truncate a string to fit within max_len, adding "..." if truncated
+/// Truncate a string to fit within max_len, adding "..." if truncated.
+/// Delegates to batuta-common.
 fn truncate_str(s: &str, max_len: usize) -> String {
-    if s.len() <= max_len {
-        s.to_string()
-    } else if max_len <= 3 {
-        s.chars().take(max_len).collect()
-    } else {
-        format!("{}...", &s[..max_len - 3])
-    }
+    batuta_common::display::truncate_str(s, max_len)
 }
 
 /// Create a bounds-safe Rect that doesn't exceed parent boundaries
@@ -3931,7 +3926,7 @@ mod tests {
 
     #[test]
     fn test_truncate_str_very_short_max() {
-        assert_eq!(truncate_str("hello", 2), "he");
+        assert_eq!(truncate_str("hello", 2), "..");
     }
 
     #[test]
@@ -4983,7 +4978,7 @@ mod panel_render_tests {
 
     #[test]
     fn test_truncate_str_very_short() {
-        assert_eq!(truncate_str("hello", 3), "hel");
+        assert_eq!(truncate_str("hello", 3), "...");
     }
 
     #[test]
