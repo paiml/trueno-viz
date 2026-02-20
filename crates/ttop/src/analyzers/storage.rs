@@ -240,10 +240,7 @@ pub struct MountInfo {
 impl MountInfo {
     /// Get usage percentage
     pub fn usage_percent(&self) -> f64 {
-        if self.total_bytes == 0 {
-            return 0.0;
-        }
-        (self.used_bytes as f64 / self.total_bytes as f64) * 100.0
+        batuta_common::math::usage_percent(self.used_bytes, self.total_bytes)
     }
 
     /// Get inode usage percentage
