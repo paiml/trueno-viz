@@ -20,6 +20,9 @@ categories = ["visualization", "graphics", "science", "wasm"]
 # Core SIMD/GPU acceleration
 trueno = { version = "0.14.2", default-features = false }
 
+# Shared Batuta stack utilities (display traits, formatting)
+batuta-common = { path = "../batuta-common" }
+
 # PNG encoding (pure Rust, no libpng)
 png = "0.17"
 

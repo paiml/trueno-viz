@@ -9,6 +9,7 @@
 use trueno_viz::color::Rgba;
 use trueno_viz::output::PngEncoder;
 use trueno_viz::plots::{ForceGraph, GraphEdge, GraphNode};
+use trueno_viz::prelude::WithDimensions;
 
 fn main() {
     println!("Force-Directed Graph Layout Example");

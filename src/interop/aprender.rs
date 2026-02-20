@@ -17,6 +17,7 @@
 
 use aprender::data::DataFrame as AprenderDataFrame;
 use aprender::primitives::{Matrix, Vector};
+use batuta_common::display::WithDimensions;
 
 use crate::color::Rgba;
 use crate::error::Result;

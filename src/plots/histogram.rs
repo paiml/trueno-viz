@@ -74,14 +74,6 @@ impl Histogram {
         self
     }
 
-    /// Set the output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Enable density normalization.
     #[must_use]
     pub fn normalize(mut self, normalize: bool) -> Self {
@@ -216,9 +208,17 @@ impl Histogram {
     }
 }
 
+impl batuta_common::display::WithDimensions for Histogram {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_histogram_builder() {

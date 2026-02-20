@@ -8,6 +8,7 @@
 
 use trueno_viz::output::PngEncoder;
 use trueno_viz::plots::{Heatmap, HeatmapPalette};
+use trueno_viz::prelude::WithDimensions;
 
 fn main() {
     println!("Heatmap Correlation Matrix Example");

@@ -8,6 +8,7 @@
 
 use trueno_viz::output::PngEncoder;
 use trueno_viz::plots::{BoxPlot, BoxStats, ViolinPlot};
+use trueno_viz::prelude::WithDimensions;
 
 fn main() {
     println!("Box and Violin Plot Example");

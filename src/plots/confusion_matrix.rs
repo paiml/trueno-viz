@@ -142,14 +142,6 @@ impl ConfusionMatrix {
         self
     }
 
-    /// Set the output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Set the margin around the matrix.
     #[must_use]
     pub fn margin(mut self, margin: u32) -> Self {
@@ -443,6 +435,13 @@ impl ConfusionMatrix {
     }
 }
 
+impl batuta_common::display::WithDimensions for ConfusionMatrix {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 /// Metrics derived from a confusion matrix.
 #[derive(Debug, Clone)]
 pub struct ConfusionMatrixMetrics {
@@ -492,6 +491,7 @@ impl ConfusionMatrixMetrics {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_confusion_matrix_builder() {

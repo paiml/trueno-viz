@@ -245,14 +245,6 @@ impl LineChart {
         self
     }
 
-    /// Set the output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Set the margin around the plot.
     #[must_use]
     pub fn margin(mut self, margin: u32) -> Self {
@@ -465,6 +457,13 @@ impl LineChart {
     }
 }
 
+impl batuta_common::display::WithDimensions for LineChart {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -472,6 +471,7 @@ impl LineChart {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_douglas_peucker_simple() {

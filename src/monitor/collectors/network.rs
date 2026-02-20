@@ -81,19 +81,7 @@ impl NetRates {
 
 /// Formats bytes per second as a human-readable string.
 fn format_bytes_rate(bytes_per_sec: f64) -> String {
-    const KB: f64 = 1024.0;
-    const MB: f64 = KB * 1024.0;
-    const GB: f64 = MB * 1024.0;
-
-    if bytes_per_sec >= GB {
-        format!("{:.1} GB/s", bytes_per_sec / GB)
-    } else if bytes_per_sec >= MB {
-        format!("{:.1} MB/s", bytes_per_sec / MB)
-    } else if bytes_per_sec >= KB {
-        format!("{:.1} KB/s", bytes_per_sec / KB)
-    } else {
-        format!("{:.0} B/s", bytes_per_sec)
-    }
+    batuta_common::fmt::format_bytes_rate(bytes_per_sec)
 }
 
 /// Collector for network metrics.
@@ -543,10 +531,10 @@ mod tests {
 
     #[test]
     fn test_format_bytes_rate() {
-        assert_eq!(format_bytes_rate(500.0), "500 B/s");
-        assert_eq!(format_bytes_rate(1500.0), "1.5 KB/s");
-        assert_eq!(format_bytes_rate(1_500_000.0), "1.4 MB/s");
-        assert_eq!(format_bytes_rate(1_500_000_000.0), "1.4 GB/s");
+        assert_eq!(format_bytes_rate(500.0), "500B/s");
+        assert_eq!(format_bytes_rate(1500.0), "1.50K/s");
+        assert_eq!(format_bytes_rate(1_500_000.0), "1.50M/s");
+        assert_eq!(format_bytes_rate(1_500_000_000.0), "1.50G/s");
     }
 
     #[test]
@@ -558,8 +546,8 @@ mod tests {
             ..Default::default()
         };
 
-        assert_eq!(rates.rx_formatted(), "1.4 MB/s");
-        assert_eq!(rates.tx_formatted(), "488.3 KB/s");
+        assert_eq!(rates.rx_formatted(), "1.50M/s");
+        assert_eq!(rates.tx_formatted(), "500K/s");
     }
 
     #[test]

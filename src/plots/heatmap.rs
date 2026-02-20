@@ -121,14 +121,6 @@ impl Heatmap {
         self
     }
 
-    /// Set the output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Set the margin around the heatmap.
     #[must_use]
     pub fn margin(mut self, margin: u32) -> Self {
@@ -302,9 +294,17 @@ impl Heatmap {
     }
 }
 
+impl batuta_common::display::WithDimensions for Heatmap {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_heatmap_builder() {

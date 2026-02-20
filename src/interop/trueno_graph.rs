@@ -16,6 +16,7 @@
 //! let fb = graph.to_force_graph()?;
 //! ```
 
+use batuta_common::display::WithDimensions;
 use trueno_graph::{louvain, pagerank, CommunityDetectionResult, CsrGraph, NodeId};
 
 use crate::color::Rgba;

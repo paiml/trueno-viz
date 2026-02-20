@@ -8,6 +8,7 @@
 
 use trueno_viz::output::PngEncoder;
 use trueno_viz::plots::{ConfusionMatrix, Normalization};
+use trueno_viz::prelude::WithDimensions;
 
 fn main() {
     println!("Confusion Matrix ML Example");

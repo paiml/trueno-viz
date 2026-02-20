@@ -227,14 +227,6 @@ impl LossCurve {
         self.add_series(MetricSeries::new("Val Loss", Rgba::rgb(255, 128, 0)))
     }
 
-    /// Set output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Set the margin.
     #[must_use]
     pub fn margin(mut self, margin: u32) -> Self {
@@ -489,6 +481,13 @@ impl LossCurve {
     }
 }
 
+impl batuta_common::display::WithDimensions for LossCurve {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 /// Summary statistics for a metric series.
 #[derive(Debug, Clone)]
 pub struct SeriesSummary {
@@ -515,6 +514,7 @@ pub struct SeriesSummary {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_metric_series_basic() {
