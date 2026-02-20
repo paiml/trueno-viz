@@ -354,6 +354,101 @@ impl App {
             _ => {}
         }
     }
+
+    /// Handle keypress while filter input is active.
+    /// Returns true if the event was consumed (caller should `continue`).
+    fn handle_filter_key(&mut self, code: KeyCode) -> bool {
+        if !self.show_filter_input {
+            return false;
+        }
+        match code {
+            KeyCode::Esc => {
+                self.show_filter_input = false;
+                self.filter.clear();
+            }
+            KeyCode::Enter => {
+                self.show_filter_input = false;
+            }
+            KeyCode::Backspace => {
+                self.filter.pop();
+            }
+            KeyCode::Char(c) => {
+                self.filter.push(c);
+            }
+            _ => {}
+        }
+        true
+    }
+
+    /// Handle a normal-mode keypress. Returns `true` if the app should quit.
+    fn handle_normal_key(&mut self, key: crossterm::event::KeyEvent) -> bool {
+        match key.code {
+            KeyCode::Char('q') | KeyCode::Esc => return true,
+            KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => return true,
+            KeyCode::Char('?') | KeyCode::F(1) => self.show_help = !self.show_help,
+            KeyCode::Char('1') => self.toggle_panel(1),
+            KeyCode::Char('2') => self.toggle_panel(2),
+            KeyCode::Char('3') => self.toggle_panel(3),
+            KeyCode::Char('4') => self.toggle_panel(4),
+            #[cfg(feature = "monitor-nvidia")]
+            KeyCode::Char('5') => self.toggle_panel(5),
+            KeyCode::Down | KeyCode::Char('j') => self.navigate_process(1),
+            KeyCode::Up | KeyCode::Char('k') => self.navigate_process(-1),
+            KeyCode::PageDown => self.navigate_process(10),
+            KeyCode::PageUp => self.navigate_process(-10),
+            KeyCode::Home | KeyCode::Char('g') => {
+                self.process_table_state.select(Some(0));
+            }
+            KeyCode::End | KeyCode::Char('G') => {
+                let count = self.sorted_processes().len();
+                if count > 0 {
+                    self.process_table_state.select(Some(count - 1));
+                }
+            }
+            KeyCode::Tab | KeyCode::Char('s') => self.sort_by = self.sort_by.next(),
+            KeyCode::Char('r') => self.sort_desc = !self.sort_desc,
+            KeyCode::Char('t') => self.show_tree = !self.show_tree,
+            KeyCode::Char('f') | KeyCode::Char('/') => self.show_filter_input = true,
+            KeyCode::Delete => self.filter.clear(),
+            KeyCode::Char('0') => self.view_mode = ViewMode::Full,
+            _ => {}
+        }
+        false
+    }
+
+    /// Count the number of visible top panels.
+    fn visible_panel_count(&self) -> u32 {
+        let mut count: u32 = 0;
+        if self.show_cpu {
+            count += 1;
+        }
+        if self.show_mem {
+            count += 1;
+        }
+        if self.show_net {
+            count += 1;
+        }
+        #[cfg(feature = "monitor-nvidia")]
+        if self.show_gpu && self.gpu.is_available() {
+            count += 1;
+        }
+        count
+    }
+}
+
+/// Process a single crossterm event. Returns `true` to quit.
+fn handle_event(app: &mut App) -> io::Result<bool> {
+    let ev = event::read()?;
+    let Event::Key(key) = ev else {
+        return Ok(false);
+    };
+    if key.kind != KeyEventKind::Press {
+        return Ok(false);
+    }
+    if app.handle_filter_key(key.code) {
+        return Ok(false);
+    }
+    Ok(app.handle_normal_key(key))
 }
 
 fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<()> {
@@ -364,115 +459,20 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> io::Result<
     loop {
         terminal.draw(|f| draw_ui(f, &mut app))?;
 
-        // Collect metrics periodically
         if app.last_collect.elapsed() >= collect_interval {
             app.collect_metrics();
         }
 
-        // Handle events
-        if event::poll(tick_rate)? {
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    // Filter input mode
-                    if app.show_filter_input {
-                        match key.code {
-                            KeyCode::Esc => {
-                                app.show_filter_input = false;
-                                app.filter.clear();
-                            }
-                            KeyCode::Enter => {
-                                app.show_filter_input = false;
-                            }
-                            KeyCode::Backspace => {
-                                app.filter.pop();
-                            }
-                            KeyCode::Char(c) => {
-                                app.filter.push(c);
-                            }
-                            _ => {}
-                        }
-                        continue;
-                    }
-
-                    match key.code {
-                        // Quit
-                        KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
-                            return Ok(())
-                        }
-
-                        // Help
-                        KeyCode::Char('?') | KeyCode::F(1) => app.show_help = !app.show_help,
-
-                        // Panel toggles (like btop)
-                        KeyCode::Char('1') => app.toggle_panel(1),
-                        KeyCode::Char('2') => app.toggle_panel(2),
-                        KeyCode::Char('3') => app.toggle_panel(3),
-                        KeyCode::Char('4') => app.toggle_panel(4),
-                        #[cfg(feature = "monitor-nvidia")]
-                        KeyCode::Char('5') => app.toggle_panel(5),
-
-                        // Navigation
-                        KeyCode::Down | KeyCode::Char('j') => app.navigate_process(1),
-                        KeyCode::Up | KeyCode::Char('k') => app.navigate_process(-1),
-                        KeyCode::PageDown => app.navigate_process(10),
-                        KeyCode::PageUp => app.navigate_process(-10),
-                        KeyCode::Home | KeyCode::Char('g') => {
-                            app.process_table_state.select(Some(0));
-                        }
-                        KeyCode::End | KeyCode::Char('G') => {
-                            let count = app.sorted_processes().len();
-                            if count > 0 {
-                                app.process_table_state.select(Some(count - 1));
-                            }
-                        }
-
-                        // Sorting
-                        KeyCode::Tab | KeyCode::Char('s') => {
-                            app.sort_by = app.sort_by.next();
-                        }
-                        KeyCode::Char('r') => app.sort_desc = !app.sort_desc,
-
-                        // Tree view
-                        KeyCode::Char('t') => app.show_tree = !app.show_tree,
-
-                        // Filter
-                        KeyCode::Char('f') | KeyCode::Char('/') => {
-                            app.show_filter_input = true;
-                        }
-                        KeyCode::Delete => app.filter.clear(),
-
-                        // View presets
-                        KeyCode::Char('0') => app.view_mode = ViewMode::Full,
-
-                        _ => {}
-                    }
-                }
-            }
+        if event::poll(tick_rate)? && handle_event(&mut app)? {
+            return Ok(());
         }
     }
 }
 
 fn draw_ui(f: &mut ratatui::Frame, app: &mut App) {
     let area = f.area();
+    let visible_panels = app.visible_panel_count();
 
-    // Count visible panels
-    let mut visible_panels = 0;
-    if app.show_cpu {
-        visible_panels += 1;
-    }
-    if app.show_mem {
-        visible_panels += 1;
-    }
-    if app.show_net {
-        visible_panels += 1;
-    }
-    #[cfg(feature = "monitor-nvidia")]
-    if app.show_gpu && app.gpu.is_available() {
-        visible_panels += 1;
-    }
-
-    // Calculate layout based on visible panels
     let top_height = if visible_panels > 0 { 45 } else { 0 };
     let proc_height = if app.show_proc { 100 - top_height } else { 0 };
 
@@ -484,63 +484,61 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut App) {
         ])
         .split(area);
 
-    // Top panels
     if visible_panels > 0 {
-        let mut constraints = Vec::new();
-        if app.show_cpu {
-            constraints.push(Constraint::Ratio(1, visible_panels as u32));
-        }
-        if app.show_mem {
-            constraints.push(Constraint::Ratio(1, visible_panels as u32));
-        }
-        if app.show_net {
-            constraints.push(Constraint::Ratio(1, visible_panels as u32));
-        }
-        #[cfg(feature = "monitor-nvidia")]
-        if app.show_gpu && app.gpu.is_available() {
-            constraints.push(Constraint::Ratio(1, visible_panels as u32));
-        }
-
-        let top_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(constraints)
-            .split(main_chunks[0]);
-
-        let mut idx = 0;
-        if app.show_cpu {
-            draw_cpu_panel(f, app, top_chunks[idx]);
-            idx += 1;
-        }
-        if app.show_mem {
-            draw_memory_panel(f, app, top_chunks[idx]);
-            idx += 1;
-        }
-        if app.show_net {
-            draw_network_panel(f, app, top_chunks[idx]);
-            #[allow(unused_assignments)]
-            {
-                idx += 1;
-            }
-        }
-        #[cfg(feature = "monitor-nvidia")]
-        if app.show_gpu && app.gpu.is_available() {
-            draw_gpu_panel(f, app, top_chunks[idx]);
-        }
+        draw_top_panels(f, app, main_chunks[0], visible_panels);
     }
-
-    // Process panel
     if app.show_proc {
         draw_process_panel(f, app, main_chunks[1]);
     }
-
-    // Help overlay
     if app.show_help {
         draw_help_overlay(f);
     }
-
-    // Filter input overlay
     if app.show_filter_input {
         draw_filter_input(f, app);
+    }
+}
+
+/// Lay out and render the top metric panels (CPU, memory, network, GPU).
+fn draw_top_panels(f: &mut ratatui::Frame, app: &mut App, area: Rect, visible: u32) {
+    let mut constraints = Vec::new();
+    if app.show_cpu {
+        constraints.push(Constraint::Ratio(1, visible));
+    }
+    if app.show_mem {
+        constraints.push(Constraint::Ratio(1, visible));
+    }
+    if app.show_net {
+        constraints.push(Constraint::Ratio(1, visible));
+    }
+    #[cfg(feature = "monitor-nvidia")]
+    if app.show_gpu && app.gpu.is_available() {
+        constraints.push(Constraint::Ratio(1, visible));
+    }
+
+    let top_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(constraints)
+        .split(area);
+
+    let mut idx = 0;
+    if app.show_cpu {
+        draw_cpu_panel(f, app, top_chunks[idx]);
+        idx += 1;
+    }
+    if app.show_mem {
+        draw_memory_panel(f, app, top_chunks[idx]);
+        idx += 1;
+    }
+    if app.show_net {
+        draw_network_panel(f, app, top_chunks[idx]);
+        #[allow(unused_assignments)]
+        {
+            idx += 1;
+        }
+    }
+    #[cfg(feature = "monitor-nvidia")]
+    if app.show_gpu && app.gpu.is_available() {
+        draw_gpu_panel(f, app, top_chunks[idx]);
     }
 }
 
@@ -1051,26 +1049,11 @@ fn percent_color(percent: f64) -> Color {
 }
 
 fn format_bytes(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = KB * 1024;
-    const GB: u64 = MB * 1024;
-    const TB: u64 = GB * 1024;
-
-    if bytes >= TB {
-        format!("{:.1}T", bytes as f64 / TB as f64)
-    } else if bytes >= GB {
-        format!("{:.1}G", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.1}M", bytes as f64 / MB as f64)
-    } else if bytes >= KB {
-        format!("{:.1}K", bytes as f64 / KB as f64)
-    } else {
-        format!("{}B", bytes)
-    }
+    batuta_common::fmt::format_bytes_compact(bytes)
 }
 
 fn format_bytes_rate(bytes_per_sec: f64) -> String {
-    format!("{}/s", format_bytes(bytes_per_sec as u64))
+    batuta_common::fmt::format_bytes_rate(bytes_per_sec)
 }
 
 fn format_uptime(secs: f64) -> String {

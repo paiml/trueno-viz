@@ -318,14 +318,6 @@ impl RocCurve {
         self
     }
 
-    /// Set output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Build and validate.
     pub fn build(self) -> Result<Self> {
         if self.data.is_none() {
@@ -470,14 +462,6 @@ impl PrCurve {
         self
     }
 
-    /// Set output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Build and validate.
     pub fn build(self) -> Result<Self> {
         if self.data.is_none() {
@@ -543,9 +527,24 @@ impl PrCurve {
 // Tests
 // ============================================================================
 
+impl batuta_common::display::WithDimensions for RocCurve {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
+impl batuta_common::display::WithDimensions for PrCurve {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_compute_roc_basic() {

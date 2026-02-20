@@ -193,14 +193,6 @@ impl ForceGraph {
         self
     }
 
-    /// Set image dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Set margin.
     #[must_use]
     pub fn margin(mut self, margin: u32) -> Self {
@@ -356,6 +348,13 @@ impl ForceGraph {
     }
 }
 
+impl batuta_common::display::WithDimensions for ForceGraph {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 /// A built force-directed graph ready for rendering.
 #[derive(Debug)]
 pub struct BuiltForceGraph {
@@ -443,6 +442,7 @@ impl BuiltForceGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_graph_node_builder() {

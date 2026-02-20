@@ -31,6 +31,7 @@
 //! assert_eq!(spec.plot_type, "scatter");
 //! ```
 
+use batuta_common::display::WithDimensions;
 use crate::color::Rgba;
 use crate::error::{Error, Result};
 use crate::framebuffer::Framebuffer;

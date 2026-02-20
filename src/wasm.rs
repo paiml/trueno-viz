@@ -22,6 +22,7 @@
 //! document.getElementById('chart').src = URL.createObjectURL(blob);
 //! ```
 
+use batuta_common::display::WithDimensions;
 use wasm_bindgen::prelude::*;
 
 use crate::color::Rgba;

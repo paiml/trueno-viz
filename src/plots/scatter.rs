@@ -77,14 +77,6 @@ impl ScatterPlot {
         self
     }
 
-    /// Set the output dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Get the number of points.
     #[must_use]
     pub fn point_count(&self) -> usize {
@@ -176,9 +168,17 @@ impl ScatterPlot {
     }
 }
 
+impl batuta_common::display::WithDimensions for ScatterPlot {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_scatter_plot_builder() {

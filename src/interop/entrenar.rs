@@ -19,6 +19,7 @@
 //! let fb = path.to_contribution_chart(&["age", "income", "score"])?;
 //! ```
 
+use batuta_common::display::WithDimensions;
 use entrenar::monitor::inference::path::{
     DecisionPath, ForestPath, KNNPath, LinearPath, NeuralPath, TreePath, TreeSplit,
 };

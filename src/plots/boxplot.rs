@@ -204,14 +204,6 @@ impl BoxPlot {
         self
     }
 
-    /// Set image dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Set margin.
     #[must_use]
     pub fn margin(mut self, margin: u32) -> Self {
@@ -586,14 +578,6 @@ impl ViolinPlot {
         self
     }
 
-    /// Set image dimensions.
-    #[must_use]
-    pub fn dimensions(mut self, width: u32, height: u32) -> Self {
-        self.width = width;
-        self.height = height;
-        self
-    }
-
     /// Set margin.
     #[must_use]
     pub fn margin(mut self, margin: u32) -> Self {
@@ -922,9 +906,24 @@ impl BuiltViolinPlot {
     }
 }
 
+impl batuta_common::display::WithDimensions for BoxPlot {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
+impl batuta_common::display::WithDimensions for ViolinPlot {
+    fn set_dimensions(&mut self, width: u32, height: u32) {
+        self.width = width;
+        self.height = height;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use batuta_common::display::WithDimensions;
 
     #[test]
     fn test_box_stats_basic() {
