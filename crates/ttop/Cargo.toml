@@ -35,6 +35,9 @@ dirs = "5.0"
 # CLI
 clap = { version = "4.5", features = ["derive"] }
 
+# Shared formatting/display utilities (Batuta stack)
+batuta-common = { path = "../../../batuta-common" }
+
 # Error handling
 thiserror = "2.0"
 anyhow = "1.0"

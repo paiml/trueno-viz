@@ -113,45 +113,26 @@ pub mod process_state {
     pub const UNKNOWN: Color = Color::Rgb(180, 180, 180); // Light gray
 }
 
-/// Format bytes to human-readable string
+/// Format bytes to human-readable compact string (SI units).
+///
+/// Delegates to [`batuta_common::fmt::format_bytes_si`].
 pub fn format_bytes(bytes: u64) -> String {
-    const KB: u64 = 1024;
-    const MB: u64 = KB * 1024;
-    const GB: u64 = MB * 1024;
-    const TB: u64 = GB * 1024;
-
-    if bytes >= TB {
-        format!("{:.1}T", bytes as f64 / TB as f64)
-    } else if bytes >= GB {
-        format!("{:.1}G", bytes as f64 / GB as f64)
-    } else if bytes >= MB {
-        format!("{:.1}M", bytes as f64 / MB as f64)
-    } else if bytes >= KB {
-        format!("{:.1}K", bytes as f64 / KB as f64)
-    } else {
-        format!("{bytes}B")
-    }
+    batuta_common::fmt::format_bytes_si(bytes)
 }
 
-/// Format bytes per second
+/// Format bytes per second.
+///
+/// Delegates to [`batuta_common::fmt::format_bytes_rate`].
 pub fn format_bytes_rate(bytes_per_sec: f64) -> String {
-    format!("{}/s", format_bytes(bytes_per_sec as u64))
+    batuta_common::fmt::format_bytes_rate(bytes_per_sec)
 }
 
-/// Format uptime seconds to human-readable string
+/// Format uptime seconds to human-readable string.
+///
+/// Delegates to [`batuta_common::fmt::format_duration`].
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
 pub fn format_uptime(secs: f64) -> String {
-    let total_secs = secs as u64;
-    let days = total_secs / 86400;
-    let hours = (total_secs % 86400) / 3600;
-    let mins = (total_secs % 3600) / 60;
-
-    if days > 0 {
-        format!("{days}d {hours}h")
-    } else if hours > 0 {
-        format!("{hours}h {mins}m")
-    } else {
-        format!("{mins}m")
-    }
+    batuta_common::fmt::format_duration(secs as u64)
 }
 
 #[cfg(test)]
@@ -161,9 +142,9 @@ mod tests {
     #[test]
     fn test_format_bytes() {
         assert_eq!(format_bytes(500), "500B");
-        assert_eq!(format_bytes(1024), "1.0K");
-        assert_eq!(format_bytes(1024 * 1024), "1.0M");
-        assert_eq!(format_bytes(1024 * 1024 * 1024), "1.0G");
+        assert_eq!(format_bytes(1000), "1.00K");
+        assert_eq!(format_bytes(1_000_000), "1.00M");
+        assert_eq!(format_bytes(1_000_000_000), "1.00G");
     }
 
     #[test]

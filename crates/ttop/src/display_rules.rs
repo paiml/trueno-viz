@@ -9,37 +9,17 @@
 //! - Column-aligned formatting with truncation strategies
 //! - Percentage formatting with clamping
 //! - Duration formatting (human-readable)
+//!
+//! ## Implementation
+//! All formatting is delegated to [`batuta_common`], the shared utility crate for the
+//! Batuta stack. This module re-exports the relevant types and functions to preserve
+//! the `ttop::display_rules` public API.
 
-use std::fmt::Write;
-
-/// Truncation strategy for text that exceeds column width.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum TruncateStrategy {
-    /// Truncate from the end with ellipsis: "very long te…"
-    #[default]
-    End,
-    /// Truncate from the start with ellipsis: "…ong text here"
-    Start,
-    /// Truncate in the middle: "/home/…/file.txt"
-    Middle,
-    /// Smart path truncation: keeps filename, truncates directories
-    Path,
-}
-
-/// Column alignment for formatted output.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum ColumnAlign {
-    /// Left-align text.
-    #[default]
-    Left,
-    /// Right-align text (common for numbers).
-    Right,
-    /// Center-align text.
-    Center,
-}
+// Re-export enums from batuta_common::display so callers see them at the same path.
+pub use batuta_common::display::{ColumnAlign, TruncateStrategy};
 
 // =============================================================================
-// BYTE FORMATTING
+// BYTE FORMATTING (delegates to batuta_common::fmt)
 // =============================================================================
 
 /// Format bytes using SI units (powers of 1000).
@@ -55,30 +35,7 @@ pub enum ColumnAlign {
 /// ```
 #[must_use]
 pub fn format_bytes_si(bytes: u64) -> String {
-    const UNITS: &[&str] = &["B", "K", "M", "G", "T", "P", "E"];
-    const THRESHOLD: f64 = 1000.0;
-
-    if bytes == 0 {
-        return "0B".to_string();
-    }
-
-    let mut value = bytes as f64;
-    let mut unit_idx = 0;
-
-    while value >= THRESHOLD && unit_idx < UNITS.len() - 1 {
-        value /= THRESHOLD;
-        unit_idx += 1;
-    }
-
-    if unit_idx == 0 {
-        format!("{}B", bytes)
-    } else if value >= 100.0 {
-        format!("{:.0}{}", value, UNITS[unit_idx])
-    } else if value >= 10.0 {
-        format!("{:.1}{}", value, UNITS[unit_idx])
-    } else {
-        format!("{:.2}{}", value, UNITS[unit_idx])
-    }
+    batuta_common::fmt::format_bytes_si(bytes)
 }
 
 /// Format bytes using IEC units (powers of 1024).
@@ -92,26 +49,7 @@ pub fn format_bytes_si(bytes: u64) -> String {
 /// ```
 #[must_use]
 pub fn format_bytes_iec(bytes: u64) -> String {
-    const UNITS: &[&str] = &["B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"];
-    const THRESHOLD: f64 = 1024.0;
-
-    if bytes == 0 {
-        return "0B".to_string();
-    }
-
-    let mut value = bytes as f64;
-    let mut unit_idx = 0;
-
-    while value >= THRESHOLD && unit_idx < UNITS.len() - 1 {
-        value /= THRESHOLD;
-        unit_idx += 1;
-    }
-
-    if unit_idx == 0 {
-        format!("{}B", bytes)
-    } else {
-        format!("{:.2}{}", value, UNITS[unit_idx])
-    }
+    batuta_common::fmt::format_bytes_iec(bytes)
 }
 
 /// Format bytes into a fixed-width column.
@@ -124,12 +62,11 @@ pub fn format_bytes_iec(bytes: u64) -> String {
 /// ```
 #[must_use]
 pub fn format_bytes_column(bytes: u64, width: usize) -> String {
-    let formatted = format_bytes_si(bytes);
-    format_column(&formatted, width, ColumnAlign::Right, TruncateStrategy::End)
+    batuta_common::display::format_bytes_column(bytes, width)
 }
 
 // =============================================================================
-// PERCENTAGE FORMATTING
+// PERCENTAGE FORMATTING (delegates to batuta_common::fmt)
 // =============================================================================
 
 /// Format a percentage value (0.0 to 100.0).
@@ -143,7 +80,7 @@ pub fn format_bytes_column(bytes: u64, width: usize) -> String {
 /// ```
 #[must_use]
 pub fn format_percent(value: f64) -> String {
-    format!("{:.1}%", value)
+    batuta_common::fmt::format_percent(value)
 }
 
 /// Format a percentage with clamping to 0-100 range.
@@ -156,7 +93,7 @@ pub fn format_percent(value: f64) -> String {
 /// ```
 #[must_use]
 pub fn format_percent_clamped(value: f64) -> String {
-    format_percent(value.clamp(0.0, 100.0))
+    batuta_common::fmt::format_percent_clamped(value)
 }
 
 /// Format a percentage into a fixed-width column.
@@ -168,8 +105,7 @@ pub fn format_percent_clamped(value: f64) -> String {
 /// ```
 #[must_use]
 pub fn format_percent_column(value: f64, width: usize) -> String {
-    let formatted = format_percent(value);
-    format_column(&formatted, width, ColumnAlign::Right, TruncateStrategy::End)
+    batuta_common::display::format_percent_column(value, width)
 }
 
 /// Format a percentage with fixed decimal places.
@@ -182,11 +118,11 @@ pub fn format_percent_column(value: f64, width: usize) -> String {
 /// ```
 #[must_use]
 pub fn format_percent_fixed(value: f64, decimals: usize) -> String {
-    format!("{:.prec$}%", value, prec = decimals)
+    batuta_common::fmt::format_percent_fixed(value, decimals)
 }
 
 // =============================================================================
-// DURATION FORMATTING
+// DURATION FORMATTING (delegates to batuta_common::fmt)
 // =============================================================================
 
 /// Format a duration in seconds to human-readable form.
@@ -201,37 +137,7 @@ pub fn format_percent_fixed(value: f64, decimals: usize) -> String {
 /// ```
 #[must_use]
 pub fn format_duration(seconds: u64) -> String {
-    const MINUTE: u64 = 60;
-    const HOUR: u64 = 60 * MINUTE;
-    const DAY: u64 = 24 * HOUR;
-
-    if seconds < MINUTE {
-        format!("{}s", seconds)
-    } else if seconds < HOUR {
-        let mins = seconds / MINUTE;
-        let secs = seconds % MINUTE;
-        if secs == 0 {
-            format!("{}m", mins)
-        } else {
-            format!("{}m {}s", mins, secs)
-        }
-    } else if seconds < DAY {
-        let hours = seconds / HOUR;
-        let mins = (seconds % HOUR) / MINUTE;
-        if mins == 0 {
-            format!("{}h", hours)
-        } else {
-            format!("{}h {}m", hours, mins)
-        }
-    } else {
-        let days = seconds / DAY;
-        let hours = (seconds % DAY) / HOUR;
-        if hours == 0 {
-            format!("{}d", days)
-        } else {
-            format!("{}d {}h", days, hours)
-        }
-    }
+    batuta_common::fmt::format_duration(seconds)
 }
 
 /// Format a duration compactly (always fixed width).
@@ -244,29 +150,11 @@ pub fn format_duration(seconds: u64) -> String {
 /// ```
 #[must_use]
 pub fn format_duration_compact(seconds: u64) -> String {
-    const MINUTE: u64 = 60;
-    const HOUR: u64 = 60 * MINUTE;
-    const DAY: u64 = 24 * HOUR;
-
-    if seconds < MINUTE {
-        format!("{:>5}s", seconds)
-    } else if seconds < HOUR {
-        let mins = seconds / MINUTE;
-        let secs = seconds % MINUTE;
-        format!("{:>2}m{:02}s", mins, secs)
-    } else if seconds < DAY {
-        let hours = seconds / HOUR;
-        let mins = (seconds % HOUR) / MINUTE;
-        format!("{:>2}h{:02}m", hours, mins)
-    } else {
-        let days = seconds / DAY;
-        let hours = (seconds % DAY) / HOUR;
-        format!("{:>2}d{:02}h", days, hours)
-    }
+    batuta_common::fmt::format_duration_compact(seconds)
 }
 
 // =============================================================================
-// NUMBER FORMATTING
+// NUMBER FORMATTING (delegates to batuta_common::fmt)
 // =============================================================================
 
 /// Format a number with thousands separators.
@@ -279,25 +167,13 @@ pub fn format_duration_compact(seconds: u64) -> String {
 /// ```
 #[must_use]
 pub fn format_number(n: u64) -> String {
-    let s = n.to_string();
-    let mut result = String::with_capacity(s.len() + s.len() / 3);
-    let chars: Vec<char> = s.chars().collect();
-
-    for (i, c) in chars.iter().enumerate() {
-        if i > 0 && (chars.len() - i) % 3 == 0 {
-            result.push(',');
-        }
-        result.push(*c);
-    }
-
-    result
+    batuta_common::fmt::format_number(n)
 }
 
 /// Format a number into a fixed-width column.
 #[must_use]
 pub fn format_number_column(n: u64, width: usize) -> String {
-    let formatted = format_number(n);
-    format_column(&formatted, width, ColumnAlign::Right, TruncateStrategy::End)
+    batuta_common::display::format_number_column(n, width)
 }
 
 /// Format frequency in MHz.
@@ -310,15 +186,11 @@ pub fn format_number_column(n: u64, width: usize) -> String {
 /// ```
 #[must_use]
 pub fn format_freq_mhz(mhz: u32) -> String {
-    if mhz >= 1000 {
-        format!("{:.1}GHz", mhz as f64 / 1000.0)
-    } else {
-        format!("{}MHz", mhz)
-    }
+    batuta_common::fmt::format_freq_mhz(mhz)
 }
 
 // =============================================================================
-// COLUMN FORMATTING AND TRUNCATION
+// COLUMN FORMATTING AND TRUNCATION (delegates to batuta_common::display)
 // =============================================================================
 
 /// Truncate a string to fit within a maximum width.
@@ -326,45 +198,14 @@ pub fn format_freq_mhz(mhz: u32) -> String {
 /// # Examples
 /// ```
 /// use ttop::display_rules::{truncate, TruncateStrategy};
-/// assert_eq!(truncate("hello world", 8, TruncateStrategy::End), "hello w…");
-/// assert_eq!(truncate("hello world", 8, TruncateStrategy::Start), "…o world");
-/// assert_eq!(truncate("hello world", 8, TruncateStrategy::Middle), "hel…orld");
+/// assert_eq!(truncate("hello world", 8, TruncateStrategy::End), "hello w\u{2026}");
+/// assert_eq!(truncate("hello world", 8, TruncateStrategy::Start), "\u{2026}o world");
+/// assert_eq!(truncate("hello world", 8, TruncateStrategy::Middle), "hel\u{2026}orld");
 /// assert_eq!(truncate("short", 10, TruncateStrategy::End), "short");
 /// ```
 #[must_use]
 pub fn truncate(s: &str, max_width: usize, strategy: TruncateStrategy) -> String {
-    if max_width == 0 {
-        return String::new();
-    }
-
-    let char_count = s.chars().count();
-
-    if char_count <= max_width {
-        return s.to_string();
-    }
-
-    if max_width == 1 {
-        return "…".to_string();
-    }
-
-    match strategy {
-        TruncateStrategy::End => {
-            let chars: String = s.chars().take(max_width - 1).collect();
-            format!("{}…", chars)
-        }
-        TruncateStrategy::Start => {
-            let chars: String = s.chars().skip(char_count - max_width + 1).collect();
-            format!("…{}", chars)
-        }
-        TruncateStrategy::Middle => {
-            let left_len = (max_width - 1) / 2;
-            let right_len = max_width - 1 - left_len;
-            let left: String = s.chars().take(left_len).collect();
-            let right: String = s.chars().skip(char_count - right_len).collect();
-            format!("{}…{}", left, right)
-        }
-        TruncateStrategy::Path => truncate_path(s, max_width),
-    }
+    batuta_common::display::truncate(s, max_width, strategy)
 }
 
 /// Smart path truncation that preserves the filename.
@@ -374,67 +215,12 @@ pub fn truncate(s: &str, max_width: usize, strategy: TruncateStrategy) -> String
 /// # Examples
 /// ```
 /// use ttop::display_rules::truncate_path;
-/// assert_eq!(truncate_path("/home/user/documents/file.txt", 20), "/home/user…/file.txt");
+/// assert_eq!(truncate_path("/home/user/documents/file.txt", 20), "/home/user\u{2026}/file.txt");
 /// assert_eq!(truncate_path("/a/b/c.txt", 20), "/a/b/c.txt");
 /// ```
 #[must_use]
 pub fn truncate_path(path: &str, max_width: usize) -> String {
-    if max_width == 0 {
-        return String::new();
-    }
-
-    let char_count = path.chars().count();
-
-    if char_count <= max_width {
-        return path.to_string();
-    }
-
-    // Find the last path separator
-    if let Some(last_sep) = path.rfind('/') {
-        let filename = &path[last_sep..]; // includes the leading /
-        let filename_len = filename.chars().count();
-
-        // If filename alone (with /) is too long or equals max_width, just truncate from end
-        if filename_len >= max_width {
-            return truncate(path, max_width, TruncateStrategy::End);
-        }
-
-        // Calculate space for directory part: max_width - filename_len - 1 (for ellipsis)
-        let dir_space = max_width.saturating_sub(filename_len).saturating_sub(1);
-
-        if dir_space == 0 {
-            // Not enough room for any directory chars, just use ellipsis + filename
-            // But we need to ensure we don't exceed max_width
-            let result = format!("…{}", filename);
-            if result.chars().count() <= max_width {
-                return result;
-            } else {
-                return truncate(path, max_width, TruncateStrategy::End);
-            }
-        }
-
-        // Get the directory part
-        let dir = &path[..last_sep];
-        let dir_chars: Vec<char> = dir.chars().collect();
-
-        if dir_chars.len() <= dir_space {
-            // Directory fits, but we're here because total was too long - shouldn't happen
-            return path.to_string();
-        }
-
-        // Truncate directory, keeping the start
-        let truncated_dir: String = dir_chars.iter().take(dir_space).collect();
-        let result = format!("{}…{}", truncated_dir, filename);
-
-        // Final safety check - ensure we never exceed max_width
-        if result.chars().count() <= max_width {
-            result
-        } else {
-            truncate(path, max_width, TruncateStrategy::End)
-        }
-    } else {
-        truncate(path, max_width, TruncateStrategy::End)
-    }
+    batuta_common::display::truncate_path(path, max_width)
 }
 
 /// Format text into a fixed-width column with alignment and truncation.
@@ -447,7 +233,7 @@ pub fn truncate_path(path: &str, max_width: usize) -> String {
 /// assert_eq!(format_column("test", 8, ColumnAlign::Left, TruncateStrategy::End), "test    ");
 /// assert_eq!(format_column("test", 8, ColumnAlign::Right, TruncateStrategy::End), "    test");
 /// assert_eq!(format_column("test", 8, ColumnAlign::Center, TruncateStrategy::End), "  test  ");
-/// assert_eq!(format_column("very long text", 8, ColumnAlign::Left, TruncateStrategy::End), "very lo…");
+/// assert_eq!(format_column("very long text", 8, ColumnAlign::Left, TruncateStrategy::End), "very lo\u{2026}");
 /// ```
 #[must_use]
 pub fn format_column(
@@ -456,48 +242,7 @@ pub fn format_column(
     align: ColumnAlign,
     truncate_strategy: TruncateStrategy,
 ) -> String {
-    let char_count = text.chars().count();
-
-    // Truncate if necessary
-    let truncated = if char_count > width {
-        truncate(text, width, truncate_strategy)
-    } else {
-        text.to_string()
-    };
-
-    let truncated_len = truncated.chars().count();
-    let padding = width.saturating_sub(truncated_len);
-
-    match align {
-        ColumnAlign::Left => {
-            let mut result = truncated;
-            for _ in 0..padding {
-                result.push(' ');
-            }
-            result
-        }
-        ColumnAlign::Right => {
-            let mut result = String::with_capacity(width);
-            for _ in 0..padding {
-                result.push(' ');
-            }
-            result.push_str(&truncated);
-            result
-        }
-        ColumnAlign::Center => {
-            let left_pad = padding / 2;
-            let right_pad = padding - left_pad;
-            let mut result = String::with_capacity(width);
-            for _ in 0..left_pad {
-                result.push(' ');
-            }
-            result.push_str(&truncated);
-            for _ in 0..right_pad {
-                result.push(' ');
-            }
-            result
-        }
-    }
+    batuta_common::display::format_column(text, width, align, truncate_strategy)
 }
 
 // =============================================================================
@@ -790,10 +535,10 @@ mod tests {
 
         #[test]
         fn test_truncate_end() {
-            assert_eq!(truncate("hello world", 8, TruncateStrategy::End), "hello w…");
+            assert_eq!(truncate("hello world", 8, TruncateStrategy::End), "hello w\u{2026}");
             assert_eq!(
                 truncate("very long text here", 10, TruncateStrategy::End),
-                "very long…"
+                "very long\u{2026}"
             );
         }
 
@@ -801,11 +546,11 @@ mod tests {
         fn test_truncate_start() {
             assert_eq!(
                 truncate("hello world", 8, TruncateStrategy::Start),
-                "…o world"
+                "\u{2026}o world"
             );
             assert_eq!(
                 truncate("very long text here", 10, TruncateStrategy::Start),
-                "…text here"
+                "\u{2026}text here"
             );
         }
 
@@ -813,23 +558,23 @@ mod tests {
         fn test_truncate_middle() {
             assert_eq!(
                 truncate("hello world", 8, TruncateStrategy::Middle),
-                "hel…orld"
+                "hel\u{2026}orld"
             );
             assert_eq!(
                 truncate("abcdefghij", 7, TruncateStrategy::Middle),
-                "abc…hij"
+                "abc\u{2026}hij"
             );
         }
 
         #[test]
         fn test_truncate_very_short_width() {
-            assert_eq!(truncate("hello", 1, TruncateStrategy::End), "…");
-            assert_eq!(truncate("hello", 2, TruncateStrategy::End), "h…");
+            assert_eq!(truncate("hello", 1, TruncateStrategy::End), "\u{2026}");
+            assert_eq!(truncate("hello", 2, TruncateStrategy::End), "h\u{2026}");
         }
 
         #[test]
         fn test_truncate_unicode() {
-            assert_eq!(truncate("héllo wörld", 8, TruncateStrategy::End), "héllo w…");
+            assert_eq!(truncate("h\u{00e9}llo w\u{00f6}rld", 8, TruncateStrategy::End), "h\u{00e9}llo w\u{2026}");
         }
     }
 
@@ -848,7 +593,7 @@ mod tests {
             // dir_space = 20 - 9 - 1 = 10 chars for directory
             let result = truncate_path("/home/user/documents/file.txt", 20);
             assert_eq!(result.chars().count(), 20);
-            assert!(result.contains("…"));
+            assert!(result.contains('\u{2026}'));
             assert!(result.ends_with("/file.txt"));
         }
 
@@ -861,12 +606,12 @@ mod tests {
                 result,
                 result.chars().count()
             );
-            assert!(result.contains("…") || result.chars().count() <= 25);
+            assert!(result.contains('\u{2026}') || result.chars().count() <= 25);
         }
 
         #[test]
         fn test_truncate_path_no_separator() {
-            assert_eq!(truncate_path("verylongfilename.txt", 10), "verylongf…");
+            assert_eq!(truncate_path("verylongfilename.txt", 10), "verylongf\u{2026}");
         }
 
         #[test]
@@ -946,7 +691,7 @@ mod tests {
         fn test_format_column_truncates() {
             assert_eq!(
                 format_column("very long text", 8, ColumnAlign::Left, TruncateStrategy::End),
-                "very lo…"
+                "very lo\u{2026}"
             );
         }
 
