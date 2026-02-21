@@ -36,7 +36,7 @@ dirs = "5.0"
 clap = { version = "4.5", features = ["derive"] }
 
 # Shared formatting/display utilities (Batuta stack)
-batuta-common = { path = "../../../batuta-common" }
+batuta-common = "0.1"
 
 # Error handling
 thiserror = "2.0"
