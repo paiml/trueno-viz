@@ -143,7 +143,6 @@ pub use error::{Error, Result};
 /// use trueno_viz::prelude::*;
 /// ```
 pub mod prelude {
-    pub use batuta_common::display::WithDimensions;
     pub use crate::color::{Hsla, Rgba};
     pub use crate::error::{Error, Result};
     pub use crate::framebuffer::Framebuffer;
@@ -154,6 +153,7 @@ pub mod prelude {
     };
     pub use crate::scale::{ColorScale, LinearScale, LogScale, Scale};
     pub use crate::widgets::{ResourceBar, RunRow, RunStatus, RunTable, Sparkline, TrendDirection};
+    pub use batuta_common::display::WithDimensions;
 }
 
 // ============================================================================
