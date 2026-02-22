@@ -119,7 +119,7 @@ impl Config {
     ///
     /// Returns an error with line number if parsing fails.
     pub fn parse(yaml: &str) -> Result<Self> {
-        serde_yaml::from_str(yaml).map_err(|e| {
+        serde_yaml_ng::from_str(yaml).map_err(|e| {
             let line = e.location().map(|l| l.line()).unwrap_or(0);
             MonitorError::ConfigParse {
                 line,
