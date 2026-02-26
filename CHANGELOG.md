@@ -5,6 +5,17 @@ All notable changes to trueno-viz will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-02-26
+
+### Fixed
+- Updated trueno dependency to 0.16.0 for stack compatibility
+
+## [0.2.0] - 2026-02-26
+
+### Changed
+- Major version bump for PAIML Sovereign AI Stack coordinated release
+- Code quality improvements and complexity refactoring
+
 ## [0.1.27] - 2026-02-25
 
 ### Fixed

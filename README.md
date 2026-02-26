@@ -100,13 +100,13 @@ File Treemap:    Pareto-style large file visualization
 
 ```toml
 [dependencies]
-trueno-viz = "0.1"
+trueno-viz = "0.2"
 
 # With GPU acceleration
-trueno-viz = { version = "0.1", features = ["gpu"] }
+trueno-viz = { version = "0.2", features = ["gpu"] }
 
 # With system monitoring (powers ttop)
-trueno-viz = { version = "0.1", features = ["monitor"] }
+trueno-viz = { version = "0.2", features = ["monitor"] }
 ```
 
 ### Quick Start
