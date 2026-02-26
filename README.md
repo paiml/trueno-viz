@@ -222,6 +222,15 @@ trueno-viz/
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) guide for details.
+
+
+## MSRV
+
+Minimum Supported Rust Version: **1.75**
+
 ## License
 
 MIT OR Apache-2.0

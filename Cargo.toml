@@ -1,6 +1,10 @@
 [workspace]
+resolver = "2"
 members = ["."]
 exclude = ["crates/ttop"]
+
+[workspace.package]
+edition = "2021"
 
 [package]
 name = "trueno-viz"
@@ -179,6 +183,7 @@ panic = "abort"
 strip = "symbols"
 
 [profile.dev]
+panic = "abort"
 opt-level = 1
 
 [profile.bench]
@@ -240,17 +245,20 @@ name = "simd_kernels"
 required-features = ["monitor"]
 
 [package.metadata.docs.rs]
+rustdoc-args = ["--generate-link-to-definition", "--cfg", "docsrs"]
 all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
 
-[lints.rust]
+[workspace.lints.rust]
 unsafe_code = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unreachable_pub = "warn"
 missing_docs = "warn"
 deprecated = "allow"  # criterion::black_box -> std::hint::black_box migration pending
 
-[lints.clippy]
+[workspace.lints.clippy]
 # Base warning level
 all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
 
 # Ban unwrap() in production code (Cloudflare incident 2025-11-18)
 # Tests use #![cfg_attr(test, allow(clippy::unwrap_used))] in lib.rs
@@ -258,6 +266,12 @@ unwrap_used = "deny"
 # expect() with meaningful messages is acceptable
 expect_used = "allow"
 assertions_on_constants = "allow"  # Allow assert!(true) in compile-test
+
+# Allow common pedantic lints
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
 
 # Allow common patterns in graphics/visualization code
 cast_possible_truncation = "allow"
@@ -269,3 +283,16 @@ lint_groups_priority = "allow"    # Cargo.toml lint config warning
 
 # Allow in tests/benchmarks
 useless_vec = "allow"             # Vec used for test clarity
+
+[lints]
+workspace = true
+
+[package.metadata.release]
+shared-version = true
+
+[[package.metadata.release.pre-release-replacements]]
+file = "CHANGELOG.md"
+search = "## \\[Unreleased\\]"
+replace = "## [{{version}}] - {{date}}"
+
+[workspace.dependencies]
