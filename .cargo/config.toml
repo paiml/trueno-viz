@@ -2,5 +2,12 @@
 # Local overrides (like target-dir) should go in .cargo/config.local.toml
 
 [build]
+incremental = true
 # Uncomment for ZRAM acceleration on Linux:
 # target-dir = "/mnt/zram/targets/trueno-viz"
+
+[alias]
+t = "test"
+c = "check"
+b = "build --release"
+cl = "clippy --all-targets -- -D warnings"
