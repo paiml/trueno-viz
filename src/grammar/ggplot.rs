@@ -30,11 +30,7 @@ impl Layer {
     /// Create a new layer from a geometry.
     #[must_use]
     pub fn new(geom: Geom) -> Self {
-        Self {
-            aes: geom.aes.clone().unwrap_or_default(),
-            geom,
-            data: None,
-        }
+        Self { aes: geom.aes.clone().unwrap_or_default(), geom, data: None }
     }
 
     /// Set layer-specific data.
@@ -377,14 +373,7 @@ impl BuiltGGPlot {
             let y_val = y_scale.domain().0 + t * (y_scale.domain().1 - y_scale.domain().0);
             let y_px = y_scale.scale(y_val);
 
-            draw_line_aa(
-                fb,
-                plot_x as f32,
-                y_px,
-                (plot_x + plot_w) as f32,
-                y_px,
-                color,
-            );
+            draw_line_aa(fb, plot_x as f32, y_px, (plot_x + plot_w) as f32, y_px, color);
         }
 
         // Draw vertical grid lines (5 lines)
@@ -393,14 +382,7 @@ impl BuiltGGPlot {
             let x_val = x_scale.domain().0 + t * (x_scale.domain().1 - x_scale.domain().0);
             let x_px = x_scale.scale(x_val);
 
-            draw_line_aa(
-                fb,
-                x_px,
-                plot_y as f32,
-                x_px,
-                (plot_y + plot_h) as f32,
-                color,
-            );
+            draw_line_aa(fb, x_px, plot_y as f32, x_px, (plot_y + plot_h) as f32, color);
         }
     }
 
@@ -738,11 +720,8 @@ mod tests {
     #[test]
     fn test_ggplot_layer() {
         let layer = Layer::new(Geom::line());
-        let plot = GGPlot::new()
-            .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
-            .layer(layer)
-            .build()
-            .unwrap();
+        let plot =
+            GGPlot::new().data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]).layer(layer).build().unwrap();
 
         let fb = plot.to_framebuffer().unwrap();
         assert!(fb.width() > 0);
@@ -854,11 +833,7 @@ mod tests {
     #[test]
     fn test_ggplot_single_point() {
         // Edge case: single point triggers range adjustment
-        let plot = GGPlot::new()
-            .data_xy(&[5.0], &[5.0])
-            .geom(Geom::point())
-            .build()
-            .unwrap();
+        let plot = GGPlot::new().data_xy(&[5.0], &[5.0]).geom(Geom::point()).build().unwrap();
 
         let fb = plot.to_framebuffer().unwrap();
         assert!(fb.width() > 0);
@@ -897,11 +872,7 @@ mod tests {
         let layer =
             Layer::new(Geom::point()).data(DataFrame::from_xy(&[10.0, 20.0], &[30.0, 40.0]));
 
-        let plot = GGPlot::new()
-            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
-            .layer(layer)
-            .build()
-            .unwrap();
+        let plot = GGPlot::new().data_xy(&[1.0, 2.0], &[3.0, 4.0]).layer(layer).build().unwrap();
 
         let fb = plot.to_framebuffer().unwrap();
         assert!(fb.width() > 0);
@@ -929,11 +900,7 @@ mod tests {
 
     #[test]
     fn test_built_ggplot_debug() {
-        let built = GGPlot::new()
-            .data_xy(&[1.0], &[2.0])
-            .geom(Geom::point())
-            .build()
-            .unwrap();
+        let built = GGPlot::new().data_xy(&[1.0], &[2.0]).geom(Geom::point()).build().unwrap();
         let _ = format!("{:?}", built);
     }
 

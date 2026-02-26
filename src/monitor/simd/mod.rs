@@ -145,14 +145,7 @@ impl SimdStats {
     /// Creates new empty statistics.
     #[must_use]
     pub const fn new() -> Self {
-        Self {
-            min: f64::MAX,
-            max: f64::MIN,
-            sum: 0.0,
-            sum_sq: 0.0,
-            count: 0,
-            _padding: [0; 24],
-        }
+        Self { min: f64::MAX, max: f64::MIN, sum: 0.0, sum_sq: 0.0, count: 0, _padding: [0; 24] }
     }
 
     /// Updates statistics with a single value.

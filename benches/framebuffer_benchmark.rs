@@ -46,9 +46,5 @@ fn framebuffer_blend_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    framebuffer_clear_benchmark,
-    framebuffer_blend_benchmark
-);
+criterion_group!(benches, framebuffer_clear_benchmark, framebuffer_blend_benchmark);
 criterion_main!(benches);

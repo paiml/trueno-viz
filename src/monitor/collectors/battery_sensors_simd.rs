@@ -115,9 +115,8 @@ impl SimdBatterySensorsCollector {
         };
 
         // Read capacity
-        self.battery.capacity = Self::read_sysfs_u64(&path.join("capacity"))
-            .unwrap_or(0)
-            .min(100) as u8;
+        self.battery.capacity =
+            Self::read_sysfs_u64(&path.join("capacity")).unwrap_or(0).min(100) as u8;
 
         // Read status
         let status_str = std::fs::read_to_string(path.join("status")).unwrap_or_default();
@@ -142,8 +141,7 @@ impl SimdBatterySensorsCollector {
         self.battery.calculate_time_remaining();
 
         // Update history
-        self.battery_history
-            .push(self.battery.capacity as f64 / 100.0);
+        self.battery_history.push(self.battery.capacity as f64 / 100.0);
 
         Ok(())
     }
@@ -310,14 +308,8 @@ impl Collector for SimdBatterySensorsCollector {
 
         // Battery metrics
         if self.has_battery {
-            metrics.insert(
-                "battery.capacity",
-                MetricValue::Counter(self.battery.capacity as u64),
-            );
-            metrics.insert(
-                "battery.health",
-                MetricValue::Gauge(self.battery.health_pct),
-            );
+            metrics.insert("battery.capacity", MetricValue::Counter(self.battery.capacity as u64));
+            metrics.insert("battery.health", MetricValue::Gauge(self.battery.health_pct));
 
             if self.battery.power_now > 0 {
                 let power_w = self.battery.power_now as f64 / 1_000_000.0;
@@ -333,20 +325,11 @@ impl Collector for SimdBatterySensorsCollector {
         }
 
         // Sensor metrics
-        metrics.insert(
-            "sensors.count",
-            MetricValue::Counter(self.sensors.temps.len() as u64),
-        );
+        metrics.insert("sensors.count", MetricValue::Counter(self.sensors.temps.len() as u64));
 
         if !self.sensors.temps.is_empty() {
-            metrics.insert(
-                "sensors.avg_temp",
-                MetricValue::Gauge(self.sensors.avg_temp()),
-            );
-            metrics.insert(
-                "sensors.max_temp",
-                MetricValue::Gauge(self.sensors.max_temp()),
-            );
+            metrics.insert("sensors.avg_temp", MetricValue::Gauge(self.sensors.avg_temp()));
+            metrics.insert("sensors.max_temp", MetricValue::Gauge(self.sensors.max_temp()));
         }
 
         Ok(metrics)

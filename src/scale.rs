@@ -35,9 +35,7 @@ impl LinearScale {
     /// Returns an error if domain_min equals domain_max.
     pub fn new(domain: (f32, f32), range: (f32, f32)) -> Result<Self> {
         if (domain.0 - domain.1).abs() < f32::EPSILON {
-            return Err(Error::ScaleDomain(
-                "Domain min and max cannot be equal".to_string(),
-            ));
+            return Err(Error::ScaleDomain("Domain min and max cannot be equal".to_string()));
         }
 
         Ok(Self {
@@ -111,9 +109,7 @@ impl LogScale {
     /// Returns an error if domain contains non-positive values or base is invalid.
     pub fn with_base(domain: (f32, f32), range: (f32, f32), base: f32) -> Result<Self> {
         if domain.0 <= 0.0 || domain.1 <= 0.0 {
-            return Err(Error::ScaleDomain(
-                "Log scale domain must be positive".to_string(),
-            ));
+            return Err(Error::ScaleDomain("Log scale domain must be positive".to_string()));
         }
 
         if base <= 0.0 || base == 1.0 {
@@ -168,22 +164,14 @@ impl ColorScale {
     /// Returns an error if colors is empty or domain is invalid.
     pub fn new(colors: Vec<Rgba>, domain: (f32, f32)) -> Result<Self> {
         if colors.is_empty() {
-            return Err(Error::ScaleDomain(
-                "Color scale requires at least one color".to_string(),
-            ));
+            return Err(Error::ScaleDomain("Color scale requires at least one color".to_string()));
         }
 
         if (domain.0 - domain.1).abs() < f32::EPSILON {
-            return Err(Error::ScaleDomain(
-                "Domain min and max cannot be equal".to_string(),
-            ));
+            return Err(Error::ScaleDomain("Domain min and max cannot be equal".to_string()));
         }
 
-        Ok(Self {
-            colors,
-            domain_min: domain.0,
-            domain_max: domain.1,
-        })
+        Ok(Self { colors, domain_min: domain.0, domain_max: domain.1 })
     }
 
     /// Create a sequential blue scale.
@@ -296,10 +284,7 @@ impl Scale<f32, Rgba> for ColorScale {
     }
 
     fn range(&self) -> (Rgba, Rgba) {
-        (
-            *self.colors.first().unwrap_or(&Rgba::BLACK),
-            *self.colors.last().unwrap_or(&Rgba::WHITE),
-        )
+        (*self.colors.first().unwrap_or(&Rgba::BLACK), *self.colors.last().unwrap_or(&Rgba::WHITE))
     }
 }
 
@@ -524,11 +509,9 @@ mod tests {
     #[test]
     fn test_color_scale_multi_segment() {
         // Test with multiple segments
-        let scale = ColorScale::new(
-            vec![Rgba::RED, Rgba::GREEN, Rgba::BLUE, Rgba::WHITE],
-            (0.0, 1.0),
-        )
-        .unwrap();
+        let scale =
+            ColorScale::new(vec![Rgba::RED, Rgba::GREEN, Rgba::BLUE, Rgba::WHITE], (0.0, 1.0))
+                .unwrap();
         let _ = scale.scale(0.0);
         let _ = scale.scale(0.33);
         let _ = scale.scale(0.66);

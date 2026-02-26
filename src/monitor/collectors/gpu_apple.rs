@@ -58,12 +58,8 @@ impl AppleGpuCollector {
     /// Creates a new Apple GPU collector.
     #[must_use]
     pub fn new() -> Self {
-        let mut collector = Self {
-            gpus: Vec::new(),
-            util_history: Vec::new(),
-            initialized: false,
-            gpu_name: None,
-        };
+        let mut collector =
+            Self { gpus: Vec::new(), util_history: Vec::new(), initialized: false, gpu_name: None };
         collector.initialize();
         collector
     }
@@ -118,11 +114,8 @@ impl AppleGpuCollector {
         }
 
         // Intel Mac - check for discrete GPUs via ioreg (1s timeout)
-        let ioreg_output = run_with_timeout_stdout(
-            "ioreg",
-            &["-r", "-c", "IOPCIDevice"],
-            Duration::from_secs(1),
-        );
+        let ioreg_output =
+            run_with_timeout_stdout("ioreg", &["-r", "-c", "IOPCIDevice"], Duration::from_secs(1));
 
         if let Some(content) = ioreg_output {
             // Find all GPU model strings
@@ -298,10 +291,7 @@ impl AppleGpuCollector {
     fn estimate_gpu_activity_for_device(gpu_index: usize) -> f64 {
         use std::time::{SystemTime, UNIX_EPOCH};
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
 
         // Per-GPU phase offset so they vary independently
         let phase_offset = (gpu_index as f64) * 1.5; // Different phase per GPU

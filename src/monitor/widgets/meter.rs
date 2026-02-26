@@ -117,10 +117,7 @@ mod tests {
 
     #[test]
     fn test_meter_builder() {
-        let meter = Meter::new(0.75)
-            .label("CPU")
-            .color(Color::Red)
-            .show_percentage(false);
+        let meter = Meter::new(0.75).label("CPU").color(Color::Red).show_percentage(false);
 
         assert_eq!(meter.label, Some("CPU".to_string()));
         assert_eq!(meter.color, Color::Red);
@@ -140,16 +137,10 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         assert!(content.contains("Test"), "Should contain label");
-        assert!(
-            content.contains("50%") || content.contains(" 50%"),
-            "Should contain percentage"
-        );
+        assert!(content.contains("50%") || content.contains(" 50%"), "Should contain percentage");
     }
 }

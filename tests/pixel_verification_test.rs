@@ -48,21 +48,14 @@ fn pixel_cpu_values_valid_range() {
     let metrics = cpu.collect().expect("CPU collection failed");
 
     if let Some(total) = metrics.get_gauge("cpu.total") {
-        assert!(
-            total >= 0.0,
-            "PIXEL FAIL: CPU total {}% is negative (impossible)",
-            total
-        );
+        assert!(total >= 0.0, "PIXEL FAIL: CPU total {}% is negative (impossible)", total);
         assert!(
             total <= 100.0,
             "PIXEL FAIL: CPU total {}% exceeds 100% (bug in calculation)",
             total
         );
         // Also verify it's not NaN or infinity
-        assert!(
-            total.is_finite(),
-            "PIXEL FAIL: CPU total is NaN or Infinity"
-        );
+        assert!(total.is_finite(), "PIXEL FAIL: CPU total is NaN or Infinity");
     }
 }
 
@@ -86,10 +79,7 @@ fn pixel_cpu_values_change_over_time() {
         }
     }
 
-    assert!(
-        samples.len() >= 3,
-        "PIXEL FAIL: Could not collect enough CPU samples"
-    );
+    assert!(samples.len() >= 3, "PIXEL FAIL: Could not collect enough CPU samples");
 
     // At least some values should be non-zero (unless system is truly idle)
     let non_zero = samples.iter().filter(|&&v| v > 0.1).count();
@@ -151,11 +141,7 @@ fn pixel_cpu_per_core_valid() {
                 i,
                 core_pct
             );
-            assert!(
-                core_pct.is_finite(),
-                "PIXEL FAIL: Core {} value is NaN/Infinity",
-                i
-            );
+            assert!(core_pct.is_finite(), "PIXEL FAIL: Core {} value is NaN/Infinity", i);
         }
     }
 }
@@ -256,10 +242,7 @@ mod gpu_tests {
         // On macOS with Apple Silicon or any Mac with GPU
         #[cfg(target_os = "macos")]
         {
-            assert!(
-                gpu.is_available(),
-                "PIXEL FAIL: GPU should be available on macOS"
-            );
+            assert!(gpu.is_available(), "PIXEL FAIL: GPU should be available on macOS");
 
             if let Some(info) = gpu.primary_gpu() {
                 assert!(!info.name.is_empty(), "PIXEL FAIL: GPU name is empty");
@@ -278,9 +261,7 @@ fn pixel_memory_values_consistent() {
     let mut mem = MemoryCollector::new();
     let metrics = mem.collect().expect("Memory collection failed");
 
-    let total = metrics
-        .get_counter("memory.total")
-        .expect("No memory.total");
+    let total = metrics.get_counter("memory.total").expect("No memory.total");
     let used = metrics.get_counter("memory.used").unwrap_or(0);
     let available = metrics.get_counter("memory.available").unwrap_or(0);
 
@@ -288,20 +269,10 @@ fn pixel_memory_values_consistent() {
     assert!(total > 0, "PIXEL FAIL: Total memory is 0");
 
     // Used must be <= total
-    assert!(
-        used <= total,
-        "PIXEL FAIL: Used memory ({}) > Total ({})",
-        used,
-        total
-    );
+    assert!(used <= total, "PIXEL FAIL: Used memory ({}) > Total ({})", used, total);
 
     // Available should be reasonable
-    assert!(
-        available <= total,
-        "PIXEL FAIL: Available memory ({}) > Total ({})",
-        available,
-        total
-    );
+    assert!(available <= total, "PIXEL FAIL: Available memory ({}) > Total ({})", available, total);
 
     // Percentage should be valid
     if let Some(pct) = metrics.get_gauge("memory.used.percent") {
@@ -334,10 +305,7 @@ fn pixel_memory_history_updates() {
 
     let final_len = mem.history().len();
 
-    assert!(
-        final_len > initial_len,
-        "PIXEL FAIL: Memory history not updating"
-    );
+    assert!(final_len > initial_len, "PIXEL FAIL: Memory history not updating");
 }
 
 // ============================================================================
@@ -354,10 +322,7 @@ fn pixel_network_interfaces_detected() {
 
     let interfaces = net.interfaces();
 
-    assert!(
-        !interfaces.is_empty(),
-        "PIXEL FAIL: No network interfaces detected"
-    );
+    assert!(!interfaces.is_empty(), "PIXEL FAIL: No network interfaces detected");
 
     println!("Detected interfaces: {:?}", interfaces);
 
@@ -389,14 +354,8 @@ fn pixel_network_rates_valid() {
             "PIXEL FAIL: Negative TX rate: {}",
             rates.tx_bytes_per_sec
         );
-        assert!(
-            rates.rx_bytes_per_sec.is_finite(),
-            "PIXEL FAIL: RX rate is NaN/Infinity"
-        );
-        assert!(
-            rates.tx_bytes_per_sec.is_finite(),
-            "PIXEL FAIL: TX rate is NaN/Infinity"
-        );
+        assert!(rates.rx_bytes_per_sec.is_finite(), "PIXEL FAIL: RX rate is NaN/Infinity");
+        assert!(rates.tx_bytes_per_sec.is_finite(), "PIXEL FAIL: TX rate is NaN/Infinity");
     }
 }
 
@@ -451,16 +410,8 @@ fn pixel_process_count_reasonable() {
 
     let count = proc.count();
 
-    assert!(
-        count >= 50,
-        "PIXEL FAIL: Only {} processes, expected >= 50",
-        count
-    );
-    assert!(
-        count < 10000,
-        "PIXEL FAIL: {} processes seems unreasonable",
-        count
-    );
+    assert!(count >= 50, "PIXEL FAIL: Only {} processes, expected >= 50", count);
+    assert!(count < 10000, "PIXEL FAIL: {} processes seems unreasonable", count);
 
     println!("Process count: {}", count);
 }
@@ -486,10 +437,7 @@ fn pixel_process_tree_valid() {
 
     // Root should have children
     if let Some(children) = tree.get(&0) {
-        assert!(
-            !children.is_empty(),
-            "PIXEL FAIL: Root process has no children"
-        );
+        assert!(!children.is_empty(), "PIXEL FAIL: Root process has no children");
     }
 }
 
@@ -535,10 +483,7 @@ fn pixel_all_collectors_produce_changing_output() {
     let m2 = cpu.collect().ok();
 
     // History should grow
-    assert!(
-        cpu.history().len() >= 2,
-        "PIXEL FAIL: CPU history not growing"
-    );
+    assert!(cpu.history().len() >= 2, "PIXEL FAIL: CPU history not growing");
 
     // Memory
     let mut mem = MemoryCollector::new();
@@ -546,10 +491,7 @@ fn pixel_all_collectors_produce_changing_output() {
     std::thread::sleep(Duration::from_millis(100));
     let _ = mem.collect();
 
-    assert!(
-        mem.history().len() >= 2,
-        "PIXEL FAIL: Memory history not growing"
-    );
+    assert!(mem.history().len() >= 2, "PIXEL FAIL: Memory history not growing");
 
     // Network
     let mut net = NetworkCollector::new();
@@ -648,9 +590,6 @@ fn pixel_gpu_returns_actual_values() {
 
         // After fix, GPU util should vary (not be hardcoded)
         // The implementation provides at least a varying fallback
-        println!(
-            "GPU utilization: {}% (graph should now animate)",
-            info.gpu_util
-        );
+        println!("GPU utilization: {}% (graph should now animate)", info.gpu_util);
     }
 }

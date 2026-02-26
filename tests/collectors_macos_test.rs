@@ -21,10 +21,7 @@ use trueno_viz::monitor::collectors::AppleGpuCollector;
 #[test]
 fn test_cpu_accuracy_vs_top() {
     let mut cpu = CpuCollector::new();
-    assert!(
-        cpu.is_available(),
-        "CPU collector must be available on macOS"
-    );
+    assert!(cpu.is_available(), "CPU collector must be available on macOS");
 
     // Collect twice for delta calculation
     let _ = cpu.collect();
@@ -33,11 +30,7 @@ fn test_cpu_accuracy_vs_top() {
 
     // Verify we get reasonable CPU values
     if let Some(total) = metrics.get_gauge("cpu.total") {
-        assert!(
-            total >= 0.0 && total <= 100.0,
-            "CPU total must be 0-100%, got {}",
-            total
-        );
+        assert!(total >= 0.0 && total <= 100.0, "CPU total must be 0-100%, got {}", total);
     }
 
     // Verify core count matches system
@@ -61,10 +54,7 @@ fn test_cpu_accuracy_vs_top() {
 #[test]
 fn test_memory_accuracy() {
     let mut mem = MemoryCollector::new();
-    assert!(
-        mem.is_available(),
-        "Memory collector must be available on macOS"
-    );
+    assert!(mem.is_available(), "Memory collector must be available on macOS");
 
     let metrics = mem.collect().expect("Memory collection should succeed");
 
@@ -86,11 +76,7 @@ fn test_memory_accuracy() {
 
     // Verify percentage is reasonable
     if let Some(pct) = metrics.get_gauge("memory.used.percent") {
-        assert!(
-            pct >= 0.0 && pct <= 100.0,
-            "Memory percent must be 0-100%, got {}",
-            pct
-        );
+        assert!(pct >= 0.0 && pct <= 100.0, "Memory percent must be 0-100%, got {}", pct);
     }
 }
 
@@ -98,10 +84,7 @@ fn test_memory_accuracy() {
 #[test]
 fn test_network_accuracy() {
     let mut net = NetworkCollector::new();
-    assert!(
-        net.is_available(),
-        "Network collector must be available on macOS"
-    );
+    assert!(net.is_available(), "Network collector must be available on macOS");
 
     // Collect twice for rate calculation
     let _ = net.collect();
@@ -110,28 +93,18 @@ fn test_network_accuracy() {
 
     // Verify we detect at least one interface
     let interfaces = net.interfaces();
-    assert!(
-        !interfaces.is_empty(),
-        "Should detect at least one network interface"
-    );
+    assert!(!interfaces.is_empty(), "Should detect at least one network interface");
 
     // Verify en0 exists (primary interface on most Macs)
     let has_en0 = interfaces.iter().any(|i| i.starts_with("en"));
-    assert!(
-        has_en0,
-        "Should detect en* interface, found: {:?}",
-        interfaces
-    );
+    assert!(has_en0, "Should detect en* interface, found: {:?}", interfaces);
 }
 
 /// Claim 44: Disk mounts match df
 #[test]
 fn test_disk_accuracy() {
     let mut disk = DiskCollector::new();
-    assert!(
-        disk.is_available(),
-        "Disk collector must be available on macOS"
-    );
+    assert!(disk.is_available(), "Disk collector must be available on macOS");
 
     let _ = disk.collect();
 
@@ -159,25 +132,14 @@ fn test_disk_accuracy() {
 #[test]
 fn test_process_count_accuracy() {
     let mut proc = ProcessCollector::new();
-    assert!(
-        proc.is_available(),
-        "Process collector must be available on macOS"
-    );
+    assert!(proc.is_available(), "Process collector must be available on macOS");
 
     let _ = proc.collect();
 
     // Count should be reasonable (typically 100-2000 on a Mac)
     let count = proc.count();
-    assert!(
-        count >= 50,
-        "Should find at least 50 processes, found {}",
-        count
-    );
-    assert!(
-        count <= 5000,
-        "Process count should be reasonable (<5000), found {}",
-        count
-    );
+    assert!(count >= 50, "Should find at least 50 processes, found {}", count);
+    assert!(count <= 5000, "Process count should be reasonable (<5000), found {}", count);
 
     // Verify we can find launchd (PID 1)
     let has_pid1 = proc.processes().contains_key(&1);
@@ -191,20 +153,14 @@ fn test_gpu_detection() {
     let gpu = AppleGpuCollector::new();
 
     // GPU should be available on any Mac
-    assert!(
-        gpu.is_available(),
-        "GPU collector should be available on macOS"
-    );
+    assert!(gpu.is_available(), "GPU collector should be available on macOS");
 
     if let Some(info) = gpu.primary_gpu() {
         // Name should not be empty
         assert!(!info.name.is_empty(), "GPU name should not be empty");
 
         // Metal family should be set
-        assert!(
-            !info.metal_family.is_empty(),
-            "Metal family should not be empty"
-        );
+        assert!(!info.metal_family.is_empty(), "Metal family should not be empty");
     }
 }
 
@@ -337,11 +293,7 @@ fn test_metric_bounds() {
     let mut mem = MemoryCollector::new();
     if let Ok(metrics) = mem.collect() {
         if let Some(pct) = metrics.get_gauge("memory.used.percent") {
-            assert!(
-                pct >= 0.0 && pct <= 100.0,
-                "Memory percent out of bounds: {}",
-                pct
-            );
+            assert!(pct >= 0.0 && pct <= 100.0, "Memory percent out of bounds: {}", pct);
         }
     }
 }

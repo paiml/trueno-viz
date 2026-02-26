@@ -58,19 +58,13 @@ mod tests {
 
     #[test]
     fn test_error_display() {
-        let err = Error::InvalidDimensions {
-            width: 0,
-            height: 100,
-        };
+        let err = Error::InvalidDimensions { width: 0, height: 100 };
         assert!(err.to_string().contains("Invalid dimensions"));
     }
 
     #[test]
     fn test_data_length_mismatch() {
-        let err = Error::DataLengthMismatch {
-            x_len: 10,
-            y_len: 20,
-        };
+        let err = Error::DataLengthMismatch { x_len: 10, y_len: 20 };
         assert!(err.to_string().contains("10"));
         assert!(err.to_string().contains("20"));
     }

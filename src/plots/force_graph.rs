@@ -92,13 +92,7 @@ impl GraphEdge {
     /// Create a new edge.
     #[must_use]
     pub fn new(source: usize, target: usize) -> Self {
-        Self {
-            source,
-            target,
-            weight: 1.0,
-            color: Rgba::new(150, 150, 150, 200),
-            width: 1.0,
-        }
+        Self { source, target, weight: 1.0, color: Rgba::new(150, 150, 150, 200), width: 1.0 }
     }
 
     /// Set edge weight.
@@ -334,12 +328,8 @@ impl ForceGraph {
                 node.y += node.vy / disp * capped_disp;
 
                 // Keep nodes within bounds
-                node.x = node
-                    .x
-                    .clamp(self.margin as f32, self.margin as f32 + area_width);
-                node.y = node
-                    .y
-                    .clamp(self.margin as f32, self.margin as f32 + area_height);
+                node.x = node.x.clamp(self.margin as f32, self.margin as f32 + area_width);
+                node.y = node.y.clamp(self.margin as f32, self.margin as f32 + area_height);
             }
 
             // Cool down
@@ -426,13 +416,7 @@ impl BuiltForceGraph {
 
         // Draw nodes
         for node in &self.nodes {
-            draw_circle(
-                fb,
-                node.x as i32,
-                node.y as i32,
-                node.radius as i32,
-                node.color,
-            );
+            draw_circle(fb, node.x as i32, node.y as i32, node.radius as i32, node.color);
         }
 
         Ok(())
@@ -446,10 +430,7 @@ mod tests {
 
     #[test]
     fn test_graph_node_builder() {
-        let node = GraphNode::new(0)
-            .label("Test")
-            .color(Rgba::RED)
-            .radius(10.0);
+        let node = GraphNode::new(0).label("Test").color(Rgba::RED).radius(10.0);
 
         assert_eq!(node.id, 0);
         assert_eq!(node.label, Some("Test".to_string()));
@@ -459,10 +440,7 @@ mod tests {
 
     #[test]
     fn test_graph_edge_builder() {
-        let edge = GraphEdge::new(0, 1)
-            .weight(2.0)
-            .color(Rgba::BLUE)
-            .width(3.0);
+        let edge = GraphEdge::new(0, 1).weight(2.0).color(Rgba::BLUE).width(3.0);
 
         assert_eq!(edge.source, 0);
         assert_eq!(edge.target, 1);
@@ -489,11 +467,8 @@ mod tests {
 
     #[test]
     fn test_force_graph_single_node() {
-        let graph = ForceGraph::new()
-            .add_node(GraphNode::new(0))
-            .dimensions(200, 200)
-            .build()
-            .unwrap();
+        let graph =
+            ForceGraph::new().add_node(GraphNode::new(0)).dimensions(200, 200).build().unwrap();
 
         assert_eq!(graph.num_nodes(), 1);
         assert_eq!(graph.num_edges(), 0);

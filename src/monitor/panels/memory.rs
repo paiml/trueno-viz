@@ -17,9 +17,7 @@ impl MemoryPanel {
     /// Creates a new memory panel.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            collector: MemoryCollector::new(),
-        }
+        Self { collector: MemoryCollector::new() }
     }
 }
 

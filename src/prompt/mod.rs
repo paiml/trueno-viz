@@ -95,10 +95,7 @@ impl PlotSpec {
             "histogram" => self.render_histogram(),
             "heatmap" => self.render_heatmap(),
             "boxplot" => self.render_boxplot(),
-            _ => Err(Error::Rendering(format!(
-                "Unknown plot type: {}",
-                self.plot_type
-            ))),
+            _ => Err(Error::Rendering(format!("Unknown plot type: {}", self.plot_type))),
         }
     }
 
@@ -122,12 +119,7 @@ impl PlotSpec {
         let y = self.y_data.as_ref().ok_or(Error::EmptyData)?;
 
         let plot = LineChart::new()
-            .add_series(
-                LineSeries::new("data")
-                    .data(x, y)
-                    .color(self.color)
-                    .thickness(self.size),
-            )
+            .add_series(LineSeries::new("data").data(x, y).color(self.color).thickness(self.size))
             .dimensions(self.width, self.height)
             .build()?;
 
@@ -149,10 +141,7 @@ impl PlotSpec {
     fn render_heatmap(&self) -> Result<Framebuffer> {
         let matrix = self.matrix.as_ref().ok_or(Error::EmptyData)?;
 
-        let plot = Heatmap::new()
-            .data_2d(matrix)
-            .dimensions(self.width, self.height)
-            .build()?;
+        let plot = Heatmap::new().data_2d(matrix).dimensions(self.width, self.height).build()?;
 
         plot.to_framebuffer()
     }
@@ -195,9 +184,8 @@ pub fn parse_prompt(prompt: &str) -> Result<PlotSpec> {
     let mut parts = prompt.split_whitespace().peekable();
 
     // First token is plot type
-    let plot_type = parts
-        .next()
-        .ok_or_else(|| Error::Rendering("No plot type specified".into()))?;
+    let plot_type =
+        parts.next().ok_or_else(|| Error::Rendering("No plot type specified".into()))?;
     spec.plot_type = plot_type.to_lowercase();
 
     // Parse remaining tokens
@@ -210,19 +198,16 @@ pub fn parse_prompt(prompt: &str) -> Result<PlotSpec> {
                 "matrix" => spec.matrix = Some(parse_matrix(value)?),
                 "groups" => spec.groups = Some(parse_matrix(value)?),
                 "width" => {
-                    spec.width = value
-                        .parse()
-                        .map_err(|_| Error::Rendering("Invalid width".into()))?
+                    spec.width =
+                        value.parse().map_err(|_| Error::Rendering("Invalid width".into()))?
                 }
                 "height" => {
-                    spec.height = value
-                        .parse()
-                        .map_err(|_| Error::Rendering("Invalid height".into()))?
+                    spec.height =
+                        value.parse().map_err(|_| Error::Rendering("Invalid height".into()))?
                 }
                 "size" => {
-                    spec.size = value
-                        .parse()
-                        .map_err(|_| Error::Rendering("Invalid size".into()))?
+                    spec.size =
+                        value.parse().map_err(|_| Error::Rendering("Invalid size".into()))?
                 }
                 "color" => spec.color = parse_color(value)?,
                 "title" => {
@@ -249,9 +234,7 @@ pub fn parse_prompt(prompt: &str) -> Result<PlotSpec> {
     match spec.plot_type.as_str() {
         "scatter" | "line" => {
             if spec.x_data.is_none() || spec.y_data.is_none() {
-                return Err(Error::Rendering(
-                    "scatter/line requires x=[...] and y=[...]".into(),
-                ));
+                return Err(Error::Rendering("scatter/line requires x=[...] and y=[...]".into()));
             }
         }
         "histogram" => {
@@ -284,9 +267,7 @@ fn parse_array(s: &str) -> Result<Vec<f32>> {
 
     s.split(',')
         .map(|v| {
-            v.trim()
-                .parse::<f32>()
-                .map_err(|_| Error::Rendering(format!("Invalid number: {v}")))
+            v.trim().parse::<f32>().map_err(|_| Error::Rendering(format!("Invalid number: {v}")))
         })
         .collect()
 }
@@ -598,10 +579,7 @@ mod tests {
 
     #[test]
     fn test_render_unknown_plot_type() {
-        let spec = PlotSpec {
-            plot_type: "unknownplot".to_string(),
-            ..PlotSpec::default()
-        };
+        let spec = PlotSpec { plot_type: "unknownplot".to_string(), ..PlotSpec::default() };
         let result = spec.render();
         assert!(result.is_err());
     }
@@ -630,40 +608,28 @@ mod tests {
 
     #[test]
     fn test_render_line_missing_data() {
-        let spec = PlotSpec {
-            plot_type: "line".to_string(),
-            ..PlotSpec::default()
-        };
+        let spec = PlotSpec { plot_type: "line".to_string(), ..PlotSpec::default() };
         let result = spec.render();
         assert!(result.is_err());
     }
 
     #[test]
     fn test_render_histogram_missing_data() {
-        let spec = PlotSpec {
-            plot_type: "histogram".to_string(),
-            ..PlotSpec::default()
-        };
+        let spec = PlotSpec { plot_type: "histogram".to_string(), ..PlotSpec::default() };
         let result = spec.render();
         assert!(result.is_err());
     }
 
     #[test]
     fn test_render_heatmap_missing_matrix() {
-        let spec = PlotSpec {
-            plot_type: "heatmap".to_string(),
-            ..PlotSpec::default()
-        };
+        let spec = PlotSpec { plot_type: "heatmap".to_string(), ..PlotSpec::default() };
         let result = spec.render();
         assert!(result.is_err());
     }
 
     #[test]
     fn test_render_boxplot_missing_groups() {
-        let spec = PlotSpec {
-            plot_type: "boxplot".to_string(),
-            ..PlotSpec::default()
-        };
+        let spec = PlotSpec { plot_type: "boxplot".to_string(), ..PlotSpec::default() };
         let result = spec.render();
         assert!(result.is_err());
     }

@@ -184,11 +184,7 @@ impl SimdRingBuffer {
         }
 
         let head = self.head.load(Ordering::Acquire);
-        let idx = if self.wrapped {
-            head % self.capacity
-        } else {
-            0
-        };
+        let idx = if self.wrapped { head % self.capacity } else { 0 };
         Some(self.data[idx])
     }
 
@@ -307,11 +303,7 @@ impl SimdRingBuffer {
 
     /// Returns an iterator over values from oldest to newest.
     pub fn iter(&self) -> impl Iterator<Item = f64> + '_ {
-        SimdRingBufferIter {
-            buffer: self,
-            index: 0,
-            remaining: self.len(),
-        }
+        SimdRingBufferIter { buffer: self, index: 0, remaining: self.len() }
     }
 }
 
@@ -348,11 +340,7 @@ impl<'a> Iterator for SimdRingBufferIter<'a> {
         }
 
         let head = self.buffer.head.load(Ordering::Acquire);
-        let start = if self.buffer.wrapped {
-            head % self.buffer.capacity
-        } else {
-            0
-        };
+        let start = if self.buffer.wrapped { head % self.buffer.capacity } else { 0 };
 
         let idx = (start + self.index) % self.buffer.capacity;
         self.index += 1;

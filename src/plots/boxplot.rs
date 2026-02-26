@@ -53,34 +53,14 @@ impl BoxStats {
         let upper_fence = q3 + 1.5 * iqr;
 
         // Find actual min/max within fences
-        let min = sorted
-            .iter()
-            .copied()
-            .find(|&x| x >= lower_fence)
-            .unwrap_or(sorted[0]);
-        let max = sorted
-            .iter()
-            .rev()
-            .copied()
-            .find(|&x| x <= upper_fence)
-            .unwrap_or(sorted[n - 1]);
+        let min = sorted.iter().copied().find(|&x| x >= lower_fence).unwrap_or(sorted[0]);
+        let max = sorted.iter().rev().copied().find(|&x| x <= upper_fence).unwrap_or(sorted[n - 1]);
 
         // Collect outliers
-        let outliers: Vec<f32> = sorted
-            .iter()
-            .copied()
-            .filter(|&x| x < lower_fence || x > upper_fence)
-            .collect();
+        let outliers: Vec<f32> =
+            sorted.iter().copied().filter(|&x| x < lower_fence || x > upper_fence).collect();
 
-        Some(Self {
-            min,
-            q1,
-            median,
-            q3,
-            max,
-            iqr,
-            outliers,
-        })
+        Some(Self { min, q1, median, q3, max, iqr, outliers })
     }
 }
 
@@ -236,11 +216,8 @@ impl BoxPlot {
         }
 
         // Compute statistics for each group
-        let stats: Vec<BoxStats> = self
-            .groups
-            .iter()
-            .filter_map(|g| BoxStats::from_data(g))
-            .collect();
+        let stats: Vec<BoxStats> =
+            self.groups.iter().filter_map(|g| BoxStats::from_data(g)).collect();
 
         if stats.is_empty() {
             return Err(Error::EmptyData);
@@ -596,11 +573,8 @@ impl ViolinPlot {
         }
 
         // Compute KDE for each group
-        let kdes: Vec<Vec<(f32, f32)>> = self
-            .groups
-            .iter()
-            .map(|g| compute_kde(g, self.bandwidth, 50))
-            .collect();
+        let kdes: Vec<Vec<(f32, f32)>> =
+            self.groups.iter().map(|g| compute_kde(g, self.bandwidth, 50)).collect();
 
         let stats: Vec<Option<BoxStats>> =
             self.groups.iter().map(|g| BoxStats::from_data(g)).collect();
@@ -1000,10 +974,8 @@ mod tests {
 
     #[test]
     fn test_violin_build() {
-        let plot = ViolinPlot::new()
-            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A")
-            .build()
-            .unwrap();
+        let plot =
+            ViolinPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A").build().unwrap();
 
         assert_eq!(plot.num_groups(), 1);
     }
@@ -1042,11 +1014,7 @@ mod tests {
     #[test]
     fn test_boxplot_data_method() {
         let groups = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
-        let plot = BoxPlot::new()
-            .data(groups)
-            .labels(&["A", "B"])
-            .build()
-            .unwrap();
+        let plot = BoxPlot::new().data(groups).labels(&["A", "B"]).build().unwrap();
         assert_eq!(plot.num_groups(), 2);
     }
 
@@ -1064,11 +1032,8 @@ mod tests {
 
     #[test]
     fn test_boxplot_margin() {
-        let plot = BoxPlot::new()
-            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
-            .margin(10)
-            .build()
-            .unwrap();
+        let plot =
+            BoxPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A").margin(10).build().unwrap();
         let _ = plot.to_framebuffer().unwrap();
     }
 
@@ -1121,10 +1086,7 @@ mod tests {
 
     #[test]
     fn test_built_boxplot_stats_labels() {
-        let plot = BoxPlot::new()
-            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A")
-            .build()
-            .unwrap();
+        let plot = BoxPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A").build().unwrap();
 
         assert!(plot.stats(0).is_some());
         assert!(plot.stats(99).is_none());
@@ -1180,10 +1142,7 @@ mod tests {
 
     #[test]
     fn test_violin_labels() {
-        let plot = ViolinPlot::new()
-            .add_group(&[1.0, 2.0, 3.0], "Test Label")
-            .build()
-            .unwrap();
+        let plot = ViolinPlot::new().add_group(&[1.0, 2.0, 3.0], "Test Label").build().unwrap();
         assert_eq!(plot.labels(), &["Test Label".to_string()]);
     }
 
@@ -1307,19 +1266,13 @@ mod tests {
 
     #[test]
     fn test_built_boxplot_debug() {
-        let built = BoxPlot::new()
-            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
-            .build()
-            .unwrap();
+        let built = BoxPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A").build().unwrap();
         let _ = format!("{:?}", built);
     }
 
     #[test]
     fn test_built_violin_debug() {
-        let built = ViolinPlot::new()
-            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
-            .build()
-            .unwrap();
+        let built = ViolinPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A").build().unwrap();
         let _ = format!("{:?}", built);
     }
 

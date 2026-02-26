@@ -36,11 +36,7 @@ fn main() {
 
     // Render sparkline
     match sparkline.to_framebuffer() {
-        Ok(fb) => println!(
-            "   Rendered sparkline: {}x{} pixels",
-            fb.width(),
-            fb.height()
-        ),
+        Ok(fb) => println!("   Rendered sparkline: {}x{} pixels", fb.width(), fb.height()),
         Err(e) => println!("   Error: {e}"),
     }
 
@@ -59,11 +55,7 @@ fn main() {
 
     for (label, planned, actual, unit) in resources {
         let bar = ResourceBar::new(label, planned, actual, unit);
-        let status = if bar.is_over_budget() {
-            "OVER BUDGET"
-        } else {
-            "OK"
-        };
+        let status = if bar.is_over_budget() { "OVER BUDGET" } else { "OK" };
         println!(
             "   {}: {:.1}/{:.1} {} ({:.1}%) [{}]",
             label,
@@ -90,13 +82,9 @@ fn main() {
             .with_duration(4200.0)
             .with_metric("loss", 0.03)
             .with_metric("accuracy", 0.97),
-        RunRow::new("exp-003", RunStatus::Running)
-            .with_duration(1800.0)
-            .with_metric("loss", 0.08),
+        RunRow::new("exp-003", RunStatus::Running).with_duration(1800.0).with_metric("loss", 0.08),
         RunRow::new("exp-004", RunStatus::Pending),
-        RunRow::new("exp-005", RunStatus::Failed)
-            .with_duration(600.0)
-            .with_metric("loss", 0.45),
+        RunRow::new("exp-005", RunStatus::Failed).with_duration(600.0).with_metric("loss", 0.45),
     ];
 
     let table = RunTable::from_runs(runs);
@@ -104,22 +92,10 @@ fn main() {
     // Status summary
     let counts = table.status_counts();
     println!("   Status Summary:");
-    println!(
-        "   - Completed: {}",
-        counts.get(&RunStatus::Completed).unwrap_or(&0)
-    );
-    println!(
-        "   - Running: {}",
-        counts.get(&RunStatus::Running).unwrap_or(&0)
-    );
-    println!(
-        "   - Pending: {}",
-        counts.get(&RunStatus::Pending).unwrap_or(&0)
-    );
-    println!(
-        "   - Failed: {}",
-        counts.get(&RunStatus::Failed).unwrap_or(&0)
-    );
+    println!("   - Completed: {}", counts.get(&RunStatus::Completed).unwrap_or(&0));
+    println!("   - Running: {}", counts.get(&RunStatus::Running).unwrap_or(&0));
+    println!("   - Pending: {}", counts.get(&RunStatus::Pending).unwrap_or(&0));
+    println!("   - Failed: {}", counts.get(&RunStatus::Failed).unwrap_or(&0));
 
     // Render table
     println!("\n   Rendered Table:");

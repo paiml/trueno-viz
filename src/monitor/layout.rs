@@ -24,10 +24,7 @@ impl Preset {
     pub fn default_preset() -> Self {
         Self {
             rows: vec![
-                LayoutRow {
-                    panels: vec!["cpu".to_string()],
-                    height: Constraint::Percentage(30),
-                },
+                LayoutRow { panels: vec!["cpu".to_string()], height: Constraint::Percentage(30) },
                 LayoutRow {
                     panels: vec!["memory".to_string()],
                     height: Constraint::Percentage(25),
@@ -59,9 +56,8 @@ impl Preset {
                     return vec![];
                 }
 
-                let panel_constraints: Vec<Constraint> = (0..panel_count)
-                    .map(|_| Constraint::Ratio(1, panel_count as u32))
-                    .collect();
+                let panel_constraints: Vec<Constraint> =
+                    (0..panel_count).map(|_| Constraint::Ratio(1, panel_count as u32)).collect();
 
                 Layout::default()
                     .direction(Direction::Horizontal)
@@ -92,10 +88,7 @@ impl LayoutManager {
     /// Creates a new layout manager with default presets.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            presets: vec![Preset::default_preset()],
-            current: 0,
-        }
+        Self { presets: vec![Preset::default_preset()], current: 0 }
     }
 
     /// Switches to a preset by index.
@@ -190,10 +183,7 @@ mod tests {
                     panels: vec![], // Empty row
                     height: Constraint::Percentage(50),
                 },
-                LayoutRow {
-                    panels: vec!["cpu".to_string()],
-                    height: Constraint::Percentage(50),
-                },
+                LayoutRow { panels: vec!["cpu".to_string()], height: Constraint::Percentage(50) },
             ],
         };
         let area = Rect::new(0, 0, 100, 50);
@@ -213,10 +203,8 @@ mod tests {
 
     #[test]
     fn test_layout_row_debug_clone() {
-        let row = LayoutRow {
-            panels: vec!["test".to_string()],
-            height: Constraint::Percentage(50),
-        };
+        let row =
+            LayoutRow { panels: vec!["test".to_string()], height: Constraint::Percentage(50) };
         let cloned = row.clone();
         let _ = format!("{:?}", cloned);
     }

@@ -87,11 +87,10 @@ impl SimdNetworkCollector {
         })?;
 
         let bytes_read =
-            file.read(&mut self.read_buffer)
-                .map_err(|e| MonitorError::CollectionFailed {
-                    collector: "network_simd",
-                    message: format!("Failed to read /proc/net/dev: {}", e),
-                })?;
+            file.read(&mut self.read_buffer).map_err(|e| MonitorError::CollectionFailed {
+                collector: "network_simd",
+                message: format!("Failed to read /proc/net/dev: {}", e),
+            })?;
 
         // Reset current metrics for fresh parse
         self.current = NetworkMetricsSoA::new(32);
@@ -125,10 +124,7 @@ impl SimdNetworkCollector {
             // Find the colon separator
             if let Some(colon_pos) = line.iter().position(|&b| b == b':') {
                 let name_bytes = &line[..colon_pos];
-                let name = std::str::from_utf8(name_bytes)
-                    .unwrap_or("")
-                    .trim()
-                    .to_string();
+                let name = std::str::from_utf8(name_bytes).unwrap_or("").trim().to_string();
 
                 // Skip loopback
                 if name == "lo" {
@@ -163,8 +159,7 @@ impl SimdNetworkCollector {
     fn parse_net_dev(&mut self) -> Result<()> {
         // Non-Linux platforms: generate dummy data
         self.current = NetworkMetricsSoA::new(32);
-        self.current
-            .set_interface("eth0", 1000, 100, 0, 0, 500, 50, 0, 0);
+        self.current.set_interface("eth0", 1000, 100, 0, 0, 500, 50, 0, 0);
         Ok(())
     }
 
@@ -273,17 +268,13 @@ impl SimdNetworkCollector {
     /// Returns RX history for the current interface.
     #[must_use]
     pub fn rx_history(&self) -> Option<&SimdRingBuffer> {
-        self.current_interface
-            .as_ref()
-            .and_then(|name| self.rx_history.get(name))
+        self.current_interface.as_ref().and_then(|name| self.rx_history.get(name))
     }
 
     /// Returns TX history for the current interface.
     #[must_use]
     pub fn tx_history(&self) -> Option<&SimdRingBuffer> {
-        self.current_interface
-            .as_ref()
-            .and_then(|name| self.tx_history.get(name))
+        self.current_interface.as_ref().and_then(|name| self.tx_history.get(name))
     }
 
     /// Returns RX rate statistics for the current interface.

@@ -208,10 +208,7 @@ mod tests {
 
     #[test]
     fn test_theme_customization() {
-        let t = Theme::minimal()
-            .background(Rgba::rgb(250, 250, 250))
-            .margin(50)
-            .grid(false);
+        let t = Theme::minimal().background(Rgba::rgb(250, 250, 250)).margin(50).grid(false);
 
         assert_eq!(t.margin, 50);
         assert!(!t.show_grid);

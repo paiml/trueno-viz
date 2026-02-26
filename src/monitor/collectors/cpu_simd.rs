@@ -120,11 +120,10 @@ impl SimdCpuCollector {
         })?;
 
         let bytes_read =
-            file.read(&mut self.read_buffer)
-                .map_err(|e| MonitorError::CollectionFailed {
-                    collector: "cpu_simd",
-                    message: format!("Failed to read /proc/stat: {}", e),
-                })?;
+            file.read(&mut self.read_buffer).map_err(|e| MonitorError::CollectionFailed {
+                collector: "cpu_simd",
+                message: format!("Failed to read /proc/stat: {}", e),
+            })?;
 
         // Copy to local buffer to avoid borrow conflict (self.read_buffer vs &mut self)
         #[allow(clippy::unnecessary_to_owned)]

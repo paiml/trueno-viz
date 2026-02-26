@@ -46,10 +46,7 @@ impl<const N: usize> AlignedBuffer<N> {
     /// Creates a new zeroed aligned buffer.
     #[must_use]
     pub const fn new() -> Self {
-        Self {
-            data: [0u8; N],
-            len: 0,
-        }
+        Self { data: [0u8; N], len: 0 }
     }
 
     /// Returns a mutable slice to the buffer.
@@ -320,10 +317,7 @@ pub fn simd_find_pattern(bytes: &[u8], pattern: &[u8]) -> Vec<usize> {
     let mut positions = Vec::new();
     let mut start = 0;
 
-    while let Some(pos) = bytes[start..]
-        .windows(pattern.len())
-        .position(|w| w == pattern)
-    {
+    while let Some(pos) = bytes[start..].windows(pattern.len()).position(|w| w == pattern) {
         positions.push(start + pos);
         start += pos + 1;
     }
@@ -469,11 +463,8 @@ unsafe fn simd_percentage_avx2(values: &[u64], totals: &[u64]) -> Vec<f64> {
 
     // Handle remainder
     while i < len {
-        result[i] = if totals[i] == 0 {
-            0.0
-        } else {
-            (values[i] as f64 * 100.0) / totals[i] as f64
-        };
+        result[i] =
+            if totals[i] == 0 { 0.0 } else { (values[i] as f64 * 100.0) / totals[i] as f64 };
         i += 1;
     }
 
@@ -484,13 +475,7 @@ fn scalar_percentage(values: &[u64], totals: &[u64]) -> Vec<f64> {
     values
         .iter()
         .zip(totals.iter())
-        .map(|(&v, &t)| {
-            if t == 0 {
-                0.0
-            } else {
-                (v as f64 * 100.0) / t as f64
-            }
-        })
+        .map(|(&v, &t)| if t == 0 { 0.0 } else { (v as f64 * 100.0) / t as f64 })
         .collect()
 }
 
@@ -567,14 +552,7 @@ unsafe fn simd_statistics_avx2(values: &[f64]) -> SimdStats {
         i += 1;
     }
 
-    SimdStats {
-        min,
-        max,
-        sum,
-        sum_sq,
-        count: len as u64,
-        _padding: [0; 24],
-    }
+    SimdStats { min, max, sum, sum_sq, count: len as u64, _padding: [0; 24] }
 }
 
 fn scalar_statistics(values: &[f64]) -> SimdStats {

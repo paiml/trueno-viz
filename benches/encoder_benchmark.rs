@@ -106,10 +106,5 @@ fn png_compression_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    png_encoder_benchmark,
-    svg_encoder_benchmark,
-    png_compression_benchmark
-);
+criterion_group!(benches, png_encoder_benchmark, svg_encoder_benchmark, png_compression_benchmark);
 criterion_main!(benches);

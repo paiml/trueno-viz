@@ -101,43 +101,25 @@ impl Geom {
     /// Create a point geometry.
     #[must_use]
     pub fn point() -> Self {
-        Self {
-            geom_type: GeomType::Point {
-                shape: PointShape::Circle,
-            },
-            aes: None,
-            stat: None,
-        }
+        Self { geom_type: GeomType::Point { shape: PointShape::Circle }, aes: None, stat: None }
     }
 
     /// Create a line geometry.
     #[must_use]
     pub fn line() -> Self {
-        Self {
-            geom_type: GeomType::Line { width: 1.0 },
-            aes: None,
-            stat: None,
-        }
+        Self { geom_type: GeomType::Line { width: 1.0 }, aes: None, stat: None }
     }
 
     /// Create an area geometry.
     #[must_use]
     pub fn area() -> Self {
-        Self {
-            geom_type: GeomType::Area { alpha: 0.3 },
-            aes: None,
-            stat: None,
-        }
+        Self { geom_type: GeomType::Area { alpha: 0.3 }, aes: None, stat: None }
     }
 
     /// Create a bar geometry.
     #[must_use]
     pub fn bar() -> Self {
-        Self {
-            geom_type: GeomType::Bar { width: 0.8 },
-            aes: None,
-            stat: Some(Stat::Count),
-        }
+        Self { geom_type: GeomType::Bar { width: 0.8 }, aes: None, stat: Some(Stat::Count) }
     }
 
     /// Create a histogram geometry.
@@ -153,70 +135,44 @@ impl Geom {
     /// Create a box plot geometry.
     #[must_use]
     pub fn boxplot() -> Self {
-        Self {
-            geom_type: GeomType::Boxplot,
-            aes: None,
-            stat: Some(Stat::Boxplot),
-        }
+        Self { geom_type: GeomType::Boxplot, aes: None, stat: Some(Stat::Boxplot) }
     }
 
     /// Create a violin plot geometry.
     #[must_use]
     pub fn violin() -> Self {
-        Self {
-            geom_type: GeomType::Violin,
-            aes: None,
-            stat: Some(Stat::Density),
-        }
+        Self { geom_type: GeomType::Violin, aes: None, stat: Some(Stat::Density) }
     }
 
     /// Create a tile geometry (for heatmaps).
     #[must_use]
     pub fn tile() -> Self {
-        Self {
-            geom_type: GeomType::Tile,
-            aes: None,
-            stat: None,
-        }
+        Self { geom_type: GeomType::Tile, aes: None, stat: None }
     }
 
     /// Create a text geometry.
     #[must_use]
     pub fn text() -> Self {
-        Self {
-            geom_type: GeomType::Text,
-            aes: None,
-            stat: None,
-        }
+        Self { geom_type: GeomType::Text, aes: None, stat: None }
     }
 
     /// Create a horizontal line.
     #[must_use]
     pub fn hline(yintercept: f32) -> Self {
-        Self {
-            geom_type: GeomType::Hline { yintercept },
-            aes: None,
-            stat: None,
-        }
+        Self { geom_type: GeomType::Hline { yintercept }, aes: None, stat: None }
     }
 
     /// Create a vertical line.
     #[must_use]
     pub fn vline(xintercept: f32) -> Self {
-        Self {
-            geom_type: GeomType::Vline { xintercept },
-            aes: None,
-            stat: None,
-        }
+        Self { geom_type: GeomType::Vline { xintercept }, aes: None, stat: None }
     }
 
     /// Create a smooth line.
     #[must_use]
     pub fn smooth() -> Self {
         Self {
-            geom_type: GeomType::Smooth {
-                method: SmoothMethod::Loess,
-            },
+            geom_type: GeomType::Smooth { method: SmoothMethod::Loess },
             aes: None,
             stat: Some(Stat::Smooth),
         }
@@ -528,9 +484,7 @@ mod tests {
     #[test]
     fn test_geom_type_debug() {
         let types = vec![
-            GeomType::Point {
-                shape: PointShape::Circle,
-            },
+            GeomType::Point { shape: PointShape::Circle },
             GeomType::Line { width: 1.0 },
             GeomType::Area { alpha: 0.5 },
             GeomType::Bar { width: 0.8 },
@@ -541,12 +495,8 @@ mod tests {
             GeomType::Text,
             GeomType::Hline { yintercept: 0.0 },
             GeomType::Vline { xintercept: 0.0 },
-            GeomType::Smooth {
-                method: SmoothMethod::Loess,
-            },
-            GeomType::Smooth {
-                method: SmoothMethod::Linear,
-            },
+            GeomType::Smooth { method: SmoothMethod::Loess },
+            GeomType::Smooth { method: SmoothMethod::Linear },
         ];
         for t in types {
             let debug = format!("{:?}", t);

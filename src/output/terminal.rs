@@ -43,12 +43,7 @@ impl TerminalEncoder {
     /// Create a new terminal encoder with default settings.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            mode: TerminalMode::default(),
-            width: None,
-            height: None,
-            invert: false,
-        }
+        Self { mode: TerminalMode::default(), width: None, height: None, invert: false }
     }
 
     /// Set the rendering mode.
@@ -284,9 +279,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         fb.clear(Rgba::RED);
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::UnicodeHalfBlock)
-            .width(5);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::UnicodeHalfBlock).width(5);
 
         let output = encoder.render(&fb);
 
@@ -303,9 +296,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         fb.clear(Rgba::BLUE);
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::AnsiTrueColor)
-            .width(5);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::AnsiTrueColor).width(5);
 
         let output = encoder.render(&fb);
 
@@ -320,10 +311,7 @@ mod tests {
         let mut fb = Framebuffer::new(10, 10).unwrap();
         fb.clear(Rgba::WHITE);
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::Ascii)
-            .width(5)
-            .invert(true);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(5).invert(true);
 
         let output = encoder.render(&fb);
 
@@ -370,20 +358,14 @@ mod tests {
 
         // Should have varied characters
         let unique_chars: std::collections::HashSet<char> = first_line.chars().collect();
-        assert!(
-            unique_chars.len() >= 5,
-            "Gradient should produce varied ASCII"
-        );
+        assert!(unique_chars.len() >= 5, "Gradient should produce varied ASCII");
     }
 
     #[test]
     fn test_custom_dimensions() {
         let fb = Framebuffer::new(100, 100).unwrap();
 
-        let encoder = TerminalEncoder::new()
-            .mode(TerminalMode::Ascii)
-            .width(20)
-            .height(10);
+        let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(20).height(10);
 
         let output = encoder.render(&fb);
         let lines: Vec<&str> = output.lines().collect();

@@ -38,12 +38,7 @@ impl Tree {
     /// Creates a new empty tree.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            nodes: HashMap::new(),
-            roots: Vec::new(),
-            collapsed: HashSet::new(),
-            selected: None,
-        }
+        Self { nodes: HashMap::new(), roots: Vec::new(), collapsed: HashSet::new(), selected: None }
     }
 
     /// Adds a node to the tree.
@@ -178,9 +173,7 @@ impl Tree {
 
         let is_selected = self.selected.as_ref() == Some(&node.id);
         let style = if is_selected {
-            Style::default()
-                .bg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD)
+            Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
         } else {
             Style::default()
         };
@@ -304,11 +297,7 @@ mod tests {
         tree.toggle("root");
         let elapsed = start.elapsed();
 
-        assert!(
-            elapsed.as_millis() < 10,
-            "Toggle took {:?}, should be under 10ms",
-            elapsed
-        );
+        assert!(elapsed.as_millis() < 10, "Toggle took {:?}, should be under 10ms", elapsed);
     }
 
     #[test]

@@ -7,9 +7,7 @@ use trueno_viz::monitor::{App, Config};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load configuration
     let config = Config::load_or_default(
-        dirs::config_dir()
-            .map(|p| p.join("trueno-monitor/config.yaml"))
-            .unwrap_or_default(),
+        dirs::config_dir().map(|p| p.join("trueno-monitor/config.yaml")).unwrap_or_default(),
     );
 
     // Run the application

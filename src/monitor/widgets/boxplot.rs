@@ -105,29 +105,13 @@ impl BoxStats {
         let upper_fence = q3 + 1.5 * iqr;
 
         // Find whisker bounds (within fences)
-        let min_whisker = sorted
-            .iter()
-            .copied()
-            .find(|&x| x >= lower_fence)
-            .unwrap_or(sorted[0]);
-        let max_whisker = sorted
-            .iter()
-            .rev()
-            .copied()
-            .find(|&x| x <= upper_fence)
-            .unwrap_or(sorted[n - 1]);
+        let min_whisker = sorted.iter().copied().find(|&x| x >= lower_fence).unwrap_or(sorted[0]);
+        let max_whisker =
+            sorted.iter().rev().copied().find(|&x| x <= upper_fence).unwrap_or(sorted[n - 1]);
 
         // Collect outliers
-        let outliers_low: Vec<f64> = sorted
-            .iter()
-            .copied()
-            .filter(|&x| x < lower_fence)
-            .collect();
-        let outliers_high: Vec<f64> = sorted
-            .iter()
-            .copied()
-            .filter(|&x| x > upper_fence)
-            .collect();
+        let outliers_low: Vec<f64> = sorted.iter().copied().filter(|&x| x < lower_fence).collect();
+        let outliers_high: Vec<f64> = sorted.iter().copied().filter(|&x| x > upper_fence).collect();
 
         Self {
             min: min_whisker,
@@ -813,11 +797,7 @@ mod tests {
             plot.render(area, &mut buf);
 
             // Buffer should have content
-            let content: String = buf
-                .content()
-                .iter()
-                .map(|c| c.symbol().to_string())
-                .collect();
+            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
             assert!(!content.chars().all(|c| c == ' '));
         }
 
@@ -829,11 +809,7 @@ mod tests {
             plot.render(area, &mut buf);
 
             // Buffer should have content
-            let content: String = buf
-                .content()
-                .iter()
-                .map(|c| c.symbol().to_string())
-                .collect();
+            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
             assert!(!content.chars().all(|c| c == ' '));
         }
 
@@ -870,11 +846,7 @@ mod tests {
             plot.render(area, &mut buf);
 
             // Should contain outlier markers
-            let content: String = buf
-                .content()
-                .iter()
-                .map(|c| c.symbol().to_string())
-                .collect();
+            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
             assert!(content.contains("○") || !has_outliers);
         }
 
@@ -1052,11 +1024,7 @@ mod tests {
                 .with_outliers(true);
             plot.render(area, &mut buf);
             // Should render outliers
-            let content: String = buf
-                .content()
-                .iter()
-                .map(|c| c.symbol().to_string())
-                .collect();
+            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
             assert!(content.contains("○"));
         }
 
@@ -1090,11 +1058,7 @@ mod tests {
             let (area, mut buf) = create_test_buffer(60, 5);
             let plot = BoxPlot::new(vec![stats]).with_outliers(true);
             plot.render(area, &mut buf);
-            let content: String = buf
-                .content()
-                .iter()
-                .map(|c| c.symbol().to_string())
-                .collect();
+            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
             assert!(content.contains("○"));
         }
 
@@ -1112,11 +1076,7 @@ mod tests {
                 .with_outliers(true);
             plot.render(area, &mut buf);
             // Multiple outliers should render
-            let content: String = buf
-                .content()
-                .iter()
-                .map(|c| c.symbol().to_string())
-                .collect();
+            let content: String = buf.content().iter().map(|c| c.symbol().to_string()).collect();
             let outlier_count = content.matches('○').count();
             assert!(outlier_count >= 2);
         }

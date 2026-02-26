@@ -24,12 +24,7 @@ impl State {
     /// created lazily with their own size when `record()` is called.
     #[must_use]
     pub fn new(_history_size: usize) -> Self {
-        Self {
-            history: HashMap::new(),
-            should_quit: false,
-            selected_panel: 0,
-            show_help: false,
-        }
+        Self { history: HashMap::new(), should_quit: false, selected_panel: 0, show_help: false }
     }
 
     /// Records metrics from a collector.
@@ -66,10 +61,7 @@ impl State {
     /// Selects the previous panel.
     pub fn prev_panel(&mut self, panel_count: usize) {
         if panel_count > 0 {
-            self.selected_panel = self
-                .selected_panel
-                .checked_sub(1)
-                .unwrap_or(panel_count - 1);
+            self.selected_panel = self.selected_panel.checked_sub(1).unwrap_or(panel_count - 1);
         }
     }
 }

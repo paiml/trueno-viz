@@ -119,9 +119,7 @@ impl GraphViz for CsrGraph {
     fn degree_histogram(&self) -> Result<Framebuffer> {
         let degrees: Vec<f32> = (0..self.num_nodes())
             .map(|i| {
-                self.outgoing_neighbors(NodeId(i as u32))
-                    .map(|n| n.len() as f32)
-                    .unwrap_or(0.0)
+                self.outgoing_neighbors(NodeId(i as u32)).map(|n| n.len() as f32).unwrap_or(0.0)
             })
             .collect();
 
@@ -140,15 +138,11 @@ impl GraphViz for CsrGraph {
         let mut out_degrees = vec![0.0f32; n];
 
         for i in 0..n {
-            out_degrees[i] = self
-                .outgoing_neighbors(NodeId(i as u32))
-                .map(|n| n.len() as f32)
-                .unwrap_or(0.0);
+            out_degrees[i] =
+                self.outgoing_neighbors(NodeId(i as u32)).map(|n| n.len() as f32).unwrap_or(0.0);
 
-            in_degrees[i] = self
-                .incoming_neighbors(NodeId(i as u32))
-                .map(|n| n.len() as f32)
-                .unwrap_or(0.0);
+            in_degrees[i] =
+                self.incoming_neighbors(NodeId(i as u32)).map(|n| n.len() as f32).unwrap_or(0.0);
         }
 
         let plot = ScatterPlot::new()

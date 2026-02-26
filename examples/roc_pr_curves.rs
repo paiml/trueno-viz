@@ -109,11 +109,7 @@ fn main() {
 
     // Summary
     println!("\n--- Summary ---");
-    println!(
-        "ROC AUC:             {:.4} ({})",
-        roc_curve.auc(),
-        auc_interpretation
-    );
+    println!("ROC AUC:             {:.4} ({})", roc_curve.auc(), auc_interpretation);
     println!("Average Precision:   {:.4}", pr_curve.average_precision());
     println!("Recommended threshold: {:.3}", optimal_roc.threshold);
 

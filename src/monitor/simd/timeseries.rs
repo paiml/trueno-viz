@@ -301,8 +301,7 @@ impl TimeSeriesTable {
                     }
                 }
 
-                self.cold_samples
-                    .fetch_add(self.cold_pending.len() as u64, Ordering::Relaxed);
+                self.cold_samples.fetch_add(self.cold_pending.len() as u64, Ordering::Relaxed);
             }
 
             self.cold_pending.clear();
@@ -357,12 +356,7 @@ impl TimeSeriesTable {
 
         let query_time_us = now_micros().saturating_sub(query_start);
 
-        QueryResult {
-            samples,
-            aggregations,
-            query_time_us,
-            tiers_scanned,
-        }
+        QueryResult { samples, aggregations, query_time_us, tiers_scanned }
     }
 
     /// Queries the cold tier from disk.
@@ -557,10 +551,7 @@ impl TimeSeriesDb {
 
     /// Returns all table names.
     pub fn table_names(&self) -> Vec<String> {
-        self.tables
-            .read()
-            .map(|t| t.keys().cloned().collect())
-            .unwrap_or_default()
+        self.tables.read().map(|t| t.keys().cloned().collect()).unwrap_or_default()
     }
 
     /// Flushes all tables to disk.
@@ -688,23 +679,11 @@ mod tests {
 
     #[test]
     fn test_aggregations_merge() {
-        let mut agg1 = Aggregations {
-            count: 5,
-            sum: 15.0,
-            min: 1.0,
-            max: 5.0,
-            mean: 3.0,
-            std_dev: 0.0,
-        };
+        let mut agg1 =
+            Aggregations { count: 5, sum: 15.0, min: 1.0, max: 5.0, mean: 3.0, std_dev: 0.0 };
 
-        let agg2 = Aggregations {
-            count: 5,
-            sum: 40.0,
-            min: 6.0,
-            max: 10.0,
-            mean: 8.0,
-            std_dev: 0.0,
-        };
+        let agg2 =
+            Aggregations { count: 5, sum: 40.0, min: 6.0, max: 10.0, mean: 8.0, std_dev: 0.0 };
 
         agg1.merge(&agg2);
         assert_eq!(agg1.count, 10);
@@ -780,14 +759,8 @@ mod tests {
     #[test]
     fn test_aggregations_merge_empty() {
         let mut agg1 = Aggregations::default();
-        let agg2 = Aggregations {
-            count: 5,
-            sum: 25.0,
-            min: 1.0,
-            max: 9.0,
-            mean: 5.0,
-            std_dev: 2.0,
-        };
+        let agg2 =
+            Aggregations { count: 5, sum: 25.0, min: 1.0, max: 9.0, mean: 5.0, std_dev: 2.0 };
 
         agg1.merge(&agg2);
         assert_eq!(agg1.count, 5);
@@ -796,14 +769,8 @@ mod tests {
 
     #[test]
     fn test_aggregations_merge_into_empty() {
-        let mut agg1 = Aggregations {
-            count: 3,
-            sum: 9.0,
-            min: 1.0,
-            max: 5.0,
-            mean: 3.0,
-            std_dev: 1.5,
-        };
+        let mut agg1 =
+            Aggregations { count: 3, sum: 9.0, min: 1.0, max: 5.0, mean: 3.0, std_dev: 1.5 };
         let agg2 = Aggregations::default();
 
         agg1.merge(&agg2);
@@ -910,14 +877,8 @@ mod tests {
 
     #[test]
     fn test_aggregations_clone() {
-        let agg = Aggregations {
-            count: 10,
-            sum: 100.0,
-            min: 5.0,
-            max: 15.0,
-            mean: 10.0,
-            std_dev: 2.5,
-        };
+        let agg =
+            Aggregations { count: 10, sum: 100.0, min: 5.0, max: 15.0, mean: 10.0, std_dev: 2.5 };
         let cloned = agg.clone();
         assert_eq!(agg.count, cloned.count);
         assert!((agg.sum - cloned.sum).abs() < f64::EPSILON);

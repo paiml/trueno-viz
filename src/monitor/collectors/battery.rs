@@ -132,10 +132,7 @@ impl BatteryCollector {
     /// Creates a new battery collector.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            batteries: Vec::new(),
-            power_supply_path: PathBuf::from("/sys/class/power_supply"),
-        }
+        Self { batteries: Vec::new(), power_supply_path: PathBuf::from("/sys/class/power_supply") }
     }
 
     /// Returns all detected batteries.
@@ -220,16 +217,12 @@ impl BatteryCollector {
 
     /// Reads a sysfs file as u64.
     fn read_u64(&self, path: &PathBuf) -> Option<u64> {
-        std::fs::read_to_string(path)
-            .ok()
-            .and_then(|s| s.trim().parse().ok())
+        std::fs::read_to_string(path).ok().and_then(|s| s.trim().parse().ok())
     }
 
     /// Reads a sysfs file as string.
     fn read_string(&self, path: &PathBuf) -> Option<String> {
-        std::fs::read_to_string(path)
-            .ok()
-            .map(|s| s.trim().to_string())
+        std::fs::read_to_string(path).ok().map(|s| s.trim().to_string())
     }
 
     /// Reads battery information from sysfs.
@@ -308,24 +301,14 @@ impl Collector for BatteryCollector {
         let mut metrics = Metrics::new();
 
         // Battery count
-        metrics.insert(
-            "battery.count",
-            MetricValue::Counter(self.batteries.len() as u64),
-        );
+        metrics.insert("battery.count", MetricValue::Counter(self.batteries.len() as u64));
 
         // Primary battery info
         if let Some(primary) = self.primary() {
-            metrics.insert(
-                "battery.capacity",
-                MetricValue::Gauge(primary.capacity as f64),
-            );
+            metrics.insert("battery.capacity", MetricValue::Gauge(primary.capacity as f64));
             metrics.insert(
                 "battery.charging",
-                MetricValue::Gauge(if primary.state.is_charging() {
-                    1.0
-                } else {
-                    0.0
-                }),
+                MetricValue::Gauge(if primary.state.is_charging() { 1.0 } else { 0.0 }),
             );
 
             if let Some(power) = primary.power_watts() {
@@ -373,15 +356,9 @@ mod tests {
     #[test]
     fn test_battery_state_from_str() {
         assert_eq!(BatteryState::from_str("Charging"), BatteryState::Charging);
-        assert_eq!(
-            BatteryState::from_str("Discharging"),
-            BatteryState::Discharging
-        );
+        assert_eq!(BatteryState::from_str("Discharging"), BatteryState::Discharging);
         assert_eq!(BatteryState::from_str("Full"), BatteryState::Full);
-        assert_eq!(
-            BatteryState::from_str("Not charging"),
-            BatteryState::NotCharging
-        );
+        assert_eq!(BatteryState::from_str("Not charging"), BatteryState::NotCharging);
         assert_eq!(BatteryState::from_str("random"), BatteryState::Unknown);
     }
 
@@ -458,9 +435,7 @@ mod tests {
             time_to_full: None,
         };
 
-        let formatted = info
-            .time_remaining_formatted()
-            .expect("Should have formatted time");
+        let formatted = info.time_remaining_formatted().expect("Should have formatted time");
         assert_eq!(formatted, "1h 30m");
     }
 
@@ -479,9 +454,7 @@ mod tests {
             time_to_full: None,
         };
 
-        let formatted = info
-            .time_remaining_formatted()
-            .expect("Should have formatted time");
+        let formatted = info.time_remaining_formatted().expect("Should have formatted time");
         assert_eq!(formatted, "30m");
     }
 

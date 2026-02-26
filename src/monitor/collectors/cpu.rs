@@ -467,11 +467,7 @@ impl CpuCollector {
             .unwrap_or(0)
             / 1000;
 
-        CpuFrequency {
-            current_mhz: current,
-            min_mhz: min,
-            max_mhz: max,
-        }
+        CpuFrequency { current_mhz: current, min_mhz: min, max_mhz: max }
     }
 
     #[cfg(target_os = "macos")]
@@ -483,11 +479,7 @@ impl CpuCollector {
                 .unwrap_or(0)
                 / 1_000_000; // Convert Hz to MHz
 
-        CpuFrequency {
-            current_mhz: current,
-            min_mhz: current,
-            max_mhz: current,
-        }
+        CpuFrequency { current_mhz: current, min_mhz: current, max_mhz: current }
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -500,12 +492,7 @@ impl CpuCollector {
     fn read_uptime() -> f64 {
         std::fs::read_to_string("/proc/uptime")
             .ok()
-            .and_then(|content| {
-                content
-                    .split_whitespace()
-                    .next()
-                    .and_then(|s| s.parse().ok())
-            })
+            .and_then(|content| content.split_whitespace().next().and_then(|s| s.parse().ok()))
             .unwrap_or(0.0)
     }
 
@@ -592,10 +579,7 @@ impl Collector for CpuCollector {
             if let Some(f) = self.frequencies.get_mut(i) {
                 *f = freq;
             }
-            metrics.insert(
-                format!("cpu.freq.{}", i),
-                MetricValue::Counter(freq.current_mhz),
-            );
+            metrics.insert(format!("cpu.freq.{}", i), MetricValue::Counter(freq.current_mhz));
         }
 
         // Average frequency across all cores
@@ -1069,11 +1053,7 @@ mod tests {
 
     #[test]
     fn test_load_average_values() {
-        let load = LoadAverage {
-            one: 1.5,
-            five: 2.0,
-            fifteen: 1.8,
-        };
+        let load = LoadAverage { one: 1.5, five: 2.0, fifteen: 1.8 };
 
         assert!((load.one - 1.5).abs() < f64::EPSILON);
         assert!((load.five - 2.0).abs() < f64::EPSILON);
@@ -1082,11 +1062,7 @@ mod tests {
 
     #[test]
     fn test_cpu_frequency_values() {
-        let freq = CpuFrequency {
-            current_mhz: 2400,
-            min_mhz: 800,
-            max_mhz: 3600,
-        };
+        let freq = CpuFrequency { current_mhz: 2400, min_mhz: 800, max_mhz: 3600 };
 
         assert_eq!(freq.current_mhz, 2400);
         assert_eq!(freq.min_mhz, 800);

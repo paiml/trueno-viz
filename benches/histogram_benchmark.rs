@@ -19,11 +19,8 @@ fn histogram_benchmark(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(size), &size, |b, _| {
             b.iter(|| {
-                let hist = Histogram::new()
-                    .data(black_box(&data))
-                    .dimensions(800, 600)
-                    .build()
-                    .unwrap();
+                let hist =
+                    Histogram::new().data(black_box(&data)).dimensions(800, 600).build().unwrap();
 
                 hist.to_framebuffer().unwrap()
             });

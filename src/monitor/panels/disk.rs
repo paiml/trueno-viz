@@ -15,9 +15,7 @@ impl DiskPanel {
     /// Creates a new disk panel.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            collector: DiskCollector::new(),
-        }
+        Self { collector: DiskCollector::new() }
     }
 }
 

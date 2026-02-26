@@ -16,17 +16,13 @@ impl Gradient {
     /// Creates a two-color gradient.
     #[must_use]
     pub fn two(start: &str, end: &str) -> Self {
-        Self {
-            stops: vec![start.to_string(), end.to_string()],
-        }
+        Self { stops: vec![start.to_string(), end.to_string()] }
     }
 
     /// Creates a three-color gradient.
     #[must_use]
     pub fn three(start: &str, mid: &str, end: &str) -> Self {
-        Self {
-            stops: vec![start.to_string(), mid.to_string(), end.to_string()],
-        }
+        Self { stops: vec![start.to_string(), mid.to_string(), end.to_string()] }
     }
 
     /// Samples the gradient at position t (0.0 - 1.0).

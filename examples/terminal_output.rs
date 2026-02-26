@@ -32,20 +32,13 @@ fn main() {
 
     // Step 3: Render to framebuffer
     let fb = plot.to_framebuffer().expect("Failed to render");
-    println!(
-        "  Plot rendered to {}x{} framebuffer\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("  Plot rendered to {}x{} framebuffer\n", fb.width(), fb.height());
 
     // Step 4: ASCII mode (widest compatibility)
     println!("Step 4: ASCII Mode (works in any terminal)");
     println!("{}", "-".repeat(42));
 
-    let ascii_encoder = TerminalEncoder::new()
-        .mode(TerminalMode::Ascii)
-        .width(40)
-        .invert(true); // Dark background terminals benefit from invert
+    let ascii_encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(40).invert(true); // Dark background terminals benefit from invert
 
     print!("{}", ascii_encoder.render(&fb));
     println!();
@@ -54,9 +47,7 @@ fn main() {
     println!("Step 5: Unicode Half-Block Mode (requires UTF-8 + ANSI)");
     println!("{}", "-".repeat(52));
 
-    let unicode_encoder = TerminalEncoder::new()
-        .mode(TerminalMode::UnicodeHalfBlock)
-        .width(50);
+    let unicode_encoder = TerminalEncoder::new().mode(TerminalMode::UnicodeHalfBlock).width(50);
 
     unicode_encoder.print(&fb);
     println!();
@@ -65,9 +56,7 @@ fn main() {
     println!("Step 6: ANSI True Color Mode (requires 24-bit terminal)");
     println!("{}", "-".repeat(62));
 
-    let ansi_encoder = TerminalEncoder::new()
-        .mode(TerminalMode::AnsiTrueColor)
-        .width(60);
+    let ansi_encoder = TerminalEncoder::new().mode(TerminalMode::AnsiTrueColor).width(60);
 
     ansi_encoder.print(&fb);
     println!();
@@ -78,9 +67,7 @@ fn main() {
 
     let heatmap_fb = create_gradient_framebuffer();
 
-    let gradient_encoder = TerminalEncoder::new()
-        .mode(TerminalMode::UnicodeHalfBlock)
-        .width(40);
+    let gradient_encoder = TerminalEncoder::new().mode(TerminalMode::UnicodeHalfBlock).width(40);
 
     gradient_encoder.print(&heatmap_fb);
 

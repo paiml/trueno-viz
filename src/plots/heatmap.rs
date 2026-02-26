@@ -168,10 +168,7 @@ impl Heatmap {
 
         let expected_len = self.rows * self.cols;
         if self.data.len() != expected_len {
-            return Err(Error::DataLengthMismatch {
-                x_len: expected_len,
-                y_len: self.data.len(),
-            });
+            return Err(Error::DataLengthMismatch { x_len: expected_len, y_len: self.data.len() });
         }
 
         Ok(self)
@@ -189,11 +186,8 @@ impl Heatmap {
         let (min, max) = self.data_extent();
 
         // Handle case where all values are the same
-        let (min, max) = if (max - min).abs() < f32::EPSILON {
-            (min - 0.5, max + 0.5)
-        } else {
-            (min, max)
-        };
+        let (min, max) =
+            if (max - min).abs() < f32::EPSILON { (min - 0.5, max + 0.5) } else { (min, max) };
 
         if let Some(ref custom) = self.custom_scale {
             return Some(custom.clone());
@@ -309,11 +303,8 @@ mod tests {
     #[test]
     fn test_heatmap_builder() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let heatmap = Heatmap::new()
-            .data(&data, 2, 3)
-            .palette(HeatmapPalette::Viridis)
-            .build()
-            .unwrap();
+        let heatmap =
+            Heatmap::new().data(&data, 2, 3).palette(HeatmapPalette::Viridis).build().unwrap();
 
         assert_eq!(heatmap.row_count(), 2);
         assert_eq!(heatmap.col_count(), 3);
@@ -336,11 +327,7 @@ mod tests {
     #[test]
     fn test_heatmap_render() {
         let data = vec![0.0, 0.5, 1.0, 0.25, 0.75, 0.5];
-        let heatmap = Heatmap::new()
-            .data(&data, 2, 3)
-            .dimensions(100, 100)
-            .build()
-            .unwrap();
+        let heatmap = Heatmap::new().data(&data, 2, 3).dimensions(100, 100).build().unwrap();
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -382,12 +369,8 @@ mod tests {
     #[test]
     fn test_heatmap_no_borders() {
         let data = vec![0.0, 1.0, 2.0, 3.0];
-        let heatmap = Heatmap::new()
-            .data(&data, 2, 2)
-            .borders(false)
-            .dimensions(100, 100)
-            .build()
-            .unwrap();
+        let heatmap =
+            Heatmap::new().data(&data, 2, 2).borders(false).dimensions(100, 100).build().unwrap();
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -413,11 +396,7 @@ mod tests {
     fn test_heatmap_constant_values() {
         // All same values should not cause division by zero
         let data = vec![5.0, 5.0, 5.0, 5.0];
-        let heatmap = Heatmap::new()
-            .data(&data, 2, 2)
-            .dimensions(100, 100)
-            .build()
-            .unwrap();
+        let heatmap = Heatmap::new().data(&data, 2, 2).dimensions(100, 100).build().unwrap();
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -465,12 +444,8 @@ mod tests {
     #[test]
     fn test_heatmap_margin() {
         let data = vec![1.0, 2.0, 3.0, 4.0];
-        let heatmap = Heatmap::new()
-            .data(&data, 2, 2)
-            .margin(20)
-            .dimensions(100, 100)
-            .build()
-            .unwrap();
+        let heatmap =
+            Heatmap::new().data(&data, 2, 2).margin(20).dimensions(100, 100).build().unwrap();
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());

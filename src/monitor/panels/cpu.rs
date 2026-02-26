@@ -17,9 +17,7 @@ impl CpuPanel {
     /// Creates a new CPU panel.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            collector: CpuCollector::new(),
-        }
+        Self { collector: CpuCollector::new() }
     }
 }
 

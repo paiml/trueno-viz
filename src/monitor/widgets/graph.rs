@@ -45,12 +45,7 @@ impl<'a> Graph<'a> {
     /// Creates a new graph with the given data.
     #[must_use]
     pub fn new(data: &'a [f64]) -> Self {
-        Self {
-            data,
-            mode: GraphMode::default(),
-            color: Color::Cyan,
-            inverted: false,
-        }
+        Self { data, mode: GraphMode::default(), color: Color::Cyan, inverted: false }
     }
 
     /// Sets the rendering mode.
@@ -90,12 +85,7 @@ impl<'a> Graph<'a> {
         for x in 0..width {
             // Map x position to data index
             let data_idx = (x * self.data.len()) / width;
-            let value = self
-                .data
-                .get(data_idx)
-                .copied()
-                .unwrap_or(0.0)
-                .clamp(0.0, 1.0);
+            let value = self.data.get(data_idx).copied().unwrap_or(0.0).clamp(0.0, 1.0);
 
             // Calculate the height in dots
             let max_dots = height * dots_per_char_y;
@@ -115,11 +105,8 @@ impl<'a> Graph<'a> {
 
                 for dot in 0..dots_per_char_y {
                     let dot_pos = dot_start + dot;
-                    let should_fill = if self.inverted {
-                        dot_pos >= filled_dots
-                    } else {
-                        dot_pos < filled_dots
-                    };
+                    let should_fill =
+                        if self.inverted { dot_pos >= filled_dots } else { dot_pos < filled_dots };
 
                     if should_fill {
                         // Braille dot pattern (column 0)
@@ -167,12 +154,7 @@ impl<'a> Graph<'a> {
 
         for x in 0..width {
             let data_idx = (x * self.data.len()) / width;
-            let value = self
-                .data
-                .get(data_idx)
-                .copied()
-                .unwrap_or(0.0)
-                .clamp(0.0, 1.0);
+            let value = self.data.get(data_idx).copied().unwrap_or(0.0).clamp(0.0, 1.0);
 
             // Full blocks to render
             let full_height = (value * height as f64) as usize;
@@ -218,12 +200,7 @@ impl<'a> Graph<'a> {
 
         for x in 0..width {
             let data_idx = (x * self.data.len()) / width;
-            let value = self
-                .data
-                .get(data_idx)
-                .copied()
-                .unwrap_or(0.0)
-                .clamp(0.0, 1.0);
+            let value = self.data.get(data_idx).copied().unwrap_or(0.0).clamp(0.0, 1.0);
 
             let filled_height = (value * height as f64) as usize;
 
@@ -293,10 +270,7 @@ mod tests {
     #[test]
     fn test_graph_builder() {
         let data = vec![0.5; 10];
-        let graph = Graph::new(&data)
-            .mode(GraphMode::Block)
-            .color(Color::Red)
-            .inverted(true);
+        let graph = Graph::new(&data).mode(GraphMode::Block).color(Color::Red).inverted(true);
 
         assert_eq!(graph.mode, GraphMode::Block);
         assert_eq!(graph.color, Color::Red);
@@ -316,17 +290,12 @@ mod tests {
             .expect("Failed to draw");
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Verify some braille characters are present
         assert!(
-            content
-                .chars()
-                .any(|c| ('\u{2800}'..='\u{28FF}').contains(&c)),
+            content.chars().any(|c| ('\u{2800}'..='\u{28FF}').contains(&c)),
             "Should contain braille characters"
         );
     }
@@ -344,11 +313,8 @@ mod tests {
             .expect("Failed to draw");
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // TTY mode should only use basic characters (space, shades, full block)
         // All characters should be in the basic set
@@ -405,11 +371,8 @@ mod tests {
             .expect("Failed to draw block graph");
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Block mode should use block characters
         assert!(content.chars().any(|c| c == '█' || c == '▇' || c == '▆'));

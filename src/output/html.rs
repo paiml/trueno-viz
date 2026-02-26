@@ -287,10 +287,8 @@ mod tests {
     #[test]
     fn test_html_exporter_clone() {
         let svg = SvgEncoder::new(400, 300);
-        let exporter = HtmlExporter::from_svg(&svg)
-            .title("Clone Test")
-            .dark_mode(true)
-            .responsive(false);
+        let exporter =
+            HtmlExporter::from_svg(&svg).title("Clone Test").dark_mode(true).responsive(false);
 
         let cloned = exporter.clone();
         assert_eq!(exporter.to_html(), cloned.to_html());

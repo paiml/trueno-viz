@@ -153,31 +153,16 @@ impl<'a> Gauge<'a> {
 
         // Unfilled portion
         for i in filled..bar_width {
-            buf.set_string(
-                area.x + 1 + i,
-                area.y,
-                "░",
-                Style::default().fg(self.bg_color),
-            );
+            buf.set_string(area.x + 1 + i, area.y, "░", Style::default().fg(self.bg_color));
         }
 
         // Closing bracket
-        buf.set_string(
-            area.x + 1 + bar_width,
-            area.y,
-            "]",
-            Style::default().fg(Color::White),
-        );
+        buf.set_string(area.x + 1 + bar_width, area.y, "]", Style::default().fg(Color::White));
 
         // Percentage
         if self.show_percent && area.width > bar_width + 4 {
             let percent = format!("{:3.0}%", self.value * 100.0);
-            buf.set_string(
-                area.x + 2 + bar_width,
-                area.y,
-                percent,
-                Style::default().fg(color),
-            );
+            buf.set_string(area.x + 2 + bar_width, area.y, percent, Style::default().fg(color));
         }
     }
 
@@ -204,12 +189,7 @@ impl<'a> Gauge<'a> {
         for i in 1..arc_width - 1 {
             buf.set_string(arc_start + i, y, "─", Style::default().fg(Color::White));
         }
-        buf.set_string(
-            arc_start + arc_width - 1,
-            y,
-            "╮",
-            Style::default().fg(Color::White),
-        );
+        buf.set_string(arc_start + arc_width - 1, y, "╮", Style::default().fg(Color::White));
 
         // Fill bar
         let bar_width = arc_width.saturating_sub(2);
@@ -218,12 +198,7 @@ impl<'a> Gauge<'a> {
         for i in 0..bar_width {
             let char = if i < filled { "█" } else { "░" };
             let char_color = if i < filled { color } else { self.bg_color };
-            buf.set_string(
-                arc_start + 1 + i,
-                y + 1,
-                char,
-                Style::default().fg(char_color),
-            );
+            buf.set_string(arc_start + 1 + i, y + 1, char, Style::default().fg(char_color));
         }
 
         // Label and percentage
@@ -271,12 +246,7 @@ impl<'a> Gauge<'a> {
         for i in 1..box_width - 1 {
             buf.set_string(box_x + i, box_y, "─", Style::default().fg(Color::White));
         }
-        buf.set_string(
-            box_x + box_width - 1,
-            box_y,
-            "╮",
-            Style::default().fg(Color::White),
-        );
+        buf.set_string(box_x + box_width - 1, box_y, "╮", Style::default().fg(Color::White));
 
         // Side borders and content
         for row in 1..box_height - 1 {
@@ -290,12 +260,7 @@ impl<'a> Gauge<'a> {
         }
 
         // Bottom border
-        buf.set_string(
-            box_x,
-            box_y + box_height - 1,
-            "╰",
-            Style::default().fg(Color::White),
-        );
+        buf.set_string(box_x, box_y + box_height - 1, "╰", Style::default().fg(Color::White));
         for i in 1..box_width - 1 {
             buf.set_string(
                 box_x + i,
@@ -445,11 +410,8 @@ mod tests {
             .expect("Failed to draw");
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Should contain brackets and fill characters
         assert!(content.contains('['), "Should contain opening bracket");
@@ -482,17 +444,11 @@ mod tests {
             .expect("Failed to draw");
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Should contain box corners
-        assert!(
-            content.contains('╭') || content.contains('['),
-            "Should contain gauge elements"
-        );
+        assert!(content.contains('╭') || content.contains('['), "Should contain gauge elements");
     }
 
     #[test]
@@ -570,10 +526,7 @@ mod tests {
 
         terminal
             .draw(|frame| {
-                let gauge = Gauge::new(0.75)
-                    .mode(GaugeMode::Half)
-                    .label("CPU")
-                    .show_percent(false);
+                let gauge = Gauge::new(0.75).mode(GaugeMode::Half).label("CPU").show_percent(false);
                 frame.render_widget(gauge, frame.area());
             })
             .expect("Should render half with label but no percent");
@@ -599,10 +552,8 @@ mod tests {
 
         terminal
             .draw(|frame| {
-                let gauge = Gauge::new(0.8)
-                    .mode(GaugeMode::Full)
-                    .label("DISK")
-                    .bg_color(Color::DarkGray);
+                let gauge =
+                    Gauge::new(0.8).mode(GaugeMode::Full).label("DISK").bg_color(Color::DarkGray);
                 frame.render_widget(gauge, frame.area());
             })
             .expect("Should render full gauge with bar");

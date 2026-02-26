@@ -20,9 +20,7 @@ impl MemoryCollector {
     /// Creates a new memory collector.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            history: RingBuffer::new(300),
-        }
+        Self { history: RingBuffer::new(300) }
     }
 
     /// Parses /proc/meminfo on Linux.

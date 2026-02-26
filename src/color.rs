@@ -117,26 +117,13 @@ impl Hsla {
         let (r, g, b) = if s == 0.0 {
             (l, l, l)
         } else {
-            let q = if l < 0.5 {
-                l * (1.0 + s)
-            } else {
-                l + s - l * s
-            };
+            let q = if l < 0.5 { l * (1.0 + s) } else { l + s - l * s };
             let p = 2.0 * l - q;
 
-            (
-                hue_to_rgb(p, q, h + 1.0 / 3.0),
-                hue_to_rgb(p, q, h),
-                hue_to_rgb(p, q, h - 1.0 / 3.0),
-            )
+            (hue_to_rgb(p, q, h + 1.0 / 3.0), hue_to_rgb(p, q, h), hue_to_rgb(p, q, h - 1.0 / 3.0))
         };
 
-        Rgba::new(
-            (r * 255.0) as u8,
-            (g * 255.0) as u8,
-            (b * 255.0) as u8,
-            (self.a * 255.0) as u8,
-        )
+        Rgba::new((r * 255.0) as u8, (g * 255.0) as u8, (b * 255.0) as u8, (self.a * 255.0) as u8)
     }
 }
 

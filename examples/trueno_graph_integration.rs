@@ -17,116 +17,62 @@ fn main() {
     // Create a sample graph
     println!("Creating sample graph...");
     let graph = create_sample_graph();
-    println!(
-        "   Graph: {} nodes, {} edges\n",
-        graph.num_nodes(),
-        graph.num_edges()
-    );
+    println!("   Graph: {} nodes, {} edges\n", graph.num_nodes(), graph.num_edges());
 
     // Example 1: Basic force-directed layout
     println!("1. Creating force-directed graph visualization...");
-    let fb = graph
-        .to_force_graph()
-        .expect("Failed to create force graph");
+    let fb = graph.to_force_graph().expect("Failed to create force graph");
     PngEncoder::write_to_file(&fb, "trueno_force_graph.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_force_graph.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_force_graph.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 2: Custom dimensions
     println!("2. Creating force graph with custom dimensions...");
-    let fb = graph
-        .to_force_graph_with(800, 600)
-        .expect("Failed to create force graph");
+    let fb = graph.to_force_graph_with(800, 600).expect("Failed to create force graph");
     PngEncoder::write_to_file(&fb, "trueno_force_graph_large.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_force_graph_large.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_force_graph_large.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 3: Community detection visualization
     println!("3. Creating community-colored graph...");
-    let fb = graph
-        .to_community_graph()
-        .expect("Failed to create community graph");
+    let fb = graph.to_community_graph().expect("Failed to create community graph");
     PngEncoder::write_to_file(&fb, "trueno_communities.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_communities.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_communities.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 4: PageRank-sized nodes
     println!("4. Creating PageRank-sized graph...");
-    let fb = graph
-        .to_pagerank_graph()
-        .expect("Failed to create pagerank graph");
+    let fb = graph.to_pagerank_graph().expect("Failed to create pagerank graph");
     PngEncoder::write_to_file(&fb, "trueno_pagerank.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_pagerank.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_pagerank.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 5: Full analysis (communities + PageRank)
     println!("5. Creating full analysis graph (communities + PageRank)...");
-    let fb = graph
-        .to_analysis_graph()
-        .expect("Failed to create analysis graph");
+    let fb = graph.to_analysis_graph().expect("Failed to create analysis graph");
     PngEncoder::write_to_file(&fb, "trueno_analysis.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_analysis.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_analysis.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 6: Degree histogram
     println!("6. Creating degree distribution histogram...");
-    let fb = graph
-        .degree_histogram()
-        .expect("Failed to create degree histogram");
+    let fb = graph.degree_histogram().expect("Failed to create degree histogram");
     PngEncoder::write_to_file(&fb, "trueno_degree_hist.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_degree_hist.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_degree_hist.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 7: In-degree vs Out-degree scatter
     println!("7. Creating in-degree vs out-degree scatter plot...");
-    let fb = graph
-        .degree_scatter()
-        .expect("Failed to create degree scatter");
+    let fb = graph.degree_scatter().expect("Failed to create degree scatter");
     PngEncoder::write_to_file(&fb, "trueno_degree_scatter.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_degree_scatter.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_degree_scatter.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 8: PageRank score histogram
     println!("8. Creating PageRank score histogram...");
     let scores = pagerank(&graph, 20, 1e-6).expect("PageRank failed");
     let fb = scores.to_histogram().expect("Failed to create histogram");
     PngEncoder::write_to_file(&fb, "trueno_pr_hist.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_pr_hist.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_pr_hist.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 9: Top PageRank nodes
     println!("9. Creating top-5 PageRank nodes visualization...");
     let fb = scores.top_n_bar(5).expect("Failed to create bar chart");
     PngEncoder::write_to_file(&fb, "trueno_pr_top5.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_pr_top5.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_pr_top5.png ({}x{})\n", fb.width(), fb.height());
 
     // Example 10: Community size histogram
     println!("10. Creating community size histogram...");
@@ -136,15 +82,9 @@ fn main() {
         communities.num_communities,
         communities.modularity_score()
     );
-    let fb = communities
-        .size_histogram()
-        .expect("Failed to create histogram");
+    let fb = communities.size_histogram().expect("Failed to create histogram");
     PngEncoder::write_to_file(&fb, "trueno_comm_sizes.png").expect("Failed to write PNG");
-    println!(
-        "   Saved: trueno_comm_sizes.png ({}x{})\n",
-        fb.width(),
-        fb.height()
-    );
+    println!("   Saved: trueno_comm_sizes.png ({}x{})\n", fb.width(), fb.height());
 
     println!("--- Summary ---");
     println!("Generated 10 visualization files demonstrating trueno-graph integration:");

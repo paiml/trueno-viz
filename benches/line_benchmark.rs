@@ -15,11 +15,8 @@ fn line_chart_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let series = LineSeries::new("data").data(black_box(&x_data), black_box(&y_data));
 
-                let chart = LineChart::new()
-                    .add_series(series)
-                    .dimensions(800, 600)
-                    .build()
-                    .unwrap();
+                let chart =
+                    LineChart::new().add_series(series).dimensions(800, 600).build().unwrap();
 
                 chart.to_framebuffer().unwrap()
             });
@@ -82,9 +79,8 @@ fn multi_series_benchmark(c: &mut Criterion) {
                     let mut chart = LineChart::new().dimensions(800, 600);
 
                     for s in 0..num_series {
-                        let y_data: Vec<f32> = (0..size)
-                            .map(|i| (i as f32 * 0.01 + s as f32).sin() * 100.0)
-                            .collect();
+                        let y_data: Vec<f32> =
+                            (0..size).map(|i| (i as f32 * 0.01 + s as f32).sin() * 100.0).collect();
                         let series = LineSeries::new(format!("series_{}", s))
                             .data(black_box(&x_data), black_box(&y_data));
                         chart = chart.add_series(series);

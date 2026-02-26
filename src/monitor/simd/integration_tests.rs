@@ -290,14 +290,8 @@ mod tests {
         println!("Memory collection average: {:?}", mem_time);
 
         // Relaxed assertion: should complete in reasonable time
-        assert!(
-            cpu_time < Duration::from_millis(50),
-            "CPU collection too slow"
-        );
-        assert!(
-            mem_time < Duration::from_millis(50),
-            "Memory collection too slow"
-        );
+        assert!(cpu_time < Duration::from_millis(50), "CPU collection too slow");
+        assert!(mem_time < Duration::from_millis(50), "Memory collection too slow");
     }
 
     /// Test SimdRingBuffer alignment.
@@ -327,11 +321,7 @@ mod tests {
         let elapsed = start.elapsed();
 
         // 1000 stats calls should be < 1ms
-        assert!(
-            elapsed < Duration::from_millis(1),
-            "Statistics not O(1): {:?}",
-            elapsed
-        );
+        assert!(elapsed < Duration::from_millis(1), "Statistics not O(1): {:?}", elapsed);
     }
 
     /// Test collector trait implementation for all SIMD collectors.
@@ -380,14 +370,8 @@ mod tests {
         assert_eq!(SimdMemoryCollector::new().display_name(), "Memory (SIMD)");
         assert_eq!(SimdNetworkCollector::new().display_name(), "Network (SIMD)");
         assert_eq!(SimdDiskCollector::new().display_name(), "Disk (SIMD)");
-        assert_eq!(
-            SimdProcessCollector::new().display_name(),
-            "Processes (SIMD)"
-        );
-        assert_eq!(
-            SimdBatterySensorsCollector::new().display_name(),
-            "Battery & Sensors (SIMD)"
-        );
+        assert_eq!(SimdProcessCollector::new().display_name(), "Processes (SIMD)");
+        assert_eq!(SimdBatterySensorsCollector::new().display_name(), "Battery & Sensors (SIMD)");
     }
 
     // =========================================================================
@@ -428,10 +412,7 @@ mod tests {
         println!("VecDeque: {:?}", vec_time);
 
         // Both should complete in reasonable time
-        assert!(
-            simd_time < Duration::from_millis(100),
-            "SimdRingBuffer too slow"
-        );
+        assert!(simd_time < Duration::from_millis(100), "SimdRingBuffer too slow");
         assert!(vec_time < Duration::from_millis(200), "VecDeque too slow");
     }
 
@@ -449,11 +430,7 @@ mod tests {
 
         // 100,000 pushes should complete in < 10ms (H₉ requirement)
         println!("Batch push 100K values: {:?}", elapsed);
-        assert!(
-            elapsed < Duration::from_millis(50),
-            "Batch push too slow: {:?}",
-            elapsed
-        );
+        assert!(elapsed < Duration::from_millis(50), "Batch push too slow: {:?}", elapsed);
     }
 
     /// H₁ Validation: SIMD integer parsing throughput.
@@ -479,10 +456,7 @@ mod tests {
         let input_str = std::str::from_utf8(input).unwrap();
         let start = Instant::now();
         for _ in 0..10000 {
-            let _: Vec<u64> = input_str
-                .split_whitespace()
-                .filter_map(|s| s.parse().ok())
-                .collect();
+            let _: Vec<u64> = input_str.split_whitespace().filter_map(|s| s.parse().ok()).collect();
         }
         let scalar_time = start.elapsed();
 
@@ -490,10 +464,7 @@ mod tests {
         println!("Scalar parsing: {:?}", scalar_time);
 
         // SIMD should be faster (relaxed assertion for CI stability)
-        assert!(
-            simd_time < Duration::from_millis(100),
-            "SIMD parsing too slow"
-        );
+        assert!(simd_time < Duration::from_millis(100), "SIMD parsing too slow");
     }
 
     /// H₅ Validation: End-to-end collection latency.
@@ -534,11 +505,7 @@ mod tests {
         println!("End-to-end p99: {:?}", p99);
 
         // Relaxed assertion: p99 should be reasonable (15ms for CI environments with coverage)
-        assert!(
-            p99 < Duration::from_millis(15),
-            "End-to-end p99 too slow: {:?}",
-            p99
-        );
+        assert!(p99 < Duration::from_millis(15), "End-to-end p99 too slow: {:?}", p99);
     }
 
     /// Test SIMD reduction operations performance.
@@ -566,11 +533,7 @@ mod tests {
         println!("10K reductions on 1K elements: {:?}", elapsed);
 
         // 40K operations should be < 50ms
-        assert!(
-            elapsed < Duration::from_millis(100),
-            "SIMD reductions too slow: {:?}",
-            elapsed
-        );
+        assert!(elapsed < Duration::from_millis(100), "SIMD reductions too slow: {:?}", elapsed);
     }
 
     /// Test memory layout efficiency (no unnecessary allocations).
@@ -661,10 +624,7 @@ mod tests {
 
         // Verify we have samples
         let initial = table.query(base_time, base_time + 2_000_000);
-        assert!(
-            initial.aggregations.count > 0,
-            "Should have samples after insert"
-        );
+        assert!(initial.aggregations.count > 0, "Should have samples after insert");
 
         // Warm up
         for _ in 0..10 {
@@ -680,9 +640,8 @@ mod tests {
         let simd_time = start.elapsed();
 
         // Baseline: naive Vec scan + manual aggregation
-        let samples: Vec<(u64, f64)> = (0..1000)
-            .map(|i| (base_time + i as u64 * 1000, (i % 100) as f64 + 25.0))
-            .collect();
+        let samples: Vec<(u64, f64)> =
+            (0..1000).map(|i| (base_time + i as u64 * 1000, (i % 100) as f64 + 25.0)).collect();
 
         let start = Instant::now();
         for _ in 0..1000 {
@@ -697,11 +656,7 @@ mod tests {
             let sum: f64 = filtered.iter().map(|(_, v)| v).sum();
             let min = filtered.iter().map(|(_, v)| *v).fold(f64::MAX, f64::min);
             let max = filtered.iter().map(|(_, v)| *v).fold(f64::MIN, f64::max);
-            let mean = if !filtered.is_empty() {
-                sum / filtered.len() as f64
-            } else {
-                0.0
-            };
+            let mean = if !filtered.is_empty() { sum / filtered.len() as f64 } else { 0.0 };
             std::hint::black_box((sum, min, max, mean));
         }
         let naive_time = start.elapsed();

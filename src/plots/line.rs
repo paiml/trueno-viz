@@ -371,12 +371,7 @@ impl LineChart {
 
         // Convert data to screen coordinates
         let mut points: Vec<Point> = (0..point_count)
-            .map(|i| {
-                Point::new(
-                    x_scale.scale(series.x_data[i]),
-                    y_scale.scale(series.y_data[i]),
-                )
-            })
+            .map(|i| Point::new(x_scale.scale(series.x_data[i]), y_scale.scale(series.y_data[i])))
             .collect();
 
         // Apply Douglas-Peucker simplification if enabled
@@ -392,14 +387,7 @@ impl LineChart {
             if series.antialiased {
                 draw_line_aa(fb, p1.x, p1.y, p2.x, p2.y, series.color);
             } else {
-                draw_line(
-                    fb,
-                    p1.x as i32,
-                    p1.y as i32,
-                    p2.x as i32,
-                    p2.y as i32,
-                    series.color,
-                );
+                draw_line(fb, p1.x as i32, p1.y as i32, p2.x as i32, p2.y as i32, series.color);
             }
         }
 
@@ -569,12 +557,8 @@ mod tests {
         let x: Vec<f32> = (0..100).map(|i| i as f32).collect();
         let y: Vec<f32> = x.iter().map(|&x| (x * 0.1).sin()).collect();
 
-        let chart = LineChart::new()
-            .data(&x, &y)
-            .simplify(1.0)
-            .dimensions(200, 100)
-            .build()
-            .unwrap();
+        let chart =
+            LineChart::new().data(&x, &y).simplify(1.0).dimensions(200, 100).build().unwrap();
 
         let fb = chart.to_framebuffer();
         assert!(fb.is_ok());
@@ -582,13 +566,11 @@ mod tests {
 
     #[test]
     fn test_line_chart_multi_series() {
-        let series1 = LineSeries::new("series1")
-            .data(&[0.0, 1.0, 2.0], &[0.0, 1.0, 2.0])
-            .color(Rgba::RED);
+        let series1 =
+            LineSeries::new("series1").data(&[0.0, 1.0, 2.0], &[0.0, 1.0, 2.0]).color(Rgba::RED);
 
-        let series2 = LineSeries::new("series2")
-            .data(&[0.0, 1.0, 2.0], &[2.0, 1.0, 0.0])
-            .color(Rgba::BLUE);
+        let series2 =
+            LineSeries::new("series2").data(&[0.0, 1.0, 2.0], &[2.0, 1.0, 0.0]).color(Rgba::BLUE);
 
         let chart = LineChart::new()
             .add_series(series1)

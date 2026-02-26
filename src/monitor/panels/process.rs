@@ -17,9 +17,7 @@ impl ProcessPanel {
     /// Creates a new process panel.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            collector: ProcessCollector::new(),
-        }
+        Self { collector: ProcessCollector::new() }
     }
 }
 

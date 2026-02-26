@@ -256,10 +256,7 @@ impl ProcessCollector {
             .ok()
             .and_then(|content| {
                 content.lines().find(|l| l.starts_with("cpu ")).map(|l| {
-                    l.split_whitespace()
-                        .skip(1)
-                        .filter_map(|s| s.parse::<u64>().ok())
-                        .sum()
+                    l.split_whitespace().skip(1).filter_map(|s| s.parse::<u64>().ok()).sum()
                 })
             })
             .unwrap_or(0)
@@ -314,11 +311,7 @@ impl ProcessCollector {
         let statm_path = format!("/proc/{}/statm", pid);
         let mem_bytes = std::fs::read_to_string(&statm_path)
             .ok()
-            .and_then(|s| {
-                s.split_whitespace()
-                    .nth(1)
-                    .and_then(|s| s.parse::<u64>().ok())
-            })
+            .and_then(|s| s.split_whitespace().nth(1).and_then(|s| s.parse::<u64>().ok()))
             .map(|pages| pages * 4096)
             .unwrap_or(0);
 
@@ -396,27 +389,13 @@ impl Collector for ProcessCollector {
         self.scan_processes()?;
 
         let mut metrics = Metrics::new();
-        metrics.insert(
-            "process.count",
-            MetricValue::Counter(self.processes.len() as u64),
-        );
+        metrics.insert("process.count", MetricValue::Counter(self.processes.len() as u64));
 
         // Count by state
-        let running = self
-            .processes
-            .values()
-            .filter(|p| p.state == ProcessState::Running)
-            .count();
-        let sleeping = self
-            .processes
-            .values()
-            .filter(|p| p.state == ProcessState::Sleeping)
-            .count();
-        let zombie = self
-            .processes
-            .values()
-            .filter(|p| p.state == ProcessState::Zombie)
-            .count();
+        let running = self.processes.values().filter(|p| p.state == ProcessState::Running).count();
+        let sleeping =
+            self.processes.values().filter(|p| p.state == ProcessState::Sleeping).count();
+        let zombie = self.processes.values().filter(|p| p.state == ProcessState::Zombie).count();
 
         metrics.insert("process.running", MetricValue::Counter(running as u64));
         metrics.insert("process.sleeping", MetricValue::Counter(sleeping as u64));

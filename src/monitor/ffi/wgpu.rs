@@ -226,9 +226,8 @@ impl WgpuMonitor {
                 })
                 .collect();
 
-            let gpu_metrics: Vec<Arc<GpuMetrics>> = (0..adapter_info.len())
-                .map(|_| Arc::new(GpuMetrics::default()))
-                .collect();
+            let gpu_metrics: Vec<Arc<GpuMetrics>> =
+                (0..adapter_info.len()).map(|_| Arc::new(GpuMetrics::default())).collect();
 
             Self {
                 instance,
@@ -298,11 +297,8 @@ impl WgpuMonitor {
     /// Check if dual AMD GPUs are available (Mac Pro config)
     #[must_use]
     pub fn has_dual_amd(&self) -> bool {
-        let amd_discrete = self
-            .adapter_info
-            .iter()
-            .filter(|a| a.name.contains("AMD") && a.is_discrete())
-            .count();
+        let amd_discrete =
+            self.adapter_info.iter().filter(|a| a.name.contains("AMD") && a.is_discrete()).count();
         amd_discrete >= 2
     }
 
@@ -324,37 +320,26 @@ impl WgpuMonitor {
     pub fn record_buffer_allocation(&mut self, gpu_index: usize, bytes: u64) {
         if let Some(metrics) = self.gpu_metrics.get(gpu_index) {
             metrics.buffer_bytes.fetch_add(bytes, Ordering::Relaxed);
-            metrics
-                .active_buffer_bytes
-                .fetch_add(bytes, Ordering::Relaxed);
+            metrics.active_buffer_bytes.fetch_add(bytes, Ordering::Relaxed);
         }
     }
 
     /// Get queue submission count for a GPU
     #[must_use]
     pub fn queue_submissions(&self, gpu_index: usize) -> u64 {
-        self.gpu_metrics
-            .get(gpu_index)
-            .map(|m| m.submissions.load(Ordering::Relaxed))
-            .unwrap_or(0)
+        self.gpu_metrics.get(gpu_index).map(|m| m.submissions.load(Ordering::Relaxed)).unwrap_or(0)
     }
 
     /// Get compute dispatch count for a GPU
     #[must_use]
     pub fn compute_dispatches(&self, gpu_index: usize) -> u64 {
-        self.gpu_metrics
-            .get(gpu_index)
-            .map(|m| m.dispatches.load(Ordering::Relaxed))
-            .unwrap_or(0)
+        self.gpu_metrics.get(gpu_index).map(|m| m.dispatches.load(Ordering::Relaxed)).unwrap_or(0)
     }
 
     /// Get buffer allocated bytes for a GPU
     #[must_use]
     pub fn buffer_allocated_bytes(&self, gpu_index: usize) -> u64 {
-        self.gpu_metrics
-            .get(gpu_index)
-            .map(|m| m.buffer_bytes.load(Ordering::Relaxed))
-            .unwrap_or(0)
+        self.gpu_metrics.get(gpu_index).map(|m| m.buffer_bytes.load(Ordering::Relaxed)).unwrap_or(0)
     }
 
     /// Get next GPU index using round-robin selection

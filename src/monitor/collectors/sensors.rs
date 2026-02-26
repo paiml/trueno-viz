@@ -96,11 +96,7 @@ impl SensorCollector {
     #[must_use]
     pub fn new() -> Self {
         let hwmon_paths = Self::discover_hwmon();
-        Self {
-            readings: Vec::new(),
-            scale: TempScale::default(),
-            hwmon_paths,
-        }
+        Self { readings: Vec::new(), scale: TempScale::default(), hwmon_paths }
     }
 
     /// Sets the temperature scale.
@@ -151,11 +147,7 @@ impl SensorCollector {
         std::fs::read_dir(&hwmon_dir)
             .ok()
             .map(|entries| {
-                entries
-                    .filter_map(|e| e.ok())
-                    .map(|e| e.path())
-                    .filter(|p| p.is_dir())
-                    .collect()
+                entries.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.is_dir()).collect()
             })
             .unwrap_or_default()
     }
@@ -167,9 +159,7 @@ impl SensorCollector {
 
     /// Reads the name of a hwmon device.
     fn read_hwmon_name(path: &Path) -> Option<String> {
-        std::fs::read_to_string(path.join("name"))
-            .ok()
-            .map(|s| s.trim().to_string())
+        std::fs::read_to_string(path.join("name")).ok().map(|s| s.trim().to_string())
     }
 
     /// Reads temperature inputs from a hwmon device.
@@ -255,10 +245,7 @@ impl Collector for SensorCollector {
         let mut metrics = Metrics::new();
 
         // Sensor count
-        metrics.insert(
-            "sensors.count",
-            MetricValue::Counter(self.readings.len() as u64),
-        );
+        metrics.insert("sensors.count", MetricValue::Counter(self.readings.len() as u64));
 
         // Max temperature
         if let Some(max) = self.max_temp() {
@@ -273,17 +260,11 @@ impl Collector for SensorCollector {
 
         // High temp count
         let high_count = self.readings.iter().filter(|r| r.is_high()).count();
-        metrics.insert(
-            "sensors.high_count",
-            MetricValue::Counter(high_count as u64),
-        );
+        metrics.insert("sensors.high_count", MetricValue::Counter(high_count as u64));
 
         // Critical count
         let crit_count = self.readings.iter().filter(|r| r.is_critical()).count();
-        metrics.insert(
-            "sensors.critical_count",
-            MetricValue::Counter(crit_count as u64),
-        );
+        metrics.insert("sensors.critical_count", MetricValue::Counter(crit_count as u64));
 
         Ok(metrics)
     }

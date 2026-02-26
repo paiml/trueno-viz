@@ -84,10 +84,7 @@ impl NvidiaGpuCollector {
     #[must_use]
     pub fn new() -> Self {
         let nvml = Nvml::init().ok();
-        let gpu_count = nvml
-            .as_ref()
-            .and_then(|n| n.device_count().ok())
-            .unwrap_or(0);
+        let gpu_count = nvml.as_ref().and_then(|n| n.device_count().ok()).unwrap_or(0);
 
         let mut gpu_history = Vec::with_capacity(gpu_count as usize);
         let mut mem_history = Vec::with_capacity(gpu_count as usize);
@@ -158,23 +155,18 @@ impl NvidiaGpuCollector {
 
     /// Collects metrics from all GPUs.
     fn collect_all(&mut self) -> Result<Vec<GpuInfo>> {
-        let nvml = self
-            .nvml
-            .as_ref()
-            .ok_or_else(|| MonitorError::CollectionFailed {
-                collector: "nvidia_gpu",
-                message: "NVML not initialized".to_string(),
-            })?;
+        let nvml = self.nvml.as_ref().ok_or_else(|| MonitorError::CollectionFailed {
+            collector: "nvidia_gpu",
+            message: "NVML not initialized".to_string(),
+        })?;
 
         let mut gpus = Vec::with_capacity(self.gpu_count as usize);
 
         for i in 0..self.gpu_count {
-            let device = nvml
-                .device_by_index(i)
-                .map_err(|e| MonitorError::CollectionFailed {
-                    collector: "nvidia_gpu",
-                    message: format!("Failed to get GPU {}: {}", i, e),
-                })?;
+            let device = nvml.device_by_index(i).map_err(|e| MonitorError::CollectionFailed {
+                collector: "nvidia_gpu",
+                message: format!("Failed to get GPU {}: {}", i, e),
+            })?;
 
             let name = device.name().unwrap_or_else(|_| format!("GPU {}", i));
 
@@ -185,16 +177,12 @@ impl NvidiaGpuCollector {
                 .unwrap_or((0.0, 0.0));
 
             // Memory
-            let (mem_used, mem_total) = device
-                .memory_info()
-                .map(|m| (m.used, m.total))
-                .unwrap_or((0, 1));
+            let (mem_used, mem_total) =
+                device.memory_info().map(|m| (m.used, m.total)).unwrap_or((0, 1));
 
             // Temperature
-            let temperature = device
-                .temperature(TemperatureSensor::Gpu)
-                .map(|t| t as f64)
-                .unwrap_or(0.0);
+            let temperature =
+                device.temperature(TemperatureSensor::Gpu).map(|t| t as f64).unwrap_or(0.0);
 
             // Power
             let power_mw = device.power_usage().unwrap_or(0);
@@ -204,9 +192,8 @@ impl NvidiaGpuCollector {
             let gpu_clock_mhz = device
                 .clock_info(nvml_wrapper::enum_wrappers::device::Clock::Graphics)
                 .unwrap_or(0);
-            let mem_clock_mhz = device
-                .clock_info(nvml_wrapper::enum_wrappers::device::Clock::Memory)
-                .unwrap_or(0);
+            let mem_clock_mhz =
+                device.clock_info(nvml_wrapper::enum_wrappers::device::Clock::Memory).unwrap_or(0);
 
             // Fan speed (may not be available on all GPUs)
             let fan_speed = device.fan_speed(0).ok();
@@ -271,23 +258,15 @@ impl Collector for NvidiaGpuCollector {
             metrics.insert(format!("{}.mem_util", prefix), gpu.mem_util);
 
             // Memory
-            metrics.insert(
-                format!("{}.mem_used", prefix),
-                MetricValue::Counter(gpu.mem_used),
-            );
-            metrics.insert(
-                format!("{}.mem_total", prefix),
-                MetricValue::Counter(gpu.mem_total),
-            );
+            metrics.insert(format!("{}.mem_used", prefix), MetricValue::Counter(gpu.mem_used));
+            metrics.insert(format!("{}.mem_total", prefix), MetricValue::Counter(gpu.mem_total));
 
             // Temperature
             metrics.insert(format!("{}.temp", prefix), gpu.temperature);
 
             // Power
-            metrics.insert(
-                format!("{}.power_mw", prefix),
-                MetricValue::Counter(gpu.power_mw as u64),
-            );
+            metrics
+                .insert(format!("{}.power_mw", prefix), MetricValue::Counter(gpu.power_mw as u64));
             metrics.insert(
                 format!("{}.power_limit_mw", prefix),
                 MetricValue::Counter(gpu.power_limit_mw as u64),
@@ -310,16 +289,10 @@ impl Collector for NvidiaGpuCollector {
 
             // PCIe throughput
             if let Some(tx) = gpu.pcie_tx_kbps {
-                metrics.insert(
-                    format!("{}.pcie_tx_kbps", prefix),
-                    MetricValue::Counter(tx as u64),
-                );
+                metrics.insert(format!("{}.pcie_tx_kbps", prefix), MetricValue::Counter(tx as u64));
             }
             if let Some(rx) = gpu.pcie_rx_kbps {
-                metrics.insert(
-                    format!("{}.pcie_rx_kbps", prefix),
-                    MetricValue::Counter(rx as u64),
-                );
+                metrics.insert(format!("{}.pcie_rx_kbps", prefix), MetricValue::Counter(rx as u64));
             }
 
             // Update history
