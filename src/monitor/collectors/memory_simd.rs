@@ -76,11 +76,10 @@ impl SimdMemoryCollector {
         })?;
 
         let bytes_read =
-            file.read(&mut self.read_buffer)
-                .map_err(|e| MonitorError::CollectionFailed {
-                    collector: "memory_simd",
-                    message: format!("Failed to read /proc/meminfo: {}", e),
-                })?;
+            file.read(&mut self.read_buffer).map_err(|e| MonitorError::CollectionFailed {
+                collector: "memory_simd",
+                message: format!("Failed to read /proc/meminfo: {}", e),
+            })?;
 
         // Copy to local buffer to avoid borrow conflict (self.read_buffer vs &mut self)
         #[allow(clippy::unnecessary_to_owned)]
@@ -206,28 +205,15 @@ impl Collector for SimdMemoryCollector {
 
         metrics.insert("memory.total", MetricValue::Counter(self.metrics.total));
         metrics.insert("memory.free", MetricValue::Counter(self.metrics.free));
-        metrics.insert(
-            "memory.available",
-            MetricValue::Counter(self.metrics.available),
-        );
+        metrics.insert("memory.available", MetricValue::Counter(self.metrics.available));
         metrics.insert("memory.used", MetricValue::Counter(self.metrics.used()));
         metrics.insert("memory.buffers", MetricValue::Counter(self.metrics.buffers));
         metrics.insert("memory.cached", MetricValue::Counter(self.metrics.cached));
-        metrics.insert(
-            "memory.swap.total",
-            MetricValue::Counter(self.metrics.swap_total),
-        );
-        metrics.insert(
-            "memory.swap.free",
-            MetricValue::Counter(self.metrics.swap_free),
-        );
+        metrics.insert("memory.swap.total", MetricValue::Counter(self.metrics.swap_total));
+        metrics.insert("memory.swap.free", MetricValue::Counter(self.metrics.swap_free));
         metrics.insert(
             "memory.swap.used",
-            MetricValue::Counter(
-                self.metrics
-                    .swap_total
-                    .saturating_sub(self.metrics.swap_free),
-            ),
+            MetricValue::Counter(self.metrics.swap_total.saturating_sub(self.metrics.swap_free)),
         );
         metrics.insert("memory.dirty", MetricValue::Counter(self.metrics.dirty));
         metrics.insert("memory.slab", MetricValue::Counter(self.metrics.slab));

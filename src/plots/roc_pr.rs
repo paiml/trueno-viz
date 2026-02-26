@@ -58,10 +58,7 @@ pub struct PrData {
 /// ROC curve data including points and AUC.
 pub fn compute_roc(y_true: &[u8], y_scores: &[f32]) -> Result<RocData> {
     if y_true.len() != y_scores.len() {
-        return Err(Error::DataLengthMismatch {
-            x_len: y_true.len(),
-            y_len: y_scores.len(),
-        });
+        return Err(Error::DataLengthMismatch { x_len: y_true.len(), y_len: y_scores.len() });
     }
 
     if y_true.is_empty() {
@@ -73,17 +70,13 @@ pub fn compute_roc(y_true: &[u8], y_scores: &[f32]) -> Result<RocData> {
     let total_negatives = y_true.len() as f32 - total_positives;
 
     if total_positives == 0.0 || total_negatives == 0.0 {
-        return Err(Error::ScaleDomain(
-            "Need both positive and negative samples".to_string(),
-        ));
+        return Err(Error::ScaleDomain("Need both positive and negative samples".to_string()));
     }
 
     // Get sorted indices by score (descending)
     let mut indices: Vec<usize> = (0..y_scores.len()).collect();
     indices.sort_by(|&a, &b| {
-        y_scores[b]
-            .partial_cmp(&y_scores[a])
-            .unwrap_or(std::cmp::Ordering::Equal)
+        y_scores[b].partial_cmp(&y_scores[a]).unwrap_or(std::cmp::Ordering::Equal)
     });
 
     // Calculate TPR and FPR at each threshold
@@ -93,11 +86,7 @@ pub fn compute_roc(y_true: &[u8], y_scores: &[f32]) -> Result<RocData> {
 
     // Start at (0, 0) with threshold above max
     let max_score = y_scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-    points.push(CurvePoint {
-        x: 0.0,
-        y: 0.0,
-        threshold: max_score + 1.0,
-    });
+    points.push(CurvePoint { x: 0.0, y: 0.0, threshold: max_score + 1.0 });
 
     for &idx in &indices {
         if y_true[idx] == 1 {
@@ -109,21 +98,13 @@ pub fn compute_roc(y_true: &[u8], y_scores: &[f32]) -> Result<RocData> {
         let tpr = tp / total_positives;
         let fpr = fp / total_negatives;
 
-        points.push(CurvePoint {
-            x: fpr,
-            y: tpr,
-            threshold: y_scores[idx],
-        });
+        points.push(CurvePoint { x: fpr, y: tpr, threshold: y_scores[idx] });
     }
 
     // Ensure we end at (1, 1)
     if let Some(last) = points.last() {
         if last.x < 1.0 || last.y < 1.0 {
-            points.push(CurvePoint {
-                x: 1.0,
-                y: 1.0,
-                threshold: f32::NEG_INFINITY,
-            });
+            points.push(CurvePoint { x: 1.0, y: 1.0, threshold: f32::NEG_INFINITY });
         }
     }
 
@@ -145,10 +126,7 @@ pub fn compute_roc(y_true: &[u8], y_scores: &[f32]) -> Result<RocData> {
 /// PR curve data including points and average precision.
 pub fn compute_pr(y_true: &[u8], y_scores: &[f32]) -> Result<PrData> {
     if y_true.len() != y_scores.len() {
-        return Err(Error::DataLengthMismatch {
-            x_len: y_true.len(),
-            y_len: y_scores.len(),
-        });
+        return Err(Error::DataLengthMismatch { x_len: y_true.len(), y_len: y_scores.len() });
     }
 
     if y_true.is_empty() {
@@ -159,17 +137,13 @@ pub fn compute_pr(y_true: &[u8], y_scores: &[f32]) -> Result<PrData> {
     let total_positives = y_true.iter().filter(|&&y| y == 1).count() as f32;
 
     if total_positives == 0.0 {
-        return Err(Error::ScaleDomain(
-            "Need at least one positive sample".to_string(),
-        ));
+        return Err(Error::ScaleDomain("Need at least one positive sample".to_string()));
     }
 
     // Get sorted indices by score (descending)
     let mut indices: Vec<usize> = (0..y_scores.len()).collect();
     indices.sort_by(|&a, &b| {
-        y_scores[b]
-            .partial_cmp(&y_scores[a])
-            .unwrap_or(std::cmp::Ordering::Equal)
+        y_scores[b].partial_cmp(&y_scores[a]).unwrap_or(std::cmp::Ordering::Equal)
     });
 
     // Calculate Precision and Recall at each threshold
@@ -179,11 +153,7 @@ pub fn compute_pr(y_true: &[u8], y_scores: &[f32]) -> Result<PrData> {
 
     // Start at (0, 1) - at highest threshold, precision is undefined but we use 1
     let max_score = y_scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-    points.push(CurvePoint {
-        x: 0.0,
-        y: 1.0,
-        threshold: max_score + 1.0,
-    });
+    points.push(CurvePoint { x: 0.0, y: 1.0, threshold: max_score + 1.0 });
 
     for &idx in &indices {
         if y_true[idx] == 1 {
@@ -195,20 +165,13 @@ pub fn compute_pr(y_true: &[u8], y_scores: &[f32]) -> Result<PrData> {
         let recall = tp / total_positives;
         let precision = tp / (tp + fp);
 
-        points.push(CurvePoint {
-            x: recall,
-            y: precision,
-            threshold: y_scores[idx],
-        });
+        points.push(CurvePoint { x: recall, y: precision, threshold: y_scores[idx] });
     }
 
     // Calculate Average Precision (area under interpolated PR curve)
     let average_precision = calculate_average_precision(&points);
 
-    Ok(PrData {
-        points,
-        average_precision,
-    })
+    Ok(PrData { points, average_precision })
 }
 
 /// Calculate AUC using trapezoidal rule.
@@ -337,14 +300,10 @@ impl RocCurve {
         let roc_data = self.data.as_ref().ok_or(Error::EmptyData)?;
 
         let plot_size = self.width.min(self.height) - 2 * self.margin;
-        let x_scale = LinearScale::new(
-            (0.0, 1.0),
-            (self.margin as f32, (self.margin + plot_size) as f32),
-        )?;
-        let y_scale = LinearScale::new(
-            (0.0, 1.0),
-            ((self.margin + plot_size) as f32, self.margin as f32),
-        )?;
+        let x_scale =
+            LinearScale::new((0.0, 1.0), (self.margin as f32, (self.margin + plot_size) as f32))?;
+        let y_scale =
+            LinearScale::new((0.0, 1.0), ((self.margin + plot_size) as f32, self.margin as f32))?;
 
         // Draw diagonal reference line
         if self.show_diagonal {
@@ -481,14 +440,10 @@ impl PrCurve {
         let pr_data = self.data.as_ref().ok_or(Error::EmptyData)?;
 
         let plot_size = self.width.min(self.height) - 2 * self.margin;
-        let x_scale = LinearScale::new(
-            (0.0, 1.0),
-            (self.margin as f32, (self.margin + plot_size) as f32),
-        )?;
-        let y_scale = LinearScale::new(
-            (0.0, 1.0),
-            ((self.margin + plot_size) as f32, self.margin as f32),
-        )?;
+        let x_scale =
+            LinearScale::new((0.0, 1.0), (self.margin as f32, (self.margin + plot_size) as f32))?;
+        let y_scale =
+            LinearScale::new((0.0, 1.0), ((self.margin + plot_size) as f32, self.margin as f32))?;
 
         // Draw baseline reference line (horizontal at positive rate)
         if self.show_baseline {
@@ -664,11 +619,7 @@ mod tests {
         let y_true = vec![0, 0, 1, 1];
         let y_scores = vec![0.1, 0.2, 0.8, 0.9];
 
-        let roc = RocCurve::new()
-            .from_predictions(&y_true, &y_scores)
-            .unwrap()
-            .build()
-            .unwrap();
+        let roc = RocCurve::new().from_predictions(&y_true, &y_scores).unwrap().build().unwrap();
 
         let auc = roc.auc();
         assert!(auc > 0.5);
@@ -679,11 +630,7 @@ mod tests {
         let y_true = vec![0, 0, 1, 1];
         let y_scores = vec![0.1, 0.2, 0.8, 0.9];
 
-        let pr = PrCurve::new()
-            .from_predictions(&y_true, &y_scores)
-            .unwrap()
-            .build()
-            .unwrap();
+        let pr = PrCurve::new().from_predictions(&y_true, &y_scores).unwrap().build().unwrap();
 
         let ap = pr.average_precision();
         assert!(ap > 0.5);
@@ -693,16 +640,8 @@ mod tests {
     fn test_auc_calculation() {
         // Simple test: points forming a triangle with known area
         let points = vec![
-            CurvePoint {
-                x: 0.0,
-                y: 0.0,
-                threshold: 1.0,
-            },
-            CurvePoint {
-                x: 1.0,
-                y: 1.0,
-                threshold: 0.0,
-            },
+            CurvePoint { x: 0.0, y: 0.0, threshold: 1.0 },
+            CurvePoint { x: 1.0, y: 1.0, threshold: 0.0 },
         ];
 
         let auc = calculate_auc(&points);
@@ -714,35 +653,15 @@ mod tests {
     fn test_roc_curve_with_data() {
         let roc_data = RocData {
             points: vec![
-                CurvePoint {
-                    x: 0.0,
-                    y: 0.0,
-                    threshold: 1.0,
-                },
-                CurvePoint {
-                    x: 0.0,
-                    y: 0.5,
-                    threshold: 0.8,
-                },
-                CurvePoint {
-                    x: 0.5,
-                    y: 1.0,
-                    threshold: 0.5,
-                },
-                CurvePoint {
-                    x: 1.0,
-                    y: 1.0,
-                    threshold: 0.0,
-                },
+                CurvePoint { x: 0.0, y: 0.0, threshold: 1.0 },
+                CurvePoint { x: 0.0, y: 0.5, threshold: 0.8 },
+                CurvePoint { x: 0.5, y: 1.0, threshold: 0.5 },
+                CurvePoint { x: 1.0, y: 1.0, threshold: 0.0 },
             ],
             auc: 0.875,
         };
 
-        let roc = RocCurve::new()
-            .data(roc_data)
-            .dimensions(200, 200)
-            .build()
-            .unwrap();
+        let roc = RocCurve::new().data(roc_data).dimensions(200, 200).build().unwrap();
 
         assert!((roc.auc() - 0.875).abs() < 0.001);
     }
@@ -819,41 +738,21 @@ mod tests {
     fn test_pr_curve_with_data() {
         let pr_data = PrData {
             points: vec![
-                CurvePoint {
-                    x: 0.0,
-                    y: 1.0,
-                    threshold: 1.0,
-                },
-                CurvePoint {
-                    x: 0.5,
-                    y: 0.8,
-                    threshold: 0.5,
-                },
-                CurvePoint {
-                    x: 1.0,
-                    y: 0.5,
-                    threshold: 0.0,
-                },
+                CurvePoint { x: 0.0, y: 1.0, threshold: 1.0 },
+                CurvePoint { x: 0.5, y: 0.8, threshold: 0.5 },
+                CurvePoint { x: 1.0, y: 0.5, threshold: 0.0 },
             ],
             average_precision: 0.75,
         };
 
-        let pr = PrCurve::new()
-            .data(pr_data)
-            .dimensions(200, 200)
-            .build()
-            .unwrap();
+        let pr = PrCurve::new().data(pr_data).dimensions(200, 200).build().unwrap();
 
         assert!((pr.average_precision() - 0.75).abs() < 0.001);
     }
 
     #[test]
     fn test_curve_point_clone_debug() {
-        let point = CurvePoint {
-            x: 0.5,
-            y: 0.8,
-            threshold: 0.7,
-        };
+        let point = CurvePoint { x: 0.5, y: 0.8, threshold: 0.7 };
         let cloned = point;
         let debug = format!("{:?}", cloned);
         assert!(debug.contains("CurvePoint"));
@@ -862,14 +761,8 @@ mod tests {
 
     #[test]
     fn test_roc_data_clone_debug() {
-        let data = RocData {
-            points: vec![CurvePoint {
-                x: 0.0,
-                y: 0.0,
-                threshold: 1.0,
-            }],
-            auc: 0.8,
-        };
+        let data =
+            RocData { points: vec![CurvePoint { x: 0.0, y: 0.0, threshold: 1.0 }], auc: 0.8 };
         let cloned = data.clone();
         let debug = format!("{:?}", cloned);
         assert!(debug.contains("RocData"));
@@ -878,11 +771,7 @@ mod tests {
     #[test]
     fn test_pr_data_clone_debug() {
         let data = PrData {
-            points: vec![CurvePoint {
-                x: 0.0,
-                y: 1.0,
-                threshold: 1.0,
-            }],
+            points: vec![CurvePoint { x: 0.0, y: 1.0, threshold: 1.0 }],
             average_precision: 0.9,
         };
         let cloned = data.clone();

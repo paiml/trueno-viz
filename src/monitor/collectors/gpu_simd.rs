@@ -123,10 +123,8 @@ impl GpuMetricsSoA {
     /// Returns total power draw in watts.
     #[must_use]
     pub fn total_power_watts(&self) -> f64 {
-        let power_f64: Vec<f64> = self.power_mw[..self.gpu_count]
-            .iter()
-            .map(|&p| p as f64 / 1000.0)
-            .collect();
+        let power_f64: Vec<f64> =
+            self.power_mw[..self.gpu_count].iter().map(|&p| p as f64 / 1000.0).collect();
         kernels::simd_sum(&power_f64)
     }
 
@@ -220,10 +218,8 @@ impl SimdGpuHistory {
         }
 
         // Update aggregate history
-        self.aggregate_gpu_history
-            .push(metrics.avg_gpu_util() / 100.0);
-        self.aggregate_mem_history
-            .push(metrics.avg_mem_util() / 100.0);
+        self.aggregate_gpu_history.push(metrics.avg_gpu_util() / 100.0);
+        self.aggregate_mem_history.push(metrics.avg_mem_util() / 100.0);
     }
 
     /// Returns GPU utilization history for a specific GPU.

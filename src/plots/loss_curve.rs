@@ -413,11 +413,7 @@ impl LossCurve {
         let marker_radius = (self.marker_size / 2.0) as i32;
 
         for series in &self.series {
-            let best_idx = if self.lower_is_better {
-                series.argmin()
-            } else {
-                series.argmax()
-            };
+            let best_idx = if self.lower_is_better { series.argmin() } else { series.argmax() };
 
             if let Some(idx) = best_idx {
                 if let Some(&value) = series.values().get(idx) {
@@ -471,11 +467,7 @@ impl LossCurve {
                 max: s.max(),
                 last: s.last(),
                 last_smoothed: s.last_smoothed(),
-                best_epoch: if self.lower_is_better {
-                    s.argmin()
-                } else {
-                    s.argmax()
-                },
+                best_epoch: if self.lower_is_better { s.argmin() } else { s.argmax() },
             })
             .collect()
     }
@@ -561,12 +553,8 @@ mod tests {
 
     #[test]
     fn test_loss_curve_builder() {
-        let loss_curve = LossCurve::new()
-            .train_loss()
-            .val_loss()
-            .dimensions(400, 200)
-            .build()
-            .unwrap();
+        let loss_curve =
+            LossCurve::new().train_loss().val_loss().dimensions(400, 200).build().unwrap();
 
         assert_eq!(loss_curve.series_count(), 2);
     }
@@ -592,12 +580,8 @@ mod tests {
 
     #[test]
     fn test_loss_curve_render() {
-        let mut loss_curve = LossCurve::new()
-            .train_loss()
-            .val_loss()
-            .dimensions(200, 100)
-            .build()
-            .unwrap();
+        let mut loss_curve =
+            LossCurve::new().train_loss().val_loss().dimensions(200, 100).build().unwrap();
 
         // Add some data
         for i in 0..10 {
@@ -611,11 +595,7 @@ mod tests {
 
     #[test]
     fn test_loss_curve_render_empty_series() {
-        let loss_curve = LossCurve::new()
-            .train_loss()
-            .dimensions(200, 100)
-            .build()
-            .unwrap();
+        let loss_curve = LossCurve::new().train_loss().dimensions(200, 100).build().unwrap();
 
         // Render with empty series should not panic
         let fb = loss_curve.to_framebuffer();
@@ -624,11 +604,7 @@ mod tests {
 
     #[test]
     fn test_loss_curve_summary() {
-        let mut loss_curve = LossCurve::new()
-            .train_loss()
-            .lower_is_better(true)
-            .build()
-            .unwrap();
+        let mut loss_curve = LossCurve::new().train_loss().lower_is_better(true).build().unwrap();
 
         loss_curve.push(0, 1.0);
         loss_curve.push(0, 0.5);
@@ -661,12 +637,8 @@ mod tests {
 
     #[test]
     fn test_loss_curve_fixed_y_range() {
-        let mut loss_curve = LossCurve::new()
-            .train_loss()
-            .y_range(0.0, 2.0)
-            .dimensions(200, 100)
-            .build()
-            .unwrap();
+        let mut loss_curve =
+            LossCurve::new().train_loss().y_range(0.0, 2.0).dimensions(200, 100).build().unwrap();
 
         loss_curve.push(0, 1.0);
         loss_curve.push(0, 0.5);
@@ -700,12 +672,8 @@ mod tests {
 
     #[test]
     fn test_loss_curve_best_markers() {
-        let mut loss_curve = LossCurve::new()
-            .train_loss()
-            .best_markers(true)
-            .dimensions(200, 100)
-            .build()
-            .unwrap();
+        let mut loss_curve =
+            LossCurve::new().train_loss().best_markers(true).dimensions(200, 100).build().unwrap();
 
         for i in 0..5 {
             loss_curve.push(0, 1.0 - (i as f32) * 0.1);

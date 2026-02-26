@@ -295,9 +295,7 @@ impl App {
                     true
                 } else {
                     p.name.to_lowercase().contains(&self.filter.to_lowercase())
-                        || p.cmdline
-                            .to_lowercase()
-                            .contains(&self.filter.to_lowercase())
+                        || p.cmdline.to_lowercase().contains(&self.filter.to_lowercase())
                 }
             })
             .collect();
@@ -306,14 +304,12 @@ impl App {
             let cmp = match self.sort_by {
                 SortColumn::Pid => a.pid.cmp(&b.pid),
                 SortColumn::Name => a.name.cmp(&b.name),
-                SortColumn::Cpu => a
-                    .cpu_percent
-                    .partial_cmp(&b.cpu_percent)
-                    .unwrap_or(std::cmp::Ordering::Equal),
-                SortColumn::Mem => a
-                    .mem_percent
-                    .partial_cmp(&b.mem_percent)
-                    .unwrap_or(std::cmp::Ordering::Equal),
+                SortColumn::Cpu => {
+                    a.cpu_percent.partial_cmp(&b.cpu_percent).unwrap_or(std::cmp::Ordering::Equal)
+                }
+                SortColumn::Mem => {
+                    a.mem_percent.partial_cmp(&b.mem_percent).unwrap_or(std::cmp::Ordering::Equal)
+                }
                 SortColumn::State => (a.state.as_char()).cmp(&b.state.as_char()),
                 SortColumn::User => a.user.cmp(&b.user),
                 SortColumn::Threads => a.threads.cmp(&b.threads),
@@ -515,10 +511,8 @@ fn draw_top_panels(f: &mut ratatui::Frame, app: &mut App, area: Rect, visible: u
         constraints.push(Constraint::Ratio(1, visible));
     }
 
-    let top_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints(constraints)
-        .split(area);
+    let top_chunks =
+        Layout::default().direction(Direction::Horizontal).constraints(constraints).split(area);
 
     let mut idx = 0;
     if app.show_cpu {
@@ -574,10 +568,7 @@ fn draw_cpu_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(graph_height),
-            Constraint::Length(core_meter_height),
-        ])
+        .constraints([Constraint::Length(graph_height), Constraint::Length(core_meter_height)])
         .split(inner);
 
     // CPU graph with braille
@@ -666,12 +657,7 @@ fn draw_memory_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
                 let meter = Meter::new(used_pct).label(label).color(color);
                 f.render_widget(
                     meter,
-                    Rect {
-                        x: chunks[3].x,
-                        y,
-                        width: chunks[3].width,
-                        height: 1,
-                    },
+                    Rect { x: chunks[3].x, y, width: chunks[3].width, height: 1 },
                 );
                 y += 1;
             }
@@ -718,9 +704,7 @@ fn draw_network_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
     f.render_widget(rx_graph, chunks[0]);
 
     // Upload graph (inverted)
-    let tx_graph = Graph::new(&app.net_tx_history)
-        .color(Color::Red)
-        .inverted(true);
+    let tx_graph = Graph::new(&app.net_tx_history).color(Color::Red).inverted(true);
     f.render_widget(tx_graph, chunks[1]);
 
     // Rate labels
@@ -735,12 +719,7 @@ fn draw_network_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
 
     f.render_widget(
         Paragraph::new(rx_label),
-        Rect {
-            x: chunks[0].x,
-            y: chunks[0].y,
-            width: 20.min(chunks[0].width),
-            height: 1,
-        },
+        Rect { x: chunks[0].x, y: chunks[0].y, width: 20.min(chunks[0].width), height: 1 },
     );
     f.render_widget(
         Paragraph::new(tx_label),
@@ -793,20 +772,13 @@ fn draw_gpu_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
     }
 
     // GPU utilization meter
-    let gpu_meter = Meter::new(gpu.gpu_util / 100.0)
-        .label("GPU")
-        .color(percent_color(gpu.gpu_util));
+    let gpu_meter =
+        Meter::new(gpu.gpu_util / 100.0).label("GPU").color(percent_color(gpu.gpu_util));
     f.render_widget(gpu_meter, chunks[1]);
 
     // VRAM meter
-    let vram_pct = if gpu.mem_total > 0 {
-        gpu.mem_used as f64 / gpu.mem_total as f64
-    } else {
-        0.0
-    };
-    let vram_meter = Meter::new(vram_pct)
-        .label("VRAM")
-        .color(percent_color(vram_pct * 100.0));
+    let vram_pct = if gpu.mem_total > 0 { gpu.mem_used as f64 / gpu.mem_total as f64 } else { 0.0 };
+    let vram_meter = Meter::new(vram_pct).label("VRAM").color(percent_color(vram_pct * 100.0));
     f.render_widget(vram_meter, chunks[2]);
 
     // Additional info
@@ -857,13 +829,9 @@ fn draw_process_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
             || (*h == "S" && app.sort_by == SortColumn::State)
             || (*h == "THR" && app.sort_by == SortColumn::Threads)
         {
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD | Modifier::UNDERLINED)
         } else {
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD)
+            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
         };
         Span::styled(*h, style)
     }))
@@ -889,22 +857,10 @@ fn draw_process_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
                     format!("{:8}", p.user.chars().take(8).collect::<String>()),
                     Style::default().fg(Color::Blue),
                 ),
-                Span::styled(
-                    format!("{}", p.state.as_char()),
-                    Style::default().fg(state_color),
-                ),
-                Span::styled(
-                    format!("{:>3}", p.threads),
-                    Style::default().fg(Color::DarkGray),
-                ),
-                Span::styled(
-                    format!("{:>5.1}", p.cpu_percent),
-                    Style::default().fg(cpu_color),
-                ),
-                Span::styled(
-                    format!("{:>5.1}", p.mem_percent),
-                    Style::default().fg(mem_color),
-                ),
+                Span::styled(format!("{}", p.state.as_char()), Style::default().fg(state_color)),
+                Span::styled(format!("{:>3}", p.threads), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{:>5.1}", p.cpu_percent), Style::default().fg(cpu_color)),
+                Span::styled(format!("{:>5.1}", p.mem_percent), Style::default().fg(mem_color)),
                 Span::styled(
                     format!("{:15}", p.name.chars().take(15).collect::<String>()),
                     Style::default().fg(Color::White),
@@ -932,11 +888,7 @@ fn draw_process_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
 
     let table = RatatuiTable::new(rows, widths)
         .header(header)
-        .row_highlight_style(
-            Style::default()
-                .bg(Color::DarkGray)
-                .add_modifier(Modifier::BOLD),
-        )
+        .row_highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD))
         .highlight_symbol(" ");
 
     f.render_stateful_widget(table, inner, &mut app.process_table_state);
@@ -946,12 +898,8 @@ fn draw_process_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(Some(""))
             .end_symbol(Some(""));
-        let scrollbar_area = Rect {
-            x: area.x + area.width - 1,
-            y: area.y + 1,
-            width: 1,
-            height: area.height - 2,
-        };
+        let scrollbar_area =
+            Rect { x: area.x + area.width - 1, y: area.y + 1, width: 1, height: area.height - 2 };
         f.render_stateful_widget(scrollbar, scrollbar_area, &mut app.process_scroll);
     }
 }

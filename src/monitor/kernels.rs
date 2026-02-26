@@ -21,11 +21,13 @@ use std::arch::aarch64::*;
 #[inline]
 pub fn simd_find_newlines(bytes: &[u8]) -> u64 {
     #[cfg(target_arch = "x86_64")]
+    // SAFETY: SSE2 is baseline for all x86_64; bytes slice is valid for the read length.
     unsafe {
         simd_find_newlines_sse2(bytes)
     }
 
     #[cfg(target_arch = "aarch64")]
+    // SAFETY: NEON is baseline for all AArch64; bytes slice is valid for the read length.
     unsafe {
         simd_find_newlines_neon(bytes)
     }
@@ -122,6 +124,7 @@ unsafe fn simd_find_newlines_neon(bytes: &[u8]) -> u64 {
 #[inline]
 pub fn simd_statistics(values: &[f64]) -> (f64, f64, f64) {
     #[cfg(target_arch = "x86_64")]
+    // SAFETY: AVX2 availability is checked at runtime; values slice is valid.
     unsafe {
         simd_statistics_avx2(values)
     }
@@ -199,6 +202,7 @@ pub fn simd_delta(curr: &[u64], prev: &[u64], out: &mut [u64]) {
     let len = curr.len().min(prev.len()).min(out.len());
 
     #[cfg(target_arch = "x86_64")]
+    // SAFETY: len is bounded by all three slice lengths; AVX2 checked at runtime.
     unsafe {
         simd_delta_avx2(curr, prev, out, len);
     }

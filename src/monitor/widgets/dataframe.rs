@@ -98,16 +98,9 @@ impl CellValue {
             return " ".repeat(width);
         }
 
-        let min = values
-            .iter()
-            .filter(|x| x.is_finite())
-            .copied()
-            .fold(f64::INFINITY, f64::min);
-        let max = values
-            .iter()
-            .filter(|x| x.is_finite())
-            .copied()
-            .fold(f64::NEG_INFINITY, f64::max);
+        let min = values.iter().filter(|x| x.is_finite()).copied().fold(f64::INFINITY, f64::min);
+        let max =
+            values.iter().filter(|x| x.is_finite()).copied().fold(f64::NEG_INFINITY, f64::max);
         let range = (max - min).max(1e-10);
 
         let sample_width = width.min(values.len());
@@ -186,12 +179,7 @@ impl Column {
     /// Create a new column.
     #[must_use]
     pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            name: name.into(),
-            values: Vec::new(),
-            width: 10,
-            align: ColumnAlign::default(),
-        }
+        Self { name: name.into(), values: Vec::new(), width: 10, align: ColumnAlign::default() }
     }
 
     /// Set column width.
@@ -242,10 +230,7 @@ impl Column {
     pub fn from_strings(name: impl Into<String>, values: &[&str]) -> Self {
         Self {
             name: name.into(),
-            values: values
-                .iter()
-                .map(|&s| CellValue::Text(s.to_string()))
-                .collect(),
+            values: values.iter().map(|&s| CellValue::Text(s.to_string())).collect(),
             width: 15,
             align: ColumnAlign::Left,
         }
@@ -471,11 +456,8 @@ impl Widget for DataFrame {
                 if let Some(value) = col.values.get(row_idx) {
                     let (content, color) = self.render_cell(value, col.width, col.align);
 
-                    let style = if is_selected {
-                        selected_style
-                    } else {
-                        Style::default().fg(color)
-                    };
+                    let style =
+                        if is_selected { selected_style } else { Style::default().fg(color) };
 
                     for (i, ch) in content.chars().enumerate() {
                         let cx = x + i as u16;
@@ -644,22 +626,14 @@ mod tests {
 
         #[test]
         fn test_microbar() {
-            let (rendered, _) = CellValue::MicroBar {
-                value: 5.0,
-                max: 10.0,
-            }
-            .render(10);
+            let (rendered, _) = CellValue::MicroBar { value: 5.0, max: 10.0 }.render(10);
             assert!(rendered.contains('█'));
             assert!(rendered.contains('░'));
         }
 
         #[test]
         fn test_microbar_full() {
-            let (rendered, _) = CellValue::MicroBar {
-                value: 10.0,
-                max: 10.0,
-            }
-            .render(10);
+            let (rendered, _) = CellValue::MicroBar { value: 10.0, max: 10.0 }.render(10);
             assert_eq!(rendered.chars().filter(|&c| c == '█').count(), 10);
         }
     }
@@ -805,10 +779,7 @@ mod tests {
         #[test]
         fn test_scroll_to() {
             let mut df = DataFrame::new()
-                .column(Column::from_f64(
-                    "A",
-                    &(0..100).map(|i| i as f64).collect::<Vec<_>>(),
-                ))
+                .column(Column::from_f64("A", &(0..100).map(|i| i as f64).collect::<Vec<_>>()))
                 .visible_rows(10);
             df.scroll_to(50);
             assert_eq!(df.scroll_offset, 50);
@@ -816,9 +787,8 @@ mod tests {
 
         #[test]
         fn test_scroll_to_beyond() {
-            let mut df = DataFrame::new()
-                .column(Column::from_f64("A", &[1.0, 2.0, 3.0]))
-                .visible_rows(10);
+            let mut df =
+                DataFrame::new().column(Column::from_f64("A", &[1.0, 2.0, 3.0])).visible_rows(10);
             df.scroll_to(100);
             assert!(df.scroll_offset <= df.row_count());
         }
@@ -874,27 +844,23 @@ mod tests {
         #[test]
         fn test_render_with_title() {
             let (area, mut buf) = create_test_buffer(60, 20);
-            let df = DataFrame::new()
-                .column(Column::from_f64("A", &[1.0, 2.0]))
-                .title("Test DataFrame");
+            let df =
+                DataFrame::new().column(Column::from_f64("A", &[1.0, 2.0])).title("Test DataFrame");
             df.render(area, &mut buf);
         }
 
         #[test]
         fn test_render_no_header() {
             let (area, mut buf) = create_test_buffer(60, 20);
-            let df = DataFrame::new()
-                .column(Column::from_f64("A", &[1.0, 2.0]))
-                .show_header(false);
+            let df = DataFrame::new().column(Column::from_f64("A", &[1.0, 2.0])).show_header(false);
             df.render(area, &mut buf);
         }
 
         #[test]
         fn test_render_no_row_numbers() {
             let (area, mut buf) = create_test_buffer(60, 20);
-            let df = DataFrame::new()
-                .column(Column::from_f64("A", &[1.0, 2.0]))
-                .show_row_numbers(false);
+            let df =
+                DataFrame::new().column(Column::from_f64("A", &[1.0, 2.0])).show_row_numbers(false);
             df.render(area, &mut buf);
         }
 
@@ -921,10 +887,7 @@ mod tests {
                         CellValue::Progress(75.0),
                         CellValue::Status(StatusLevel::Ok),
                         CellValue::Trend(0.05),
-                        CellValue::MicroBar {
-                            value: 5.0,
-                            max: 10.0,
-                        },
+                        CellValue::MicroBar { value: 5.0, max: 10.0 },
                     ])
                     .width(20),
             );
@@ -935,9 +898,7 @@ mod tests {
         fn test_render_with_scrolling() {
             let (area, mut buf) = create_test_buffer(60, 10);
             let values: Vec<f64> = (0..50).map(|i| i as f64).collect();
-            let mut df = DataFrame::new()
-                .column(Column::from_f64("A", &values))
-                .visible_rows(5);
+            let mut df = DataFrame::new().column(Column::from_f64("A", &values)).visible_rows(5);
             df.scroll_to(20);
             df.render(area, &mut buf);
         }
@@ -1014,9 +975,7 @@ mod tests {
         fn test_render_header_clipping() {
             let (area, mut buf) = create_test_buffer(8, 10);
             let df = DataFrame::new().column(
-                Column::new("VeryLongColumnName")
-                    .values(vec![CellValue::Int(1)])
-                    .width(15),
+                Column::new("VeryLongColumnName").values(vec![CellValue::Int(1)]).width(15),
             );
             df.render(area, &mut buf);
         }

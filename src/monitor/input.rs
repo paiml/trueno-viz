@@ -132,15 +132,9 @@ mod tests {
     fn test_quit_actions() {
         let handler = InputHandler::new(true);
 
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('q'))),
-            Action::Quit
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('q'))), Action::Quit);
         assert_eq!(handler.handle_key(key_event(KeyCode::Esc)), Action::Quit);
-        assert_eq!(
-            handler.handle_key(key_event_ctrl(KeyCode::Char('c'))),
-            Action::Quit
-        );
+        assert_eq!(handler.handle_key(key_event_ctrl(KeyCode::Char('c'))), Action::Quit);
     }
 
     #[test]
@@ -157,137 +151,80 @@ mod tests {
     fn test_vim_keys_enabled() {
         let handler = InputHandler::new(true);
 
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('k'))),
-            Action::Up
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('j'))),
-            Action::Down
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('h'))),
-            Action::Left
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('l'))),
-            Action::Right
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('k'))), Action::Up);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('j'))), Action::Down);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('h'))), Action::Left);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('l'))), Action::Right);
     }
 
     #[test]
     fn test_vim_keys_disabled() {
         let handler = InputHandler::new(false);
 
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('k'))),
-            Action::None
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('j'))),
-            Action::None
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('k'))), Action::None);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('j'))), Action::None);
     }
 
     #[test]
     fn test_presets() {
         let handler = InputHandler::new(true);
 
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('0'))),
-            Action::Preset(0)
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('5'))),
-            Action::Preset(5)
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('9'))),
-            Action::Preset(9)
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('0'))), Action::Preset(0));
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('5'))), Action::Preset(5));
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('9'))), Action::Preset(9));
     }
 
     #[test]
     fn test_help() {
         let handler = InputHandler::new(true);
 
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('?'))),
-            Action::Help
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('?'))), Action::Help);
         assert_eq!(handler.handle_key(key_event(KeyCode::F(1))), Action::Help);
     }
 
     #[test]
     fn test_select_action() {
         let handler = InputHandler::new(true);
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Enter)),
-            Action::Select
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Enter)), Action::Select);
     }
 
     #[test]
     fn test_filter_action() {
         let handler = InputHandler::new(true);
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('/'))),
-            Action::Filter
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('f'))),
-            Action::Filter
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('/'))), Action::Filter);
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('f'))), Action::Filter);
     }
 
     #[test]
     fn test_tree_action() {
         let handler = InputHandler::new(true);
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('t'))),
-            Action::Tree
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('t'))), Action::Tree);
     }
 
     #[test]
     fn test_kill_action() {
         let handler = InputHandler::new(true);
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('K'))),
-            Action::Kill
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('K'))), Action::Kill);
     }
 
     #[test]
     fn test_refresh_action() {
         let handler = InputHandler::new(true);
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::Char('r'))),
-            Action::Refresh
-        );
-        assert_eq!(
-            handler.handle_key(key_event(KeyCode::F(5))),
-            Action::Refresh
-        );
+        assert_eq!(handler.handle_key(key_event(KeyCode::Char('r'))), Action::Refresh);
+        assert_eq!(handler.handle_key(key_event(KeyCode::F(5))), Action::Refresh);
     }
 
     #[test]
     fn test_ctrl_q_quits() {
         let handler = InputHandler::new(true);
-        assert_eq!(
-            handler.handle_key(key_event_ctrl(KeyCode::Char('q'))),
-            Action::Quit
-        );
+        assert_eq!(handler.handle_key(key_event_ctrl(KeyCode::Char('q'))), Action::Quit);
     }
 
     #[test]
     fn test_ctrl_other_key_no_action() {
         let handler = InputHandler::new(true);
         // Ctrl+X should not quit, falls through to match
-        assert_eq!(
-            handler.handle_key(key_event_ctrl(KeyCode::Char('x'))),
-            Action::None
-        );
+        assert_eq!(handler.handle_key(key_event_ctrl(KeyCode::Char('x'))), Action::None);
     }
 
     #[test]

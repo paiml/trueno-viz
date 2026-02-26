@@ -26,15 +26,11 @@ fn main() {
     println!("\nStep 2: Creating loss curve visualization...");
 
     // Create series with different colors
-    let train_series = MetricSeries::new("Train Loss", Rgba::BLUE)
-        .smoothing(0.6)
-        .raw(true)
-        .smooth(true);
+    let train_series =
+        MetricSeries::new("Train Loss", Rgba::BLUE).smoothing(0.6).raw(true).smooth(true);
 
-    let val_series = MetricSeries::new("Val Loss", Rgba::rgb(255, 128, 0))
-        .smoothing(0.6)
-        .raw(true)
-        .smooth(true);
+    let val_series =
+        MetricSeries::new("Val Loss", Rgba::rgb(255, 128, 0)).smoothing(0.6).raw(true).smooth(true);
 
     let mut loss_curve = LossCurve::new()
         .add_series(train_series)
@@ -54,10 +50,7 @@ fn main() {
 
         // Print progress every 10 epochs
         if epoch % 10 == 0 || epoch == train_losses.len() - 1 {
-            println!(
-                "  Epoch {:>3}: train={:.4}, val={:.4}",
-                epoch, train_loss, val_loss
-            );
+            println!("  Epoch {:>3}: train={:.4}, val={:.4}", epoch, train_loss, val_loss);
         }
     }
 
@@ -103,10 +96,7 @@ fn main() {
     let val_final = summaries[1].last.unwrap_or(0.0);
     if val_final > train_final * 1.5 {
         println!("\nWarning: Possible overfitting detected!");
-        println!(
-            "  Train/Val gap: {:.2}%",
-            (val_final / train_final - 1.0) * 100.0
-        );
+        println!("  Train/Val gap: {:.2}%", (val_final / train_final - 1.0) * 100.0);
     }
 
     println!("\nLoss curves successfully generated!");

@@ -23,11 +23,7 @@ impl<'a> MonitorSparkline<'a> {
     /// Creates a new sparkline with the given data.
     #[must_use]
     pub fn new(data: &'a [f64]) -> Self {
-        Self {
-            data,
-            color: Color::Cyan,
-            show_trend: true,
-        }
+        Self { data, color: Color::Cyan, show_trend: true }
     }
 
     /// Sets the color.
@@ -89,11 +85,8 @@ impl Widget for MonitorSparkline<'_> {
         let range = max - min;
 
         // Reserve space for trend indicator
-        let chart_width = if self.show_trend {
-            area.width.saturating_sub(1)
-        } else {
-            area.width
-        } as usize;
+        let chart_width =
+            if self.show_trend { area.width.saturating_sub(1) } else { area.width } as usize;
 
         // Sample data to fit width
         for i in 0..chart_width.min(self.data.len()) {
@@ -104,11 +97,8 @@ impl Widget for MonitorSparkline<'_> {
             };
 
             let value = self.data.get(data_idx).copied().unwrap_or(0.0);
-            let normalized = if range > 0.0 {
-                ((value - min) / range).clamp(0.0, 1.0)
-            } else {
-                0.5
-            };
+            let normalized =
+                if range > 0.0 { ((value - min) / range).clamp(0.0, 1.0) } else { 0.5 };
 
             let block_idx = ((normalized * 7.0) as usize).min(7);
             let block = blocks[block_idx];
@@ -222,17 +212,11 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Should contain block characters
-        assert!(
-            content.chars().any(|c| "▁▂▃▄▅▆▇█".contains(c)),
-            "Should contain block characters"
-        );
+        assert!(content.chars().any(|c| "▁▂▃▄▅▆▇█".contains(c)), "Should contain block characters");
     }
 
     #[test]
@@ -251,11 +235,8 @@ mod tests {
 
         // Should render without panic
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Empty data should produce spaces only
         assert!(content.trim().is_empty() || content.chars().all(|c| c == ' '));
@@ -295,11 +276,8 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Should NOT contain trend arrows
         assert!(!content.contains('↑'));
@@ -323,11 +301,8 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Should render middle block for constant values
         assert!(content.contains('▄')); // Middle block (normalized = 0.5)
@@ -350,11 +325,8 @@ mod tests {
 
         // Should render without panic, sampling the data
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         assert!(content.chars().any(|c| "▁▂▃▄▅▆▇█↑↓→".contains(c)));
     }
@@ -375,11 +347,8 @@ mod tests {
             .unwrap();
 
         let buffer = terminal.backend().buffer();
-        let content: String = buffer
-            .content()
-            .iter()
-            .map(|c| c.symbol().chars().next().unwrap_or(' '))
-            .collect();
+        let content: String =
+            buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
         // Should contain blocks for each data point
         assert!(content.contains('▁')); // Low

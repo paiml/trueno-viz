@@ -84,11 +84,7 @@ fn default_theme() -> String {
 
 impl Default for Config {
     fn default() -> Self {
-        Self {
-            version: default_version(),
-            global: GlobalConfig::default(),
-            theme: default_theme(),
-        }
+        Self { version: default_version(), global: GlobalConfig::default(), theme: default_theme() }
     }
 }
 
@@ -121,10 +117,7 @@ impl Config {
     pub fn parse(yaml: &str) -> Result<Self> {
         serde_yaml_ng::from_str(yaml).map_err(|e| {
             let line = e.location().map(|l| l.line()).unwrap_or(0);
-            MonitorError::ConfigParse {
-                line,
-                message: e.to_string(),
-            }
+            MonitorError::ConfigParse { line, message: e.to_string() }
         })
     }
 

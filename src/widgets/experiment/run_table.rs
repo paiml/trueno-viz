@@ -72,12 +72,7 @@ impl RunRow {
     /// Create a new run row.
     #[must_use]
     pub fn new(id: impl Into<String>, status: RunStatus) -> Self {
-        Self {
-            id: id.into(),
-            status,
-            duration: None,
-            metrics: HashMap::new(),
-        }
+        Self { id: id.into(), status, duration: None, metrics: HashMap::new() }
     }
 
     /// Set the duration.
@@ -177,10 +172,8 @@ impl RunTable {
     #[must_use]
     pub fn from_runs(runs: Vec<RunRow>) -> Self {
         // Extract all unique metric names
-        let mut metric_names: Vec<String> = runs
-            .iter()
-            .flat_map(|r| r.metrics.keys().cloned())
-            .collect();
+        let mut metric_names: Vec<String> =
+            runs.iter().flat_map(|r| r.metrics.keys().cloned()).collect();
         metric_names.sort();
         metric_names.dedup();
 
@@ -266,21 +259,13 @@ impl RunTable {
                 SortColumn::Duration => {
                     let a_dur = a.duration.unwrap_or(f64::MAX);
                     let b_dur = b.duration.unwrap_or(f64::MAX);
-                    a_dur
-                        .partial_cmp(&b_dur)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    a_dur.partial_cmp(&b_dur).unwrap_or(std::cmp::Ordering::Equal)
                 }
                 SortColumn::Metric(idx) => {
                     let metric_name = metric_columns.get(idx).map(String::as_str);
-                    let a_val = metric_name
-                        .and_then(|n| a.metrics.get(n))
-                        .unwrap_or(&f64::MAX);
-                    let b_val = metric_name
-                        .and_then(|n| b.metrics.get(n))
-                        .unwrap_or(&f64::MAX);
-                    a_val
-                        .partial_cmp(b_val)
-                        .unwrap_or(std::cmp::Ordering::Equal)
+                    let a_val = metric_name.and_then(|n| a.metrics.get(n)).unwrap_or(&f64::MAX);
+                    let b_val = metric_name.and_then(|n| b.metrics.get(n)).unwrap_or(&f64::MAX);
+                    a_val.partial_cmp(b_val).unwrap_or(std::cmp::Ordering::Equal)
                 }
             };
 
@@ -349,10 +334,7 @@ impl RunTable {
                 run.duration_display()
             ));
             for col in &self.metric_columns {
-                let value = run
-                    .metrics
-                    .get(col)
-                    .map_or("-".to_string(), |v| format!("{v:.4}"));
+                let value = run.metrics.get(col).map_or("-".to_string(), |v| format!("{v:.4}"));
                 output.push_str(&format!(" {value} |"));
             }
             output.push('\n');

@@ -38,20 +38,13 @@ impl Coord {
     /// Create a Cartesian coordinate system.
     #[must_use]
     pub fn cartesian() -> Self {
-        Coord::Cartesian {
-            xlim: None,
-            ylim: None,
-            flip: false,
-        }
+        Coord::Cartesian { xlim: None, ylim: None, flip: false }
     }
 
     /// Create a polar coordinate system.
     #[must_use]
     pub fn polar() -> Self {
-        Coord::Polar {
-            start: 0.0,
-            direction: 1,
-        }
+        Coord::Polar { start: 0.0, direction: 1 }
     }
 
     /// Create a fixed aspect ratio coordinate system.
@@ -81,10 +74,7 @@ impl Coord {
     /// Flip x and y axes.
     #[must_use]
     pub fn flip(mut self) -> Self {
-        if let Coord::Cartesian {
-            flip: ref mut f, ..
-        } = self
-        {
+        if let Coord::Cartesian { flip: ref mut f, .. } = self {
             *f = true;
         }
         self
@@ -93,10 +83,7 @@ impl Coord {
     /// Set polar start angle.
     #[must_use]
     pub fn start_angle(mut self, start: f32) -> Self {
-        if let Coord::Polar {
-            start: ref mut s, ..
-        } = self
-        {
+        if let Coord::Polar { start: ref mut s, .. } = self {
             *s = start;
         }
         self
@@ -105,11 +92,7 @@ impl Coord {
     /// Set polar direction (1 = clockwise, -1 = counter-clockwise).
     #[must_use]
     pub fn direction(mut self, dir: i8) -> Self {
-        if let Coord::Polar {
-            direction: ref mut d,
-            ..
-        } = self
-        {
+        if let Coord::Polar { direction: ref mut d, .. } = self {
             *d = if dir >= 0 { 1 } else { -1 };
         }
         self
@@ -144,9 +127,7 @@ mod tests {
 
     #[test]
     fn test_coord_polar() {
-        let c = Coord::polar()
-            .start_angle(std::f32::consts::PI)
-            .direction(-1);
+        let c = Coord::polar().start_angle(std::f32::consts::PI).direction(-1);
         match c {
             Coord::Polar { start, direction } => {
                 assert!((start - std::f32::consts::PI).abs() < 0.001);
@@ -170,14 +151,7 @@ mod tests {
     #[test]
     fn test_coord_default() {
         let c = Coord::default();
-        assert!(matches!(
-            c,
-            Coord::Cartesian {
-                xlim: None,
-                ylim: None,
-                flip: false
-            }
-        ));
+        assert!(matches!(c, Coord::Cartesian { xlim: None, ylim: None, flip: false }));
     }
 
     #[test]

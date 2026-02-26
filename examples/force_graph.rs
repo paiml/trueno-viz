@@ -43,19 +43,13 @@ fn main() {
     println!("------------------------");
 
     let mut star = ForceGraph::new()
-        .add_node(
-            GraphNode::new(0)
-                .color(Rgba::new(255, 193, 7, 255))
-                .radius(12.0),
-        ) // Center
+        .add_node(GraphNode::new(0).color(Rgba::new(255, 193, 7, 255)).radius(12.0)) // Center
         .dimensions(400, 400)
         .iterations(150);
 
     // Add outer nodes connected to center
     for i in 1..=6 {
-        star = star
-            .add_node(GraphNode::new(i).color(Rgba::new(156, 39, 176, 255)))
-            .edge(0, i);
+        star = star.add_node(GraphNode::new(i).color(Rgba::new(156, 39, 176, 255))).edge(0, i);
     }
 
     let star_graph = star.build().expect("Failed to build star");
@@ -112,11 +106,8 @@ fn create_social_network() -> trueno_viz::plots::BuiltForceGraph {
         Rgba::new(52, 168, 83, 255),  // Green cluster
     ];
 
-    let mut graph = ForceGraph::new()
-        .dimensions(500, 400)
-        .iterations(200)
-        .repulsion(8000.0)
-        .attraction(0.02);
+    let mut graph =
+        ForceGraph::new().dimensions(500, 400).iterations(200).repulsion(8000.0).attraction(0.02);
 
     // Create 3 clusters of 4 nodes each
     for cluster in 0..3 {
@@ -126,9 +117,7 @@ fn create_social_network() -> trueno_viz::plots::BuiltForceGraph {
         // Add nodes
         for i in 0..4 {
             let node =
-                GraphNode::new(base + i)
-                    .color(color)
-                    .radius(if i == 0 { 10.0 } else { 6.0 }); // Leader is bigger
+                GraphNode::new(base + i).color(color).radius(if i == 0 { 10.0 } else { 6.0 }); // Leader is bigger
             graph = graph.add_node(node);
         }
 
@@ -149,17 +138,12 @@ fn create_social_network() -> trueno_viz::plots::BuiltForceGraph {
 
 /// Create a grid graph.
 fn create_grid_graph(cols: usize, rows: usize) -> trueno_viz::plots::BuiltForceGraph {
-    let mut graph = ForceGraph::new()
-        .dimensions(400, 300)
-        .iterations(150)
-        .repulsion(5000.0)
-        .attraction(0.03);
+    let mut graph =
+        ForceGraph::new().dimensions(400, 300).iterations(150).repulsion(5000.0).attraction(0.03);
 
     // Add nodes
     for i in 0..(cols * rows) {
-        let node = GraphNode::new(i)
-            .color(Rgba::new(100, 149, 237, 255))
-            .radius(8.0);
+        let node = GraphNode::new(i).color(Rgba::new(100, 149, 237, 255)).radius(8.0);
         graph = graph.add_node(node);
     }
 

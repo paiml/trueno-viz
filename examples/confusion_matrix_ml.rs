@@ -40,10 +40,7 @@ fn main() {
     let metrics = cm.metrics();
 
     println!("\n--- Per-Class Metrics ---");
-    println!(
-        "{:>12} {:>10} {:>10} {:>10}",
-        "Class", "Precision", "Recall", "F1-Score"
-    );
+    println!("{:>12} {:>10} {:>10} {:>10}", "Class", "Precision", "Recall", "F1-Score");
     println!("{}", "-".repeat(45));
 
     let f1_scores = metrics.f1_scores();

@@ -44,35 +44,25 @@ impl Facet {
     /// Facet into rows.
     #[must_use]
     pub fn row(var: &str) -> Self {
-        Facet::Row {
-            var: var.to_string(),
-        }
+        Facet::Row { var: var.to_string() }
     }
 
     /// Facet into columns.
     #[must_use]
     pub fn col(var: &str) -> Self {
-        Facet::Col {
-            var: var.to_string(),
-        }
+        Facet::Col { var: var.to_string() }
     }
 
     /// Facet into a grid.
     #[must_use]
     pub fn grid(row: &str, col: &str) -> Self {
-        Facet::Grid {
-            row: row.to_string(),
-            col: col.to_string(),
-        }
+        Facet::Grid { row: row.to_string(), col: col.to_string() }
     }
 
     /// Facet with wrapping.
     #[must_use]
     pub fn wrap(var: &str, ncol: usize) -> Self {
-        Facet::Wrap {
-            var: var.to_string(),
-            ncol,
-        }
+        Facet::Wrap { var: var.to_string(), ncol }
     }
 }
 

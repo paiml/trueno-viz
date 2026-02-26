@@ -219,31 +219,19 @@ impl ConfusionMatrix {
         if total == 0 {
             return 0.0;
         }
-        let correct: u64 = self
-            .matrix
-            .iter()
-            .enumerate()
-            .map(|(i, row)| row.get(i).copied().unwrap_or(0))
-            .sum();
+        let correct: u64 =
+            self.matrix.iter().enumerate().map(|(i, row)| row.get(i).copied().unwrap_or(0)).sum();
         correct as f64 / total as f64
     }
 
     /// Get precision for a class (true positives / predicted positives).
     #[must_use]
     pub fn precision(&self, class: usize) -> f64 {
-        let col_sum: u64 = self
-            .matrix
-            .iter()
-            .map(|row| row.get(class).copied().unwrap_or(0))
-            .sum();
+        let col_sum: u64 = self.matrix.iter().map(|row| row.get(class).copied().unwrap_or(0)).sum();
         if col_sum == 0 {
             return 0.0;
         }
-        self.matrix
-            .get(class)
-            .and_then(|row| row.get(class))
-            .copied()
-            .unwrap_or(0) as f64
+        self.matrix.get(class).and_then(|row| row.get(class)).copied().unwrap_or(0) as f64
             / col_sum as f64
     }
 
@@ -254,11 +242,7 @@ impl ConfusionMatrix {
         if row_sum == 0 {
             return 0.0;
         }
-        self.matrix
-            .get(class)
-            .and_then(|row| row.get(class))
-            .copied()
-            .unwrap_or(0) as f64
+        self.matrix.get(class).and_then(|row| row.get(class)).copied().unwrap_or(0) as f64
             / row_sum as f64
     }
 
@@ -302,11 +286,8 @@ impl ConfusionMatrix {
                 }
             }
             Normalization::Column => {
-                let col_sum: u64 = self
-                    .matrix
-                    .iter()
-                    .map(|r| r.get(col).copied().unwrap_or(0))
-                    .sum();
+                let col_sum: u64 =
+                    self.matrix.iter().map(|r| r.get(col).copied().unwrap_or(0)).sum();
                 if col_sum == 0 {
                     0.0
                 } else {
@@ -333,12 +314,7 @@ impl ConfusionMatrix {
     }
 
     fn label_width(&self) -> usize {
-        self.labels
-            .iter()
-            .map(String::len)
-            .max()
-            .unwrap_or(3)
-            .max(3)
+        self.labels.iter().map(String::len).max().unwrap_or(3).max(3)
     }
 }
 

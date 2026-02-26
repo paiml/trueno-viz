@@ -134,16 +134,14 @@ impl App {
         // Collect CPU metrics
         if self.cpu_panel.collector.is_available() {
             if let Ok(metrics) = self.cpu_panel.collector.collect() {
-                self.state
-                    .record("cpu", metrics, self.config.global.history_size);
+                self.state.record("cpu", metrics, self.config.global.history_size);
             }
         }
 
         // Collect memory metrics
         if self.memory_panel.collector.is_available() {
             if let Ok(metrics) = self.memory_panel.collector.collect() {
-                self.state
-                    .record("memory", metrics, self.config.global.history_size);
+                self.state.record("memory", metrics, self.config.global.history_size);
             }
         }
     }

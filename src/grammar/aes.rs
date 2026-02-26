@@ -154,11 +154,7 @@ mod tests {
 
     #[test]
     fn test_aes_builder() {
-        let aes = Aes::new()
-            .x("xvar")
-            .y("yvar")
-            .color("category")
-            .size_value(5.0);
+        let aes = Aes::new().x("xvar").y("yvar").color("category").size_value(5.0);
 
         assert_eq!(aes.x, Some("xvar".to_string()));
         assert_eq!(aes.y, Some("yvar".to_string()));

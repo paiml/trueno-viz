@@ -4,6 +4,17 @@
   <img src="docs/hero.svg" alt="trueno-viz - SIMD/GPU-Accelerated Visualization" width="800">
 </p>
 
+## Table of Contents
+
+- [Installation](#installation)
+- [Usage](#quick-start)
+- [Architecture](#architecture)
+- [API Reference](#plot-types)
+- [Examples](#examples)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
+
 <p align="center">
   <a href="https://github.com/paiml/trueno-viz/actions"><img src="https://github.com/paiml/trueno-viz/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://crates.io/crates/trueno-viz"><img src="https://img.shields.io/crates/v/trueno-viz.svg" alt="Crates.io"></a>
@@ -210,6 +221,20 @@ trueno-viz/
 └── crates/
     └── ttop/               # System monitor binary (10X better than btop)
 ```
+
+---
+
+## Testing
+
+```bash
+cargo test --lib          # Unit tests
+cargo test                # All tests including integration
+cargo test -p ttop        # ttop system monitor tests
+make coverage             # Coverage report
+make bench                # SIMD performance benchmarks
+```
+
+Property-based tests cover framebuffer operations, SIMD kernel correctness, and plot rendering invariants.
 
 ---
 

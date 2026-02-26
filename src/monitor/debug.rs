@@ -171,11 +171,7 @@ impl TimingGuard {
         if is_enabled() {
             log(Level::Trace, component, &format!("-> {}", operation));
         }
-        Self {
-            component,
-            operation,
-            start: Instant::now(),
-        }
+        Self { component, operation, start: Instant::now() }
     }
 }
 
@@ -186,11 +182,7 @@ impl Drop for TimingGuard {
             log(
                 Level::Trace,
                 self.component,
-                &format!(
-                    "<- {} ({:.2}ms)",
-                    self.operation,
-                    elapsed.as_secs_f64() * 1000.0
-                ),
+                &format!("<- {} ({:.2}ms)", self.operation, elapsed.as_secs_f64() * 1000.0),
             );
         }
     }

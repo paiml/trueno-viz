@@ -148,9 +148,7 @@ impl NetworkCollector {
     /// Returns rates for the current interface.
     #[must_use]
     pub fn current_rates(&self) -> Option<&NetRates> {
-        self.current_interface
-            .as_ref()
-            .and_then(|name| self.rates.get(name))
+        self.current_interface.as_ref().and_then(|name| self.rates.get(name))
     }
 
     /// Returns the current interface name.
@@ -162,17 +160,13 @@ impl NetworkCollector {
     /// Returns download history for the current interface.
     #[must_use]
     pub fn rx_history(&self) -> Option<&RingBuffer<f64>> {
-        self.current_interface
-            .as_ref()
-            .and_then(|name| self.rx_history.get(name))
+        self.current_interface.as_ref().and_then(|name| self.rx_history.get(name))
     }
 
     /// Returns upload history for the current interface.
     #[must_use]
     pub fn tx_history(&self) -> Option<&RingBuffer<f64>> {
-        self.current_interface
-            .as_ref()
-            .and_then(|name| self.tx_history.get(name))
+        self.current_interface.as_ref().and_then(|name| self.tx_history.get(name))
     }
 
     /// Reads network statistics from /proc/net/dev.
@@ -196,10 +190,8 @@ impl NetworkCollector {
             }
 
             let name = parts[0].trim().to_string();
-            let values: Vec<u64> = parts[1]
-                .split_whitespace()
-                .filter_map(|s| s.parse().ok())
-                .collect();
+            let values: Vec<u64> =
+                parts[1].split_whitespace().filter_map(|s| s.parse().ok()).collect();
 
             if values.len() < 16 {
                 continue;
@@ -356,9 +348,7 @@ impl NetworkCollector {
             .max_by(|a, b| {
                 let a_total = a.1.rx_bytes_per_sec + a.1.tx_bytes_per_sec;
                 let b_total = b.1.rx_bytes_per_sec + b.1.tx_bytes_per_sec;
-                a_total
-                    .partial_cmp(&b_total)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                a_total.partial_cmp(&b_total).unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(name, _)| name.clone());
 
@@ -429,10 +419,7 @@ impl Collector for NetworkCollector {
         metrics.insert("network.tx_bytes_per_sec", MetricValue::Gauge(total_tx));
 
         // Interface count
-        metrics.insert(
-            "network.interface_count",
-            MetricValue::Counter(self.rates.len() as u64),
-        );
+        metrics.insert("network.interface_count", MetricValue::Counter(self.rates.len() as u64));
 
         // Current interface rates
         if let Some(rates) = self.current_rates() {

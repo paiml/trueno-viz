@@ -242,14 +242,7 @@ impl ForestPathViz for ForestPath {
         let bar_width = 300 - 2 * margin;
 
         // Background bar
-        draw_rect(
-            &mut fb,
-            margin as i32,
-            35,
-            bar_width,
-            bar_height,
-            NEUTRAL_COLOR,
-        );
+        draw_rect(&mut fb, margin as i32, 35, bar_width, bar_height, NEUTRAL_COLOR);
 
         // Filled portion based on agreement
         let filled_width = (bar_width as f32 * self.tree_agreement) as u32;
@@ -298,12 +291,7 @@ impl KNNPathViz for KNNPath {
         let plot_width = 600 - 2 * margin;
         let plot_height = 400 - 2 * margin;
 
-        let max_dist = self
-            .distances
-            .iter()
-            .copied()
-            .fold(0.0f32, f32::max)
-            .max(0.001);
+        let max_dist = self.distances.iter().copied().fold(0.0f32, f32::max).max(0.001);
         let max_x = self.distances.len() as f32;
 
         for (i, (&dist, &label)) in self.distances.iter().zip(&self.neighbor_labels).enumerate() {
@@ -343,14 +331,7 @@ impl KNNPathViz for KNNPath {
             let y = 300 - margin - bar_height;
 
             let color = label_to_color(*class);
-            draw_rect(
-                &mut fb,
-                x as i32,
-                y as i32,
-                bar_width as u32,
-                bar_height,
-                color,
-            );
+            draw_rect(&mut fb, x as i32, y as i32, bar_width as u32, bar_height, color);
         }
 
         Ok(fb)
@@ -388,14 +369,7 @@ impl<P: DecisionPath + Serialize> HashChainViz<P> for HashChainCollector<P> {
         let n = entries.len();
 
         // Draw timeline line
-        draw_line(
-            &mut fb,
-            margin,
-            timeline_y,
-            800 - margin,
-            timeline_y,
-            NEUTRAL_COLOR,
-        );
+        draw_line(&mut fb, margin, timeline_y, 800 - margin, timeline_y, NEUTRAL_COLOR);
 
         // Draw entry points
         for (i, entry) in entries.iter().enumerate() {
@@ -436,11 +410,7 @@ impl<P: DecisionPath + Serialize> HashChainViz<P> for HashChainCollector<P> {
         let y: Vec<f32> = entries.iter().map(|e| e.trace.path.confidence()).collect();
 
         let plot = LineChart::new()
-            .add_series(
-                LineSeries::new("confidence")
-                    .data(&x, &y)
-                    .color(HIGH_CONFIDENCE_COLOR),
-            )
+            .add_series(LineSeries::new("confidence").data(&x, &y).color(HIGH_CONFIDENCE_COLOR))
             .dimensions(600, 300)
             .build()?;
 
@@ -467,11 +437,7 @@ impl<P: DecisionPath + Serialize> HashChainViz<P> for HashChainCollector<P> {
             // Color based on confidence
             let color = confidence_to_color(confidence);
 
-            graph = graph.add_node(
-                GraphNode::new(i)
-                    .color(color)
-                    .radius(8.0 + confidence * 4.0),
-            );
+            graph = graph.add_node(GraphNode::new(i).color(color).radius(8.0 + confidence * 4.0));
         }
 
         // Add edges (chain links)
@@ -508,11 +474,7 @@ impl<P: DecisionPath, const N: usize> RingCollectorViz<P, N> for RingCollector<P
         let y: Vec<f32> = traces.iter().map(|t| t.output).collect();
 
         let plot = LineChart::new()
-            .add_series(
-                LineSeries::new("output")
-                    .data(&x, &y)
-                    .color(TREE_NODE_COLOR),
-            )
+            .add_series(LineSeries::new("output").data(&x, &y).color(TREE_NODE_COLOR))
             .dimensions(600, 300)
             .build()?;
 
@@ -562,11 +524,7 @@ fn contribution_bar_chart(
     let bar_height = ((height - 2 * margin) / n as u32).min(30);
     let spacing = 5;
 
-    let max_abs = contributions
-        .iter()
-        .map(|c| c.abs())
-        .fold(0.0f32, f32::max)
-        .max(0.001);
+    let max_abs = contributions.iter().map(|c| c.abs()).fold(0.0f32, f32::max).max(0.001);
 
     let center_x = width / 2;
     let bar_max_width = (width / 2 - margin) as f32;
@@ -575,21 +533,10 @@ fn contribution_bar_chart(
         let y = margin + i as u32 * (bar_height + spacing);
         let bar_width = (contrib.abs() / max_abs * bar_max_width) as u32;
 
-        let color = if contrib >= 0.0 {
-            POSITIVE_COLOR
-        } else {
-            NEGATIVE_COLOR
-        };
+        let color = if contrib >= 0.0 { POSITIVE_COLOR } else { NEGATIVE_COLOR };
 
         if contrib >= 0.0 {
-            draw_rect(
-                &mut fb,
-                center_x as i32,
-                y as i32,
-                bar_width,
-                bar_height,
-                color,
-            );
+            draw_rect(&mut fb, center_x as i32, y as i32, bar_width, bar_height, color);
         } else {
             draw_rect(
                 &mut fb,
@@ -651,26 +598,12 @@ fn waterfall_chart(contributions: &[f32], width: u32, height: u32) -> Result<Fra
         let start_y = baseline_y as f32 - ((start_val - min_val) / range * plot_height);
         let end_y = baseline_y as f32 - ((end_val - min_val) / range * plot_height);
 
-        let (top_y, bar_h) = if end_y < start_y {
-            (end_y, start_y - end_y)
-        } else {
-            (start_y, end_y - start_y)
-        };
+        let (top_y, bar_h) =
+            if end_y < start_y { (end_y, start_y - end_y) } else { (start_y, end_y - start_y) };
 
-        let color = if contributions[i] >= 0.0 {
-            POSITIVE_COLOR
-        } else {
-            NEGATIVE_COLOR
-        };
+        let color = if contributions[i] >= 0.0 { POSITIVE_COLOR } else { NEGATIVE_COLOR };
 
-        draw_rect(
-            &mut fb,
-            x as i32,
-            top_y as i32,
-            bar_width,
-            bar_h.max(1.0) as u32,
-            color,
-        );
+        draw_rect(&mut fb, x as i32, top_y as i32, bar_width, bar_h.max(1.0) as u32, color);
 
         // Connect bars
         if i > 0 {
@@ -738,10 +671,7 @@ fn tree_path_to_graph(
         return Ok(fb);
     }
 
-    let mut graph = ForceGraph::new()
-        .dimensions(width, height)
-        .iterations(60)
-        .attraction(0.03);
+    let mut graph = ForceGraph::new().dimensions(width, height).iterations(60).attraction(0.03);
 
     // Add split nodes
     for (i, _split) in splits.iter().enumerate() {
@@ -751,24 +681,12 @@ fn tree_path_to_graph(
     // Add leaf node
     let leaf_idx = splits.len();
     let leaf_radius = 10.0 + (leaf.n_samples as f32).log10() * 2.0;
-    graph = graph.add_node(
-        GraphNode::new(leaf_idx)
-            .color(LEAF_NODE_COLOR)
-            .radius(leaf_radius),
-    );
+    graph = graph.add_node(GraphNode::new(leaf_idx).color(LEAF_NODE_COLOR).radius(leaf_radius));
 
     // Add edges
     for i in 0..splits.len() {
-        let target = if i == splits.len() - 1 {
-            leaf_idx
-        } else {
-            i + 1
-        };
-        let edge_color = if splits[i].went_left {
-            POSITIVE_COLOR
-        } else {
-            NEGATIVE_COLOR
-        };
+        let target = if i == splits.len() - 1 { leaf_idx } else { i + 1 };
+        let edge_color = if splits[i].went_left { POSITIVE_COLOR } else { NEGATIVE_COLOR };
         graph = graph.add_edge(GraphEdge::new(i, target).color(edge_color).weight(1.5));
     }
 
@@ -849,9 +767,7 @@ mod tests {
     #[test]
     fn test_linear_path_contribution_chart() {
         let path = LinearPath::new(vec![0.3, -0.2, 0.5, -0.1], 0.1, 0.6, 0.75);
-        let fb = path
-            .to_contribution_chart(&["age", "income", "score", "tenure"])
-            .unwrap();
+        let fb = path.to_contribution_chart(&["age", "income", "score", "tenure"]).unwrap();
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 400);
     }
@@ -895,24 +811,10 @@ mod tests {
     #[test]
     fn test_tree_path_graph() {
         let splits = vec![
-            TreeSplit {
-                feature_idx: 0,
-                threshold: 35.0,
-                went_left: true,
-                n_samples: 100,
-            },
-            TreeSplit {
-                feature_idx: 1,
-                threshold: 50000.0,
-                went_left: false,
-                n_samples: 60,
-            },
+            TreeSplit { feature_idx: 0, threshold: 35.0, went_left: true, n_samples: 100 },
+            TreeSplit { feature_idx: 1, threshold: 50000.0, went_left: false, n_samples: 60 },
         ];
-        let leaf = LeafInfo {
-            prediction: 0.8,
-            n_samples: 30,
-            class_distribution: None,
-        };
+        let leaf = LeafInfo { prediction: 0.8, n_samples: 30, class_distribution: None };
 
         let path = TreePath::new(splits, leaf);
         let fb = path.to_tree_graph().unwrap();
@@ -921,11 +823,7 @@ mod tests {
 
     #[test]
     fn test_tree_path_empty_splits() {
-        let leaf = LeafInfo {
-            prediction: 0.5,
-            n_samples: 100,
-            class_distribution: None,
-        };
+        let leaf = LeafInfo { prediction: 0.5, n_samples: 100, class_distribution: None };
         let path = TreePath::new(vec![], leaf);
         let fb = path.to_tree_graph().unwrap();
         assert!(fb.width() > 0);

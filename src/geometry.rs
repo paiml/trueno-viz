@@ -32,10 +32,7 @@ impl Point {
     /// Linear interpolation between two points.
     #[must_use]
     pub fn lerp(self, other: Self, t: f32) -> Self {
-        Self::new(
-            self.x + (other.x - self.x) * t,
-            self.y + (other.y - self.y) * t,
-        )
+        Self::new(self.x + (other.x - self.x) * t, self.y + (other.y - self.y) * t)
     }
 }
 
@@ -85,23 +82,13 @@ impl Rect {
     /// Create a new rectangle.
     #[must_use]
     pub const fn new(x: f32, y: f32, width: f32, height: f32) -> Self {
-        Self {
-            x,
-            y,
-            width,
-            height,
-        }
+        Self { x, y, width, height }
     }
 
     /// Create a rectangle from two corner points.
     #[must_use]
     pub fn from_corners(top_left: Point, bottom_right: Point) -> Self {
-        Self::new(
-            top_left.x,
-            top_left.y,
-            bottom_right.x - top_left.x,
-            bottom_right.y - top_left.y,
-        )
+        Self::new(top_left.x, top_left.y, bottom_right.x - top_left.x, bottom_right.y - top_left.y)
     }
 
     /// Check if a point is inside the rectangle.

@@ -130,10 +130,8 @@ impl SimdDiskCollector {
             // diskstats format: major minor name reads_completed reads_merged sectors_read ...
             if values.len() >= 14 {
                 // Extract device name (field 2)
-                let fields: Vec<&str> = std::str::from_utf8(line)
-                    .unwrap_or("")
-                    .split_whitespace()
-                    .collect();
+                let fields: Vec<&str> =
+                    std::str::from_utf8(line).unwrap_or("").split_whitespace().collect();
 
                 if fields.len() >= 3 {
                     let name = fields[2];
@@ -151,13 +149,10 @@ impl SimdDiskCollector {
                     }
 
                     // Check if partition (ends with digit, except nvme with 'p')
-                    let is_partition = name
-                        .chars()
-                        .last()
-                        .map(|c| c.is_ascii_digit())
-                        .unwrap_or(false)
-                        && !name.contains("nvme")
-                        || (name.contains("nvme") && name.contains('p'));
+                    let is_partition =
+                        name.chars().last().map(|c| c.is_ascii_digit()).unwrap_or(false)
+                            && !name.contains("nvme")
+                            || (name.contains("nvme") && name.contains('p'));
 
                     // Skip partitions unless they have activity
                     if is_partition && values[0] == 0 && values[4] == 0 {
@@ -193,8 +188,7 @@ impl SimdDiskCollector {
     fn parse_diskstats(&mut self) -> Result<()> {
         // Non-Linux platforms: generate dummy data
         self.current = DiskMetricsSoA::new(32);
-        self.current
-            .set_disk("sda", 1000, 2000, 100, 500, 1000, 50, 0, 150);
+        self.current.set_disk("sda", 1000, 2000, 100, 500, 1000, 50, 0, 150);
         Ok(())
     }
 
@@ -250,8 +244,7 @@ impl SimdDiskCollector {
             self.read_rates.push(read_bytes as f64 / elapsed_secs);
             self.write_rates.push(write_bytes as f64 / elapsed_secs);
             self.read_iops.push(read_ops_delta[i] as f64 / elapsed_secs);
-            self.write_iops
-                .push(write_ops_delta[i] as f64 / elapsed_secs);
+            self.write_iops.push(write_ops_delta[i] as f64 / elapsed_secs);
 
             // IO utilization: time spent doing IO / total time
             let util = (io_time_delta[i] as f64 / (elapsed_secs * 1000.0) * 100.0).min(100.0);
@@ -398,10 +391,7 @@ impl Collector for SimdDiskCollector {
         metrics.insert("disk.write_iops", MetricValue::Gauge(total_write_iops));
 
         // Disk count
-        metrics.insert(
-            "disk.disk_count",
-            MetricValue::Counter(self.previous.disk_count as u64),
-        );
+        metrics.insert("disk.disk_count", MetricValue::Counter(self.previous.disk_count as u64));
 
         Ok(metrics)
     }

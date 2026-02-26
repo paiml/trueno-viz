@@ -148,19 +148,13 @@ impl Metrics {
     /// Creates a new empty metrics collection with the current timestamp.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            timestamp: Instant::now(),
-            values: HashMap::new(),
-        }
+        Self { timestamp: Instant::now(), values: HashMap::new() }
     }
 
     /// Creates a metrics collection with a specific timestamp.
     #[must_use]
     pub fn with_timestamp(timestamp: Instant) -> Self {
-        Self {
-            timestamp,
-            values: HashMap::new(),
-        }
+        Self { timestamp, values: HashMap::new() }
     }
 
     /// Adds a metric value.
@@ -435,10 +429,7 @@ mod tests {
 
     #[test]
     fn test_collector_trait() {
-        let mut collector = TestCollector {
-            available: true,
-            value: 42.0,
-        };
+        let mut collector = TestCollector { available: true, value: 42.0 };
 
         assert_eq!(collector.id(), "test");
         assert!(collector.is_available());
@@ -451,20 +442,14 @@ mod tests {
 
     #[test]
     fn test_collector_unavailable() {
-        let collector = TestCollector {
-            available: false,
-            value: 0.0,
-        };
+        let collector = TestCollector { available: false, value: 0.0 };
 
         assert!(!collector.is_available());
     }
 
     #[test]
     fn test_boxed_collector() {
-        let collector: BoxedCollector = Box::new(TestCollector {
-            available: true,
-            value: 100.0,
-        });
+        let collector: BoxedCollector = Box::new(TestCollector { available: true, value: 100.0 });
 
         assert_eq!(collector.id(), "test");
         assert!(collector.is_available());

@@ -234,11 +234,7 @@ mod tests {
     #[test]
     fn test_histogram_sturges() {
         let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
-        let hist = Histogram::new()
-            .data(&data)
-            .bins(BinStrategy::Sturges)
-            .build()
-            .unwrap();
+        let hist = Histogram::new().data(&data).bins(BinStrategy::Sturges).build().unwrap();
 
         // log2(100) + 1 ≈ 8
         assert!(hist.bin_count() >= 7 && hist.bin_count() <= 9);
@@ -265,11 +261,7 @@ mod tests {
     #[test]
     fn test_histogram_scott() {
         let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
-        let hist = Histogram::new()
-            .data(&data)
-            .bins(BinStrategy::Scott)
-            .build()
-            .unwrap();
+        let hist = Histogram::new().data(&data).bins(BinStrategy::Scott).build().unwrap();
 
         assert!(hist.bin_count() >= 1);
     }
@@ -277,11 +269,8 @@ mod tests {
     #[test]
     fn test_histogram_freedman_diaconis() {
         let data: Vec<f32> = (0..100).map(|i| i as f32).collect();
-        let hist = Histogram::new()
-            .data(&data)
-            .bins(BinStrategy::FreedmanDiaconis)
-            .build()
-            .unwrap();
+        let hist =
+            Histogram::new().data(&data).bins(BinStrategy::FreedmanDiaconis).build().unwrap();
 
         assert!(hist.bin_count() >= 1);
     }
@@ -290,22 +279,16 @@ mod tests {
     fn test_histogram_freedman_diaconis_zero_iqr() {
         // All same values = zero IQR, should fall back to Sturges
         let data: Vec<f32> = vec![5.0; 100];
-        let hist = Histogram::new()
-            .data(&data)
-            .bins(BinStrategy::FreedmanDiaconis)
-            .build()
-            .unwrap();
+        let hist =
+            Histogram::new().data(&data).bins(BinStrategy::FreedmanDiaconis).build().unwrap();
 
         assert!(hist.bin_count() >= 1);
     }
 
     #[test]
     fn test_histogram_fixed_zero() {
-        let hist = Histogram::new()
-            .data(&[1.0, 2.0, 3.0])
-            .bins(BinStrategy::Fixed(0))
-            .build()
-            .unwrap();
+        let hist =
+            Histogram::new().data(&[1.0, 2.0, 3.0]).bins(BinStrategy::Fixed(0)).build().unwrap();
 
         // Should be at least 1
         assert_eq!(hist.bin_count(), 1);
@@ -313,22 +296,14 @@ mod tests {
 
     #[test]
     fn test_histogram_color() {
-        let hist = Histogram::new()
-            .data(&[1.0, 2.0, 3.0])
-            .color(Rgba::RED)
-            .build()
-            .unwrap();
+        let hist = Histogram::new().data(&[1.0, 2.0, 3.0]).color(Rgba::RED).build().unwrap();
 
         assert_eq!(hist.color, Rgba::RED);
     }
 
     #[test]
     fn test_histogram_normalize() {
-        let hist = Histogram::new()
-            .data(&[1.0, 2.0, 3.0])
-            .normalize(true)
-            .build()
-            .unwrap();
+        let hist = Histogram::new().data(&[1.0, 2.0, 3.0]).normalize(true).build().unwrap();
 
         assert!(hist.normalize);
     }
@@ -366,11 +341,7 @@ mod tests {
     #[test]
     fn test_histogram_std_small() {
         // Test std_dev with 1 element
-        let hist = Histogram::new()
-            .data(&[5.0])
-            .bins(BinStrategy::Scott)
-            .build()
-            .unwrap();
+        let hist = Histogram::new().data(&[5.0]).bins(BinStrategy::Scott).build().unwrap();
 
         assert!(hist.bin_count() >= 1);
     }

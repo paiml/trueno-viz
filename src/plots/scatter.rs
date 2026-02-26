@@ -201,10 +201,7 @@ mod tests {
 
     #[test]
     fn test_scatter_plot_length_mismatch() {
-        let result = ScatterPlot::new()
-            .x(&[1.0, 2.0, 3.0])
-            .y(&[4.0, 5.0])
-            .build();
+        let result = ScatterPlot::new().x(&[1.0, 2.0, 3.0]).y(&[4.0, 5.0]).build();
         assert!(result.is_err());
     }
 
@@ -229,12 +226,8 @@ mod tests {
 
     #[test]
     fn test_scatter_plot_alpha() {
-        let plot = ScatterPlot::new()
-            .x(&[1.0, 2.0, 3.0])
-            .y(&[4.0, 5.0, 6.0])
-            .alpha(0.5)
-            .build()
-            .unwrap();
+        let plot =
+            ScatterPlot::new().x(&[1.0, 2.0, 3.0]).y(&[4.0, 5.0, 6.0]).alpha(0.5).build().unwrap();
 
         let fb = plot.to_framebuffer();
         assert!(fb.is_ok());

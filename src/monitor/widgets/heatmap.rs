@@ -20,19 +20,13 @@ impl HeatmapCell {
     /// Creates a new cell with the given value.
     #[must_use]
     pub fn new(value: f64) -> Self {
-        Self {
-            value: value.clamp(0.0, 1.0),
-            label: None,
-        }
+        Self { value: value.clamp(0.0, 1.0), label: None }
     }
 
     /// Creates a cell with a label.
     #[must_use]
     pub fn with_label(value: f64, label: impl Into<String>) -> Self {
-        Self {
-            value: value.clamp(0.0, 1.0),
-            label: Some(label.into()),
-        }
+        Self { value: value.clamp(0.0, 1.0), label: Some(label.into()) }
     }
 }
 
@@ -49,13 +43,7 @@ impl HeatmapPalette {
     pub fn new(colors: Vec<Color>) -> Self {
         Self {
             colors: if colors.is_empty() {
-                vec![
-                    Color::Blue,
-                    Color::Cyan,
-                    Color::Green,
-                    Color::Yellow,
-                    Color::Red,
-                ]
+                vec![Color::Blue, Color::Cyan, Color::Green, Color::Yellow, Color::Red]
             } else {
                 colors
             },
@@ -65,13 +53,7 @@ impl HeatmapPalette {
     /// Returns a cool-to-warm palette.
     #[must_use]
     pub fn cool_warm() -> Self {
-        Self::new(vec![
-            Color::Blue,
-            Color::Cyan,
-            Color::Green,
-            Color::Yellow,
-            Color::Red,
-        ])
+        Self::new(vec![Color::Blue, Color::Cyan, Color::Green, Color::Yellow, Color::Red])
     }
 
     /// Returns a grayscale palette.
@@ -165,10 +147,8 @@ impl Heatmap {
     /// Creates a heatmap from a 2D array of values.
     #[must_use]
     pub fn from_values(values: &[&[f64]]) -> Self {
-        let cells = values
-            .iter()
-            .map(|row| row.iter().map(|&v| HeatmapCell::new(v)).collect())
-            .collect();
+        let cells =
+            values.iter().map(|row| row.iter().map(|&v| HeatmapCell::new(v)).collect()).collect();
 
         Self::new(cells)
     }
@@ -245,11 +225,7 @@ impl Heatmap {
                 let label_y = y + self.cell_height / 2;
 
                 // Use contrasting color for text
-                let text_color = if cell.value > 0.5 {
-                    Color::Black
-                } else {
-                    Color::White
-                };
+                let text_color = if cell.value > 0.5 { Color::Black } else { Color::White };
 
                 buf.set_string(label_x, label_y, &label, Style::default().fg(text_color));
             }
@@ -500,14 +476,8 @@ mod tests {
         terminal
             .draw(|frame| {
                 let cells = vec![
-                    vec![
-                        HeatmapCell::with_label(0.1, "Low"),
-                        HeatmapCell::with_label(0.9, "High"),
-                    ],
-                    vec![
-                        HeatmapCell::with_label(0.5, "Mid"),
-                        HeatmapCell::with_label(0.3, "Med"),
-                    ],
+                    vec![HeatmapCell::with_label(0.1, "Low"), HeatmapCell::with_label(0.9, "High")],
+                    vec![HeatmapCell::with_label(0.5, "Mid"), HeatmapCell::with_label(0.3, "Med")],
                 ];
                 let heatmap = Heatmap::new(cells).show_labels(true).cell_size(12, 4);
                 frame.render_widget(heatmap, frame.area());

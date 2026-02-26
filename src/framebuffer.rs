@@ -66,12 +66,7 @@ impl Framebuffer {
         let mut pixels = Vec::with_capacity(size + SIMD_ALIGNMENT);
         pixels.resize(size, 0);
 
-        Ok(Self {
-            width,
-            height,
-            pixels,
-            stride,
-        })
+        Ok(Self { width, height, pixels, stride })
     }
 
     /// Get the width in pixels.
@@ -273,10 +268,7 @@ impl Framebuffer {
     /// Returns an error if the framebuffers have different dimensions.
     pub fn blend_over(&mut self, other: &Framebuffer, alpha: f32) -> Result<()> {
         if self.width != other.width || self.height != other.height {
-            return Err(Error::InvalidDimensions {
-                width: other.width,
-                height: other.height,
-            });
+            return Err(Error::InvalidDimensions { width: other.width, height: other.height });
         }
 
         let alpha = alpha.clamp(0.0, 1.0);

@@ -122,9 +122,9 @@ impl MonitorTable {
 
             // Try numeric comparison first
             let cmp = match (a_val.parse::<f64>(), b_val.parse::<f64>()) {
-                (Ok(a_num), Ok(b_num)) => a_num
-                    .partial_cmp(&b_num)
-                    .unwrap_or(std::cmp::Ordering::Equal),
+                (Ok(a_num), Ok(b_num)) => {
+                    a_num.partial_cmp(&b_num).unwrap_or(std::cmp::Ordering::Equal)
+                }
                 _ => a_val.cmp(b_val),
             };
 
@@ -180,9 +180,7 @@ impl Widget for MonitorTable {
             let col_width = area.width / self.headers.len().max(1) as u16;
 
             for (i, header) in self.headers.iter().enumerate() {
-                let style = Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD);
+                let style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
 
                 // Show sort indicator
                 let text = if self.sort_column == Some(i) {
@@ -215,9 +213,7 @@ impl Widget for MonitorTable {
             let is_selected = self.selected == Some(row_idx);
 
             let style = if is_selected {
-                Style::default()
-                    .bg(Color::DarkGray)
-                    .add_modifier(Modifier::BOLD)
+                Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };

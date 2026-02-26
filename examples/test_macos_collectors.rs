@@ -59,12 +59,7 @@ fn main() {
     if disk.collect().is_ok() {
         println!("  Mounts found: {}", disk.mounts().len());
         for m in disk.mounts().iter().take(3) {
-            println!(
-                "    {} -> {} ({:.1}%)",
-                m.device,
-                m.mount_point,
-                m.usage_percent()
-            );
+            println!("    {} -> {} ({:.1}%)", m.device, m.mount_point, m.usage_percent());
         }
     }
 

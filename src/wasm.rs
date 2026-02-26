@@ -181,9 +181,7 @@ pub fn scatter_plot(
         .build()
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let fb = plot
-        .to_framebuffer()
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let fb = plot.to_framebuffer().map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     PngEncoder::to_bytes(&fb).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -205,19 +203,12 @@ pub fn line_chart(x: &[f32], y: &[f32], options: Option<PlotOptions>) -> Result<
     let color = parse_hex_color(&opts.color);
 
     let plot = LineChart::new()
-        .add_series(
-            LineSeries::new("data")
-                .data(x, y)
-                .color(color)
-                .thickness(opts.line_width),
-        )
+        .add_series(LineSeries::new("data").data(x, y).color(color).thickness(opts.line_width))
         .dimensions(opts.width, opts.height)
         .build()
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let fb = plot
-        .to_framebuffer()
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let fb = plot.to_framebuffer().map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     PngEncoder::to_bytes(&fb).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -251,9 +242,7 @@ pub fn histogram(
         .build()
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let fb = plot
-        .to_framebuffer()
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let fb = plot.to_framebuffer().map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     PngEncoder::to_bytes(&fb).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -285,9 +274,7 @@ pub fn heatmap(
         .build()
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let fb = plot
-        .to_framebuffer()
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let fb = plot.to_framebuffer().map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     PngEncoder::to_bytes(&fb).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -365,9 +352,7 @@ pub fn ggplot(
         .build()
         .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-    let fb = plot
-        .to_framebuffer()
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let fb = plot.to_framebuffer().map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     PngEncoder::to_bytes(&fb).map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -411,11 +396,7 @@ mod tests {
 
     #[test]
     fn test_plot_options_builder() {
-        let opts = PlotOptions::new()
-            .width(1024)
-            .height(768)
-            .color("#FF5500")
-            .point_size(10.0);
+        let opts = PlotOptions::new().width(1024).height(768).color("#FF5500").point_size(10.0);
 
         assert_eq!(opts.width, 1024);
         assert_eq!(opts.height, 768);

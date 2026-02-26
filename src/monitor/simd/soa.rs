@@ -114,18 +114,13 @@ impl CpuMetricsSoA {
         use super::kernels::{simd_delta, simd_percentage};
 
         // Calculate deltas for total and idle
-        let total_delta = simd_delta(
-            &self.total[..self.core_count],
-            &prev.total[..prev.core_count],
-        );
+        let total_delta =
+            simd_delta(&self.total[..self.core_count], &prev.total[..prev.core_count]);
         let idle_delta = simd_delta(&self.idle[..self.core_count], &prev.idle[..prev.core_count]);
 
         // Calculate used = total - idle
-        let used_delta: Vec<u64> = total_delta
-            .iter()
-            .zip(idle_delta.iter())
-            .map(|(&t, &i)| t.saturating_sub(i))
-            .collect();
+        let used_delta: Vec<u64> =
+            total_delta.iter().zip(idle_delta.iter()).map(|(&t, &i)| t.saturating_sub(i)).collect();
 
         // Calculate percentage
         let percentages = simd_percentage(&used_delta, &total_delta);
@@ -352,10 +347,8 @@ impl NetworkMetricsSoA {
     #[must_use]
     pub fn total_rx_bytes(&self) -> u64 {
         use super::kernels::simd_sum;
-        let values: Vec<f64> = self.rx_bytes[..self.interface_count]
-            .iter()
-            .map(|&v| v as f64)
-            .collect();
+        let values: Vec<f64> =
+            self.rx_bytes[..self.interface_count].iter().map(|&v| v as f64).collect();
         simd_sum(&values) as u64
     }
 
@@ -363,10 +356,8 @@ impl NetworkMetricsSoA {
     #[must_use]
     pub fn total_tx_bytes(&self) -> u64 {
         use super::kernels::simd_sum;
-        let values: Vec<f64> = self.tx_bytes[..self.interface_count]
-            .iter()
-            .map(|&v| v as f64)
-            .collect();
+        let values: Vec<f64> =
+            self.tx_bytes[..self.interface_count].iter().map(|&v| v as f64).collect();
         simd_sum(&values) as u64
     }
 }
@@ -475,10 +466,8 @@ impl DiskMetricsSoA {
     #[must_use]
     pub fn total_bytes_written(&self) -> u64 {
         use super::kernels::simd_sum;
-        let values: Vec<f64> = self.sectors_written[..self.disk_count]
-            .iter()
-            .map(|&v| (v * 512) as f64)
-            .collect();
+        let values: Vec<f64> =
+            self.sectors_written[..self.disk_count].iter().map(|&v| (v * 512) as f64).collect();
         simd_sum(&values) as u64
     }
 }
@@ -614,10 +603,7 @@ impl SensorMetricsSoA {
     /// Creates new sensor metrics.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            temps: Vec::with_capacity(32),
-            fan_speeds: Vec::with_capacity(8),
-        }
+        Self { temps: Vec::with_capacity(32), fan_speeds: Vec::with_capacity(8) }
     }
 
     /// Adds a temperature reading.
@@ -628,12 +614,7 @@ impl SensorMetricsSoA {
         high: Option<f64>,
         critical: Option<f64>,
     ) {
-        self.temps.push(TempReading {
-            label: label.to_string(),
-            current,
-            high,
-            critical,
-        });
+        self.temps.push(TempReading { label: label.to_string(), current, high, critical });
     }
 
     /// Adds a fan speed reading.
@@ -654,10 +635,7 @@ impl SensorMetricsSoA {
     /// Returns maximum temperature.
     #[must_use]
     pub fn max_temp(&self) -> f64 {
-        self.temps
-            .iter()
-            .map(|t| t.current)
-            .fold(f64::MIN, f64::max)
+        self.temps.iter().map(|t| t.current).fold(f64::MIN, f64::max)
     }
 
     /// Clears all readings.

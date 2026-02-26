@@ -41,10 +41,7 @@ fn claim_26_wgpu_detects_all_gpus() {
     let adapters = monitor.adapters();
 
     // Must detect at least one GPU on any modern system
-    assert!(
-        !adapters.is_empty(),
-        "FALSIFIED Claim 26: No GPUs detected by WGPU"
-    );
+    assert!(!adapters.is_empty(), "FALSIFIED Claim 26: No GPUs detected by WGPU");
 
     println!("Detected {} GPU adapter(s):", adapters.len());
     for adapter in adapters {
@@ -61,17 +58,10 @@ fn claim_27_dual_amd_w5700x_enumerated() {
     let monitor = WgpuMonitor::new();
 
     if monitor.has_dual_amd() {
-        let amd_count = monitor
-            .adapters()
-            .iter()
-            .filter(|a| a.name.contains("AMD") && a.is_discrete())
-            .count();
+        let amd_count =
+            monitor.adapters().iter().filter(|a| a.name.contains("AMD") && a.is_discrete()).count();
 
-        assert_eq!(
-            amd_count, 2,
-            "FALSIFIED Claim 27: Expected 2 AMD GPUs, found {}",
-            amd_count
-        );
+        assert_eq!(amd_count, 2, "FALSIFIED Claim 27: Expected 2 AMD GPUs, found {}", amd_count);
     } else {
         println!("Skipping Claim 27: No dual AMD configuration detected");
     }
@@ -87,14 +77,8 @@ fn claim_28_gpu_names_accurate() {
 
     for adapter in monitor.adapters() {
         // Name should not be empty or generic
-        assert!(
-            !adapter.name.is_empty(),
-            "FALSIFIED Claim 28: GPU name is empty"
-        );
-        assert!(
-            !adapter.name.contains("Unknown"),
-            "FALSIFIED Claim 28: GPU name is 'Unknown'"
-        );
+        assert!(!adapter.name.is_empty(), "FALSIFIED Claim 28: GPU name is empty");
+        assert!(!adapter.name.contains("Unknown"), "FALSIFIED Claim 28: GPU name is 'Unknown'");
 
         println!("GPU name: {}", adapter.name);
     }
@@ -281,11 +265,7 @@ fn claim_37_buffer_allocation_tracking() {
     let tracked = monitor.buffer_allocated_bytes(0);
 
     let error = (tracked as i64 - test_size as i64).unsigned_abs();
-    assert!(
-        error <= 1024,
-        "FALSIFIED Claim 37: Buffer tracking error {} > 1KB",
-        error
-    );
+    assert!(error <= 1024, "FALSIFIED Claim 37: Buffer tracking error {} > 1KB", error);
 }
 
 /// Claim 38: Compute dispatch counting accurate
@@ -303,11 +283,7 @@ fn claim_38_compute_dispatch_counting() {
 
     let final_count = monitor.compute_dispatches(0);
 
-    assert_eq!(
-        final_count,
-        initial + 2,
-        "FALSIFIED Claim 38: Dispatch count mismatch"
-    );
+    assert_eq!(final_count, initial + 2, "FALSIFIED Claim 38: Dispatch count mismatch");
 }
 
 /// Claim 39: Per-GPU workload isolation
@@ -326,10 +302,7 @@ fn claim_39_per_gpu_isolation() {
     // GPU 1 should be unaffected
     let gpu1_dispatches = monitor.compute_dispatches(1);
 
-    assert_eq!(
-        gpu1_dispatches, 0,
-        "FALSIFIED Claim 39: GPU 1 affected by GPU 0 operations"
-    );
+    assert_eq!(gpu1_dispatches, 0, "FALSIFIED Claim 39: GPU 1 affected by GPU 0 operations");
 }
 
 /// Claim 40: WGPU collector is 100% safe Rust
@@ -392,10 +365,7 @@ fn claim_43_error_handling() {
 
     // Request invalid GPU index - should not crash
     let result = monitor.adapter_info(999);
-    assert!(
-        result.is_none(),
-        "FALSIFIED Claim 43: Invalid index should return None"
-    );
+    assert!(result.is_none(), "FALSIFIED Claim 43: Invalid index should return None");
 
     // Request metrics for non-existent GPU - should not crash
     let dispatches = monitor.compute_dispatches(999);
@@ -413,10 +383,7 @@ fn claim_44_memory_limits() {
     // Should be able to query limits without crashing
     if let Some(adapter) = monitor.primary_adapter() {
         let limits = monitor.adapter_limits(0);
-        assert!(
-            limits.max_buffer_size > 0,
-            "FALSIFIED Claim 44: Invalid memory limits"
-        );
+        assert!(limits.max_buffer_size > 0, "FALSIFIED Claim 44: Invalid memory limits");
         println!("Max buffer size: {} bytes", limits.max_buffer_size);
     }
 }
@@ -552,11 +519,7 @@ fn claim_50_update_rate() {
     }
 
     // At 10Hz minimum, we should get at least 2 updates in 200ms
-    assert!(
-        updates >= 2,
-        "FALSIFIED Claim 50: Only {} updates in 200ms (need 10Hz)",
-        updates
-    );
+    assert!(updates >= 2, "FALSIFIED Claim 50: Only {} updates in 200ms (need 10Hz)", updates);
 
     let hz = updates as f64 / 0.2;
     println!("Update rate: {:.1} Hz", hz);

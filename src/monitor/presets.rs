@@ -21,18 +21,9 @@ use ratatui::layout::Constraint;
 pub fn preset_default() -> Preset {
     Preset {
         rows: vec![
-            LayoutRow {
-                panels: vec!["cpu".to_string()],
-                height: Constraint::Percentage(30),
-            },
-            LayoutRow {
-                panels: vec!["memory".to_string()],
-                height: Constraint::Percentage(25),
-            },
-            LayoutRow {
-                panels: vec!["process".to_string()],
-                height: Constraint::Percentage(45),
-            },
+            LayoutRow { panels: vec!["cpu".to_string()], height: Constraint::Percentage(30) },
+            LayoutRow { panels: vec!["memory".to_string()], height: Constraint::Percentage(25) },
+            LayoutRow { panels: vec!["process".to_string()], height: Constraint::Percentage(45) },
         ],
     }
 }
@@ -61,10 +52,7 @@ pub fn preset_full_system() -> Preset {
                 panels: vec!["memory".to_string(), "network".to_string()],
                 height: Constraint::Percentage(20),
             },
-            LayoutRow {
-                panels: vec!["process".to_string()],
-                height: Constraint::Percentage(55),
-            },
+            LayoutRow { panels: vec!["process".to_string()], height: Constraint::Percentage(55) },
         ],
     }
 }
@@ -93,10 +81,7 @@ pub fn preset_ml() -> Preset {
                 panels: vec!["gpu".to_string(), "zram".to_string()],
                 height: Constraint::Percentage(30),
             },
-            LayoutRow {
-                panels: vec!["repartir".to_string()],
-                height: Constraint::Percentage(30),
-            },
+            LayoutRow { panels: vec!["repartir".to_string()], height: Constraint::Percentage(30) },
         ],
     }
 }
@@ -117,18 +102,9 @@ pub fn preset_ml() -> Preset {
 pub fn preset_network() -> Preset {
     Preset {
         rows: vec![
-            LayoutRow {
-                panels: vec!["network".to_string()],
-                height: Constraint::Percentage(40),
-            },
-            LayoutRow {
-                panels: vec!["disk".to_string()],
-                height: Constraint::Percentage(30),
-            },
-            LayoutRow {
-                panels: vec!["process".to_string()],
-                height: Constraint::Percentage(30),
-            },
+            LayoutRow { panels: vec!["network".to_string()], height: Constraint::Percentage(40) },
+            LayoutRow { panels: vec!["disk".to_string()], height: Constraint::Percentage(30) },
+            LayoutRow { panels: vec!["process".to_string()], height: Constraint::Percentage(30) },
         ],
     }
 }
@@ -151,10 +127,7 @@ pub fn preset_process() -> Preset {
                 panels: vec!["cpu".to_string(), "memory".to_string()],
                 height: Constraint::Percentage(20),
             },
-            LayoutRow {
-                panels: vec!["process".to_string()],
-                height: Constraint::Percentage(80),
-            },
+            LayoutRow { panels: vec!["process".to_string()], height: Constraint::Percentage(80) },
         ],
     }
 }
@@ -175,18 +148,12 @@ pub fn preset_process() -> Preset {
 pub fn preset_gpu() -> Preset {
     Preset {
         rows: vec![
-            LayoutRow {
-                panels: vec!["gpu".to_string()],
-                height: Constraint::Percentage(50),
-            },
+            LayoutRow { panels: vec!["gpu".to_string()], height: Constraint::Percentage(50) },
             LayoutRow {
                 panels: vec!["cpu".to_string(), "memory".to_string()],
                 height: Constraint::Percentage(25),
             },
-            LayoutRow {
-                panels: vec!["process".to_string()],
-                height: Constraint::Percentage(25),
-            },
+            LayoutRow { panels: vec!["process".to_string()], height: Constraint::Percentage(25) },
         ],
     }
 }
@@ -215,10 +182,7 @@ pub fn preset_sensors() -> Preset {
                 panels: vec!["memory".to_string(), "battery".to_string()],
                 height: Constraint::Percentage(20),
             },
-            LayoutRow {
-                panels: vec!["process".to_string()],
-                height: Constraint::Percentage(50),
-            },
+            LayoutRow { panels: vec!["process".to_string()], height: Constraint::Percentage(50) },
         ],
     }
 }
@@ -247,10 +211,7 @@ pub fn preset_compact() -> Preset {
                 panels: vec!["network".to_string(), "disk".to_string()],
                 height: Constraint::Percentage(40),
             },
-            LayoutRow {
-                panels: vec!["process".to_string()],
-                height: Constraint::Percentage(20),
-            },
+            LayoutRow { panels: vec!["process".to_string()], height: Constraint::Percentage(20) },
         ],
     }
 }
@@ -337,17 +298,18 @@ mod tests {
     #[test]
     fn test_presets_have_valid_constraints() {
         for preset in all_presets() {
-            let total: u16 = preset
-                .rows
-                .iter()
-                .filter_map(|r| {
-                    if let Constraint::Percentage(p) = r.height {
-                        Some(p)
-                    } else {
-                        None
-                    }
-                })
-                .sum();
+            let total: u16 =
+                preset
+                    .rows
+                    .iter()
+                    .filter_map(|r| {
+                        if let Constraint::Percentage(p) = r.height {
+                            Some(p)
+                        } else {
+                            None
+                        }
+                    })
+                    .sum();
 
             assert_eq!(total, 100, "Preset rows should sum to 100%");
         }

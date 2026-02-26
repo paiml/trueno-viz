@@ -15,9 +15,7 @@ impl NetworkPanel {
     /// Creates a new network panel.
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            collector: NetworkCollector::new(),
-        }
+        Self { collector: NetworkCollector::new() }
     }
 }
 

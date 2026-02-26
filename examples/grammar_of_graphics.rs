@@ -24,11 +24,7 @@ fn main() {
             &[2.0, 4.0, 3.0, 5.0, 7.0, 6.0, 8.0, 9.0],
         )
         .geom(Geom::point())
-        .aes(
-            Aes::new()
-                .color_value(Rgba::new(66, 133, 244, 255))
-                .size_value(10.0),
-        )
+        .aes(Aes::new().color_value(Rgba::new(66, 133, 244, 255)).size_value(10.0))
         .theme(Theme::minimal())
         .dimensions(500, 400)
         .build()
@@ -87,11 +83,7 @@ fn main() {
 
     let plot = GGPlot::new()
         .data_xy(&x, &y)
-        .geom(
-            Geom::area()
-                .alpha(0.4)
-                .aes(Aes::new().color_value(Rgba::new(156, 39, 176, 255))),
-        )
+        .geom(Geom::area().alpha(0.4).aes(Aes::new().color_value(Rgba::new(156, 39, 176, 255))))
         .coord(Coord::cartesian().ylim(0.0, 60.0))
         .theme(Theme::minimal())
         .dimensions(500, 400)
@@ -123,11 +115,8 @@ fn main() {
                 .aes(Aes::new().y("y1").color_value(Rgba::new(0, 255, 255, 255))),
         )
         .layer(
-            Layer::new(Geom::line()).aes(
-                Aes::new()
-                    .y("y2")
-                    .color_value(Rgba::new(255, 105, 180, 255)),
-            ),
+            Layer::new(Geom::line())
+                .aes(Aes::new().y("y2").color_value(Rgba::new(255, 105, 180, 255))),
         )
         .theme(Theme::dark())
         .dimensions(600, 400)
@@ -143,10 +132,7 @@ fn main() {
     println!("--------------------------");
 
     let x: Vec<f32> = (0..15).map(|i| i as f32).collect();
-    let y: Vec<f32> = x
-        .iter()
-        .map(|&v| v * 2.0 + 5.0 + (v * 0.5).sin() * 3.0)
-        .collect();
+    let y: Vec<f32> = x.iter().map(|&v| v * 2.0 + 5.0 + (v * 0.5).sin() * 3.0).collect();
 
     let plot = GGPlot::new()
         .data_xy(&x, &y)

@@ -91,11 +91,7 @@ pub fn simd_pearson_correlation(x: &[f64], y: &[f64]) -> CorrelationResult {
     let n = x.len().min(y.len());
 
     if n < 2 {
-        return CorrelationResult {
-            coefficient: 0.0,
-            sample_count: n,
-            p_value: None,
-        };
+        return CorrelationResult { coefficient: 0.0, sample_count: n, p_value: None };
     }
 
     // Use SIMD for mean calculation
@@ -136,11 +132,7 @@ pub fn simd_pearson_correlation(x: &[f64], y: &[f64]) -> CorrelationResult {
 
     // Compute correlation coefficient
     let denominator = (sum_xx * sum_yy).sqrt();
-    let coefficient = if denominator > 1e-10 {
-        sum_xy / denominator
-    } else {
-        0.0
-    };
+    let coefficient = if denominator > 1e-10 { sum_xy / denominator } else { 0.0 };
 
     // Estimate p-value using t-distribution approximation
     let p_value = if n > 4 {
@@ -152,11 +144,7 @@ pub fn simd_pearson_correlation(x: &[f64], y: &[f64]) -> CorrelationResult {
         None
     };
 
-    CorrelationResult {
-        coefficient,
-        sample_count: n,
-        p_value,
-    }
+    CorrelationResult { coefficient, sample_count: n, p_value }
 }
 
 /// Computes cross-correlation to find optimal lag between two series.
@@ -270,11 +258,7 @@ pub fn top_correlations(
         .take(top_n)
         .map(|(i, j, corr)| {
             let sign = if matrix[i][j] >= 0.0 { corr } else { -corr };
-            (
-                metric_names[i].to_string(),
-                metric_names[j].to_string(),
-                sign,
-            )
+            (metric_names[i].to_string(), metric_names[j].to_string(), sign)
         })
         .collect()
 }
@@ -312,17 +296,12 @@ impl CorrelationTracker {
     /// Creates a new correlation tracker.
     #[must_use]
     pub fn new(window_size: usize) -> Self {
-        Self {
-            pairs: Vec::new(),
-            history: Vec::new(),
-            window_size: window_size.max(10),
-        }
+        Self { pairs: Vec::new(), history: Vec::new(), window_size: window_size.max(10) }
     }
 
     /// Adds a metric pair to track.
     pub fn add_pair(&mut self, metric_a: &str, metric_b: &str) {
-        self.pairs
-            .push((metric_a.to_string(), metric_b.to_string()));
+        self.pairs.push((metric_a.to_string(), metric_b.to_string()));
         self.history.push(Vec::with_capacity(self.window_size));
     }
 
@@ -426,19 +405,12 @@ mod tests {
 
     #[test]
     fn test_correlation_strength() {
-        let strong = CorrelationResult {
-            coefficient: 0.85,
-            sample_count: 100,
-            p_value: Some(0.001),
-        };
+        let strong =
+            CorrelationResult { coefficient: 0.85, sample_count: 100, p_value: Some(0.001) };
         assert_eq!(strong.strength(), CorrelationStrength::Strong);
         assert!(strong.is_significant());
 
-        let weak = CorrelationResult {
-            coefficient: 0.35,
-            sample_count: 100,
-            p_value: Some(0.1),
-        };
+        let weak = CorrelationResult { coefficient: 0.35, sample_count: 100, p_value: Some(0.1) };
         assert_eq!(weak.strength(), CorrelationStrength::Weak);
         assert!(!weak.is_significant());
     }
@@ -488,11 +460,7 @@ mod tests {
 
     #[test]
     fn test_top_correlations() {
-        let matrix = vec![
-            vec![1.0, 0.9, 0.3],
-            vec![0.9, 1.0, -0.8],
-            vec![0.3, -0.8, 1.0],
-        ];
+        let matrix = vec![vec![1.0, 0.9, 0.3], vec![0.9, 1.0, -0.8], vec![0.3, -0.8, 1.0]];
         let names = vec!["cpu", "memory", "disk"];
 
         let top = top_correlations(&matrix, &names, 2);
@@ -523,9 +491,7 @@ mod tests {
         // Generate two large correlated series
         let n = 10000;
         let x: Vec<f64> = (0..n).map(|i| i as f64 + (i as f64 * 0.01).sin()).collect();
-        let y: Vec<f64> = (0..n)
-            .map(|i| i as f64 * 1.1 + (i as f64 * 0.01).cos())
-            .collect();
+        let y: Vec<f64> = (0..n).map(|i| i as f64 * 1.1 + (i as f64 * 0.01).cos()).collect();
 
         let start = std::time::Instant::now();
         let result = simd_pearson_correlation(&x, &y);
@@ -539,9 +505,8 @@ mod tests {
     #[test]
     fn test_correlation_matrix_performance() {
         // 20 metrics, each with 1000 samples
-        let metrics: Vec<Vec<f64>> = (0..20)
-            .map(|m| (0..1000).map(|i| (i + m * 10) as f64).collect())
-            .collect();
+        let metrics: Vec<Vec<f64>> =
+            (0..20).map(|m| (0..1000).map(|i| (i + m * 10) as f64).collect()).collect();
         let metric_refs: Vec<&[f64]> = metrics.iter().map(|m| m.as_slice()).collect();
 
         let start = std::time::Instant::now();

@@ -69,10 +69,7 @@ impl Sparkline {
     /// Create a new sparkline with the given data.
     #[must_use]
     pub fn new(data: &[f64]) -> Self {
-        Self {
-            data: data.to_vec(),
-            ..Self::default()
-        }
+        Self { data: data.to_vec(), ..Self::default() }
     }
 
     /// Set the sparkline dimensions.
@@ -180,10 +177,8 @@ impl Sparkline {
         let (min, max) = self.data_extent();
 
         // Create scales for x and y
-        let x_scale = LinearScale::new(
-            (0.0, (self.data.len() - 1) as f32),
-            (1.0, (self.width - 2) as f32),
-        )?;
+        let x_scale =
+            LinearScale::new((0.0, (self.data.len() - 1) as f32), (1.0, (self.width - 2) as f32))?;
         let y_scale = LinearScale::new((min as f32, max as f32), ((self.height - 2) as f32, 1.0))?;
 
         // Draw the line segments
@@ -240,9 +235,8 @@ mod tests {
 
     #[test]
     fn test_sparkline_render() {
-        let sparkline = Sparkline::new(&[0.9, 0.7, 0.5, 0.3, 0.2])
-            .dimensions(100, 20)
-            .color(Rgba::BLUE);
+        let sparkline =
+            Sparkline::new(&[0.9, 0.7, 0.5, 0.3, 0.2]).dimensions(100, 20).color(Rgba::BLUE);
 
         let fb = sparkline.to_framebuffer();
         assert!(fb.is_ok());
@@ -322,11 +316,7 @@ mod tests {
 
     #[test]
     fn test_trend_direction_debug() {
-        let dirs = [
-            TrendDirection::Rising,
-            TrendDirection::Falling,
-            TrendDirection::Stable,
-        ];
+        let dirs = [TrendDirection::Rising, TrendDirection::Falling, TrendDirection::Stable];
         for dir in dirs {
             let debug = format!("{:?}", dir);
             assert!(!debug.is_empty());

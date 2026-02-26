@@ -27,10 +27,7 @@ fn main() {
 
     let fb = plot.to_framebuffer().expect("Failed to render");
 
-    let encoder = TerminalEncoder::new()
-        .mode(TerminalMode::Ascii)
-        .width(60)
-        .invert(true);
+    let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(60).invert(true);
 
     print!("{}", encoder.render(&fb));
 }

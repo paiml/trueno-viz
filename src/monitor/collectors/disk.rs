@@ -167,11 +167,7 @@ impl DiskCollector {
             // Skip partitions (only collect whole disks and nvme namespaces)
             // Disks: sda, nvme0n1, vda, etc.
             // Partitions: sda1, nvme0n1p1, vda1, etc.
-            let is_partition = name
-                .chars()
-                .last()
-                .map(|c| c.is_ascii_digit())
-                .unwrap_or(false)
+            let is_partition = name.chars().last().map(|c| c.is_ascii_digit()).unwrap_or(false)
                 && !name.contains("nvme")
                 || (name.contains("nvme") && name.contains('p'));
 
@@ -394,11 +390,8 @@ impl DiskCollector {
             let avail_kb: u64 = parts[3].parse().unwrap_or(0);
 
             // Determine filesystem type (macOS typically uses APFS)
-            let fs_type = if device.contains("disk") {
-                "apfs".to_string()
-            } else {
-                "unknown".to_string()
-            };
+            let fs_type =
+                if device.contains("disk") { "apfs".to_string() } else { "unknown".to_string() };
 
             mounts.push(MountInfo {
                 device: device.to_string(),
@@ -447,10 +440,7 @@ impl DiskCollector {
             return None;
         }
 
-        let values: Vec<u64> = lines[1]
-            .split_whitespace()
-            .filter_map(|s| s.parse().ok())
-            .collect();
+        let values: Vec<u64> = lines[1].split_whitespace().filter_map(|s| s.parse().ok()).collect();
 
         if values.len() < 3 {
             return None;
@@ -582,10 +572,8 @@ impl Collector for DiskCollector {
 
                 // Normalize to 0-1 range (assuming 1 GB/s max for visualization)
                 let max_throughput = 1_000_000_000.0_f64;
-                self.read_history
-                    .push((total_read / max_throughput).min(1.0));
-                self.write_history
-                    .push((total_write / max_throughput).min(1.0));
+                self.read_history.push((total_read / max_throughput).min(1.0));
+                self.write_history.push((total_write / max_throughput).min(1.0));
             }
         }
 
@@ -614,10 +602,7 @@ impl Collector for DiskCollector {
         metrics.insert("disk.write_iops", MetricValue::Gauge(total_write_iops));
 
         // Mount count
-        metrics.insert(
-            "disk.mount_count",
-            MetricValue::Counter(self.mounts.len() as u64),
-        );
+        metrics.insert("disk.mount_count", MetricValue::Counter(self.mounts.len() as u64));
 
         Ok(metrics)
     }

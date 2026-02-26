@@ -84,25 +84,13 @@ pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color
 pub fn draw_line_aa(fb: &mut Framebuffer, x0: f32, y0: f32, x1: f32, y1: f32, color: Rgba) {
     let steep = (y1 - y0).abs() > (x1 - x0).abs();
 
-    let (x0, y0, x1, y1) = if steep {
-        (y0, x0, y1, x1)
-    } else {
-        (x0, y0, x1, y1)
-    };
+    let (x0, y0, x1, y1) = if steep { (y0, x0, y1, x1) } else { (x0, y0, x1, y1) };
 
-    let (x0, y0, x1, y1) = if x0 > x1 {
-        (x1, y1, x0, y0)
-    } else {
-        (x0, y0, x1, y1)
-    };
+    let (x0, y0, x1, y1) = if x0 > x1 { (x1, y1, x0, y0) } else { (x0, y0, x1, y1) };
 
     let dx = x1 - x0;
     let dy = y1 - y0;
-    let gradient = if dx.abs() < f32::EPSILON {
-        1.0
-    } else {
-        dy / dx
-    };
+    let gradient = if dx.abs() < f32::EPSILON { 1.0 } else { dy / dx };
 
     // Handle first endpoint
     let xend = x0.round();
@@ -189,14 +177,7 @@ impl Drawable for Line {
     }
 
     fn draw_aa(&self, fb: &mut Framebuffer, color: Rgba) {
-        draw_line_aa(
-            fb,
-            self.start.x,
-            self.start.y,
-            self.end.x,
-            self.end.y,
-            color,
-        );
+        draw_line_aa(fb, self.start.x, self.start.y, self.end.x, self.end.y, color);
     }
 }
 
@@ -249,14 +230,7 @@ pub fn draw_rect_outline(
 
 impl Drawable for Rect {
     fn draw(&self, fb: &mut Framebuffer, color: Rgba) {
-        draw_rect(
-            fb,
-            self.x as i32,
-            self.y as i32,
-            self.width as u32,
-            self.height as u32,
-            color,
-        );
+        draw_rect(fb, self.x as i32, self.y as i32, self.width as u32, self.height as u32, color);
     }
 }
 

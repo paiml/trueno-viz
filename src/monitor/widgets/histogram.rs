@@ -184,12 +184,7 @@ impl Histogram {
 
     /// Compute standard deviation.
     fn std_dev(&self) -> f64 {
-        let finite_data: Vec<f64> = self
-            .data
-            .iter()
-            .filter(|x| x.is_finite())
-            .copied()
-            .collect();
+        let finite_data: Vec<f64> = self.data.iter().filter(|x| x.is_finite()).copied().collect();
         let n = finite_data.len();
         if n < 2 {
             return 0.0;
@@ -203,12 +198,7 @@ impl Histogram {
 
     /// Compute interquartile range.
     fn iqr(&self) -> f64 {
-        let mut sorted: Vec<f64> = self
-            .data
-            .iter()
-            .filter(|x| x.is_finite())
-            .copied()
-            .collect();
+        let mut sorted: Vec<f64> = self.data.iter().filter(|x| x.is_finite()).copied().collect();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         if sorted.len() < 4 {
@@ -304,13 +294,7 @@ impl Histogram {
             return;
         }
 
-        let max_count = self
-            .computed_bins
-            .iter()
-            .map(|b| b.count)
-            .max()
-            .unwrap_or(1)
-            .max(1);
+        let max_count = self.computed_bins.iter().map(|b| b.count).max().unwrap_or(1).max(1);
         let n_bins = self.computed_bins.len();
 
         // Calculate layout
@@ -334,8 +318,7 @@ impl Histogram {
             let max_label = format!("{:>4}", max_count);
             for (i, ch) in max_label.chars().enumerate() {
                 if let Some(cell) = buf.cell_mut((area.x + i as u16, plot_y)) {
-                    cell.set_char(ch)
-                        .set_style(Style::default().fg(Color::DarkGray));
+                    cell.set_char(ch).set_style(Style::default().fg(Color::DarkGray));
                 }
             }
         }
@@ -390,13 +373,7 @@ impl Histogram {
             return;
         }
 
-        let max_count = self
-            .computed_bins
-            .iter()
-            .map(|b| b.count)
-            .max()
-            .unwrap_or(1)
-            .max(1);
+        let max_count = self.computed_bins.iter().map(|b| b.count).max().unwrap_or(1).max(1);
         let n_bins = self.computed_bins.len();
 
         // Calculate layout
@@ -430,8 +407,7 @@ impl Histogram {
                     let lx = area.x + j as u16;
                     if lx < area.x + area.width {
                         if let Some(cell) = buf.cell_mut((lx, y)) {
-                            cell.set_char(ch)
-                                .set_style(Style::default().fg(Color::DarkGray));
+                            cell.set_char(ch).set_style(Style::default().fg(Color::DarkGray));
                         }
                     }
                 }
@@ -520,22 +496,13 @@ mod tests {
 
         #[test]
         fn test_default() {
-            assert_eq!(
-                HistogramOrientation::default(),
-                HistogramOrientation::Vertical
-            );
+            assert_eq!(HistogramOrientation::default(), HistogramOrientation::Vertical);
         }
 
         #[test]
         fn test_equality() {
-            assert_eq!(
-                HistogramOrientation::Vertical,
-                HistogramOrientation::Vertical
-            );
-            assert_ne!(
-                HistogramOrientation::Vertical,
-                HistogramOrientation::Horizontal
-            );
+            assert_eq!(HistogramOrientation::Vertical, HistogramOrientation::Vertical);
+            assert_ne!(HistogramOrientation::Vertical, HistogramOrientation::Horizontal);
         }
     }
 
@@ -778,11 +745,7 @@ mod tests {
 
         #[test]
         fn test_bin_struct() {
-            let bin = Bin {
-                start: 0.0,
-                end: 10.0,
-                count: 5,
-            };
+            let bin = Bin { start: 0.0, end: 10.0, count: 5 };
             assert_eq!(bin.start, 0.0);
             assert_eq!(bin.end, 10.0);
             assert_eq!(bin.count, 5);
@@ -790,26 +753,14 @@ mod tests {
 
         #[test]
         fn test_bin_equality() {
-            let a = Bin {
-                start: 0.0,
-                end: 1.0,
-                count: 5,
-            };
-            let b = Bin {
-                start: 0.0,
-                end: 1.0,
-                count: 5,
-            };
+            let a = Bin { start: 0.0, end: 1.0, count: 5 };
+            let b = Bin { start: 0.0, end: 1.0, count: 5 };
             assert_eq!(a, b);
         }
 
         #[test]
         fn test_bin_debug() {
-            let bin = Bin {
-                start: 0.0,
-                end: 1.0,
-                count: 5,
-            };
+            let bin = Bin { start: 0.0, end: 1.0, count: 5 };
             let debug = format!("{:?}", bin);
             assert!(debug.contains("Bin"));
         }

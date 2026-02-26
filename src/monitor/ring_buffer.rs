@@ -54,10 +54,7 @@ impl<T> RingBuffer<T> {
     #[must_use]
     pub fn new(capacity: usize) -> Self {
         assert!(capacity > 0, "Ring buffer capacity must be greater than 0");
-        Self {
-            data: VecDeque::with_capacity(capacity),
-            capacity,
-        }
+        Self { data: VecDeque::with_capacity(capacity), capacity }
     }
 
     /// Pushes a value into the buffer.
@@ -218,12 +215,7 @@ mod tests {
                 buf.push(i as i32);
             }
 
-            assert_eq!(
-                buf.len(),
-                capacity,
-                "Buffer with capacity {} should be bounded",
-                capacity
-            );
+            assert_eq!(buf.len(), capacity, "Buffer with capacity {} should be bounded", capacity);
         }
     }
 
@@ -290,11 +282,7 @@ mod tests {
         // Note: VecDeque may move the front pointer as it wraps around,
         // but the underlying allocation should remain stable.
         // We verify by checking capacity hasn't changed.
-        assert_eq!(
-            buf.capacity(),
-            100,
-            "Capacity should remain constant after warmup"
-        );
+        assert_eq!(buf.capacity(), 100, "Capacity should remain constant after warmup");
         assert_eq!(buf.len(), 100, "Length should remain at capacity");
 
         // The buffer should contain values 900-999 (last 100 pushed)

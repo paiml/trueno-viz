@@ -42,54 +42,17 @@ pub enum SvgElement {
         stroke_width: f32,
     },
     /// Circle
-    Circle {
-        cx: f32,
-        cy: f32,
-        r: f32,
-        fill: Rgba,
-        stroke: Option<Rgba>,
-        stroke_width: f32,
-    },
+    Circle { cx: f32, cy: f32, r: f32, fill: Rgba, stroke: Option<Rgba>, stroke_width: f32 },
     /// Line
-    Line {
-        x1: f32,
-        y1: f32,
-        x2: f32,
-        y2: f32,
-        stroke: Rgba,
-        stroke_width: f32,
-    },
+    Line { x1: f32, y1: f32, x2: f32, y2: f32, stroke: Rgba, stroke_width: f32 },
     /// Polyline (connected line segments)
-    Polyline {
-        points: Vec<(f32, f32)>,
-        stroke: Rgba,
-        stroke_width: f32,
-        fill: Option<Rgba>,
-    },
+    Polyline { points: Vec<(f32, f32)>, stroke: Rgba, stroke_width: f32, fill: Option<Rgba> },
     /// Path (SVG path data)
-    Path {
-        d: String,
-        fill: Option<Rgba>,
-        stroke: Option<Rgba>,
-        stroke_width: f32,
-    },
+    Path { d: String, fill: Option<Rgba>, stroke: Option<Rgba>, stroke_width: f32 },
     /// Text
-    Text {
-        x: f32,
-        y: f32,
-        text: String,
-        font_size: f32,
-        fill: Rgba,
-        anchor: TextAnchor,
-    },
+    Text { x: f32, y: f32, text: String, font_size: f32, fill: Rgba, anchor: TextAnchor },
     /// Embedded raster image (base64 PNG)
-    Image {
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-        data: String,
-    },
+    Image { x: f32, y: f32, width: f32, height: f32, data: String },
 }
 
 /// Text anchor position for SVG text alignment.
@@ -115,12 +78,7 @@ impl SvgEncoder {
     /// Create a new SVG encoder with given dimensions.
     #[must_use]
     pub fn new(width: u32, height: u32) -> Self {
-        Self {
-            width,
-            height,
-            background: Some(Rgba::WHITE),
-            elements: Vec::new(),
-        }
+        Self { width, height, background: Some(Rgba::WHITE), elements: Vec::new() }
     }
 
     /// Create from a framebuffer (embeds as raster image).
@@ -198,14 +156,7 @@ impl SvgEncoder {
     /// Add a circle.
     #[must_use]
     pub fn circle(mut self, cx: f32, cy: f32, r: f32, fill: Rgba) -> Self {
-        self.elements.push(SvgElement::Circle {
-            cx,
-            cy,
-            r,
-            fill,
-            stroke: None,
-            stroke_width: 1.0,
-        });
+        self.elements.push(SvgElement::Circle { cx, cy, r, fill, stroke: None, stroke_width: 1.0 });
         self
     }
 
@@ -243,14 +194,7 @@ impl SvgEncoder {
         stroke: Rgba,
         stroke_width: f32,
     ) -> Self {
-        self.elements.push(SvgElement::Line {
-            x1,
-            y1,
-            x2,
-            y2,
-            stroke,
-            stroke_width,
-        });
+        self.elements.push(SvgElement::Line { x1, y1, x2, y2, stroke, stroke_width });
         self
     }
 
@@ -293,12 +237,7 @@ impl SvgEncoder {
         stroke: Option<Rgba>,
         stroke_width: f32,
     ) -> Self {
-        self.elements.push(SvgElement::Path {
-            d: d.to_string(),
-            fill,
-            stroke,
-            stroke_width,
-        });
+        self.elements.push(SvgElement::Path { d: d.to_string(), fill, stroke, stroke_width });
         self
     }
 
@@ -403,35 +342,17 @@ fn rgba_to_css(color: &Rgba) -> String {
     if color.a == 255 {
         format!("rgb({},{},{})", color.r, color.g, color.b)
     } else {
-        format!(
-            "rgba({},{},{},{:.3})",
-            color.r,
-            color.g,
-            color.b,
-            color.a as f32 / 255.0
-        )
+        format!("rgba({},{},{},{:.3})", color.r, color.g, color.b, color.a as f32 / 255.0)
     }
 }
 
 /// Convert an SVG element to its string representation.
 fn element_to_svg(element: &SvgElement) -> String {
     match element {
-        SvgElement::Rect {
-            x,
-            y,
-            width,
-            height,
-            fill,
-            stroke,
-            stroke_width,
-        } => {
+        SvgElement::Rect { x, y, width, height, fill, stroke, stroke_width } => {
             let stroke_attr = stroke
                 .map(|s| {
-                    format!(
-                        r#" stroke="{}" stroke-width="{}""#,
-                        rgba_to_css(&s),
-                        stroke_width
-                    )
+                    format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width)
                 })
                 .unwrap_or_default();
             format!(
@@ -439,21 +360,10 @@ fn element_to_svg(element: &SvgElement) -> String {
                 rgba_to_css(fill)
             )
         }
-        SvgElement::Circle {
-            cx,
-            cy,
-            r,
-            fill,
-            stroke,
-            stroke_width,
-        } => {
+        SvgElement::Circle { cx, cy, r, fill, stroke, stroke_width } => {
             let stroke_attr = stroke
                 .map(|s| {
-                    format!(
-                        r#" stroke="{}" stroke-width="{}""#,
-                        rgba_to_css(&s),
-                        stroke_width
-                    )
+                    format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width)
                 })
                 .unwrap_or_default();
             format!(
@@ -461,71 +371,32 @@ fn element_to_svg(element: &SvgElement) -> String {
                 rgba_to_css(fill)
             )
         }
-        SvgElement::Line {
-            x1,
-            y1,
-            x2,
-            y2,
-            stroke,
-            stroke_width,
-        } => {
+        SvgElement::Line { x1, y1, x2, y2, stroke, stroke_width } => {
             format!(
                 r#"<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{}" stroke-width="{stroke_width}"/>"#,
                 rgba_to_css(stroke)
             )
         }
-        SvgElement::Polyline {
-            points,
-            stroke,
-            stroke_width,
-            fill,
-        } => {
-            let points_str: String = points
-                .iter()
-                .map(|(x, y)| format!("{x},{y}"))
-                .collect::<Vec<_>>()
-                .join(" ");
-            let fill_attr = fill
-                .map(|f| rgba_to_css(&f))
-                .unwrap_or_else(|| "none".to_string());
-            let tag = if fill.is_some() {
-                "polygon"
-            } else {
-                "polyline"
-            };
+        SvgElement::Polyline { points, stroke, stroke_width, fill } => {
+            let points_str: String =
+                points.iter().map(|(x, y)| format!("{x},{y}")).collect::<Vec<_>>().join(" ");
+            let fill_attr = fill.map(|f| rgba_to_css(&f)).unwrap_or_else(|| "none".to_string());
+            let tag = if fill.is_some() { "polygon" } else { "polyline" };
             format!(
                 r#"<{tag} points="{points_str}" fill="{fill_attr}" stroke="{}" stroke-width="{stroke_width}"/>"#,
                 rgba_to_css(stroke)
             )
         }
-        SvgElement::Path {
-            d,
-            fill,
-            stroke,
-            stroke_width,
-        } => {
-            let fill_attr = fill
-                .map(|f| rgba_to_css(&f))
-                .unwrap_or_else(|| "none".to_string());
+        SvgElement::Path { d, fill, stroke, stroke_width } => {
+            let fill_attr = fill.map(|f| rgba_to_css(&f)).unwrap_or_else(|| "none".to_string());
             let stroke_attr = stroke
                 .map(|s| {
-                    format!(
-                        r#" stroke="{}" stroke-width="{}""#,
-                        rgba_to_css(&s),
-                        stroke_width
-                    )
+                    format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width)
                 })
                 .unwrap_or_default();
             format!(r#"<path d="{d}" fill="{fill_attr}"{stroke_attr}/>"#)
         }
-        SvgElement::Text {
-            x,
-            y,
-            text,
-            font_size,
-            fill,
-            anchor,
-        } => {
+        SvgElement::Text { x, y, text, font_size, fill, anchor } => {
             let anchor_str = match anchor {
                 TextAnchor::Start => "start",
                 TextAnchor::Middle => "middle",
@@ -542,13 +413,7 @@ fn element_to_svg(element: &SvgElement) -> String {
                 rgba_to_css(fill)
             )
         }
-        SvgElement::Image {
-            x,
-            y,
-            width,
-            height,
-            data,
-        } => {
+        SvgElement::Image { x, y, width, height, data } => {
             format!(
                 r#"<image x="{x}" y="{y}" width="{width}" height="{height}" xlink:href="{data}"/>"#
             )
@@ -579,9 +444,7 @@ mod tests {
 
     #[test]
     fn test_svg_rect() {
-        let svg = SvgEncoder::new(100, 100)
-            .rect(10.0, 20.0, 30.0, 40.0, Rgba::RED)
-            .render();
+        let svg = SvgEncoder::new(100, 100).rect(10.0, 20.0, 30.0, 40.0, Rgba::RED).render();
 
         assert!(svg.contains("<rect"));
         assert!(svg.contains("x=\"10\""));
@@ -593,9 +456,7 @@ mod tests {
 
     #[test]
     fn test_svg_circle() {
-        let svg = SvgEncoder::new(100, 100)
-            .circle(50.0, 50.0, 25.0, Rgba::BLUE)
-            .render();
+        let svg = SvgEncoder::new(100, 100).circle(50.0, 50.0, 25.0, Rgba::BLUE).render();
 
         assert!(svg.contains("<circle"));
         assert!(svg.contains("cx=\"50\""));
@@ -606,9 +467,7 @@ mod tests {
 
     #[test]
     fn test_svg_line() {
-        let svg = SvgEncoder::new(100, 100)
-            .line(0.0, 0.0, 100.0, 100.0, Rgba::BLACK, 2.0)
-            .render();
+        let svg = SvgEncoder::new(100, 100).line(0.0, 0.0, 100.0, 100.0, Rgba::BLACK, 2.0).render();
 
         assert!(svg.contains("<line"));
         assert!(svg.contains("x1=\"0\""));
@@ -621,9 +480,7 @@ mod tests {
     #[test]
     fn test_svg_polyline() {
         let points = vec![(0.0, 0.0), (50.0, 100.0), (100.0, 0.0)];
-        let svg = SvgEncoder::new(100, 100)
-            .polyline(&points, Rgba::GREEN, 1.5)
-            .render();
+        let svg = SvgEncoder::new(100, 100).polyline(&points, Rgba::GREEN, 1.5).render();
 
         assert!(svg.contains("<polyline"));
         assert!(svg.contains("points=\"0,0 50,100 100,0\""));
@@ -643,9 +500,7 @@ mod tests {
 
     #[test]
     fn test_svg_text() {
-        let svg = SvgEncoder::new(100, 100)
-            .text(10.0, 50.0, "Hello", 12.0, Rgba::BLACK)
-            .render();
+        let svg = SvgEncoder::new(100, 100).text(10.0, 50.0, "Hello", 12.0, Rgba::BLACK).render();
 
         assert!(svg.contains("<text"));
         assert!(svg.contains("Hello"));
@@ -655,13 +510,7 @@ mod tests {
     #[test]
     fn test_svg_text_escaping() {
         let svg = SvgEncoder::new(100, 100)
-            .text(
-                10.0,
-                50.0,
-                "<script>alert('xss')</script>",
-                12.0,
-                Rgba::BLACK,
-            )
+            .text(10.0, 50.0, "<script>alert('xss')</script>", 12.0, Rgba::BLACK)
             .render();
 
         assert!(!svg.contains("<script>"));
@@ -732,14 +581,7 @@ mod tests {
     #[test]
     fn test_svg_text_anchored_middle() {
         let svg = SvgEncoder::new(100, 100)
-            .text_anchored(
-                50.0,
-                50.0,
-                "Centered",
-                12.0,
-                Rgba::BLACK,
-                TextAnchor::Middle,
-            )
+            .text_anchored(50.0, 50.0, "Centered", 12.0, Rgba::BLACK, TextAnchor::Middle)
             .render();
 
         assert!(svg.contains("<text"));
@@ -802,12 +644,7 @@ mod tests {
     #[test]
     fn test_svg_path_with_fill() {
         let svg = SvgEncoder::new(100, 100)
-            .path(
-                "M 10 10 L 90 90 L 50 50 Z",
-                Some(Rgba::GREEN),
-                Some(Rgba::BLACK),
-                1.0,
-            )
+            .path("M 10 10 L 90 90 L 50 50 Z", Some(Rgba::GREEN), Some(Rgba::BLACK), 1.0)
             .render();
 
         assert!(svg.contains("<path"));
@@ -818,9 +655,8 @@ mod tests {
 
     #[test]
     fn test_svg_path_no_stroke() {
-        let svg = SvgEncoder::new(100, 100)
-            .path("M 10 10 L 90 90", Some(Rgba::RED), None, 0.0)
-            .render();
+        let svg =
+            SvgEncoder::new(100, 100).path("M 10 10 L 90 90", Some(Rgba::RED), None, 0.0).render();
 
         assert!(svg.contains("<path"));
         assert!(svg.contains("fill=\"rgb(255,0,0)\""));
@@ -830,9 +666,7 @@ mod tests {
     #[test]
     fn test_svg_polygon_no_stroke() {
         let points = vec![(0.0, 0.0), (50.0, 100.0), (100.0, 0.0)];
-        let svg = SvgEncoder::new(100, 100)
-            .polygon(&points, Rgba::RED, None, 1.0)
-            .render();
+        let svg = SvgEncoder::new(100, 100).polygon(&points, Rgba::RED, None, 1.0).render();
 
         assert!(svg.contains("<polygon"));
     }

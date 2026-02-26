@@ -44,14 +44,7 @@ pub struct ViolinStats {
 
 impl Default for ViolinStats {
     fn default() -> Self {
-        Self {
-            min: 0.0,
-            max: 0.0,
-            median: 0.0,
-            q1: 0.0,
-            q3: 0.0,
-            mean: 0.0,
-        }
+        Self { min: 0.0, max: 0.0, median: 0.0, q1: 0.0, q3: 0.0, mean: 0.0 }
     }
 }
 
@@ -86,13 +79,7 @@ impl ViolinData {
     /// Create violin data from a Vec (avoids clone).
     #[must_use]
     pub fn from_vec(label: impl Into<String>, values: Vec<f64>) -> Self {
-        Self {
-            label: label.into(),
-            values,
-            color: Color::Cyan,
-            densities: None,
-            stats: None,
-        }
+        Self { label: label.into(), values, color: Color::Cyan, densities: None, stats: None }
     }
 
     /// Set color for this violin.
@@ -139,14 +126,7 @@ impl ViolinData {
         let q3 = Self::percentile(&sorted, 0.75);
         let mean = sorted.iter().sum::<f64>() / n as f64;
 
-        self.stats = Some(ViolinStats {
-            min,
-            max,
-            median,
-            q1,
-            q3,
-            mean,
-        });
+        self.stats = Some(ViolinStats { min, max, median, q1, q3, mean });
     }
 
     /// Calculate percentile using linear interpolation.
@@ -227,11 +207,7 @@ impl ViolinData {
         let use_simd = self.values.len() > 100;
 
         for (i, density) in densities.iter_mut().enumerate() {
-            let t = if num_points > 1 {
-                i as f64 / (num_points - 1) as f64
-            } else {
-                0.5
-            };
+            let t = if num_points > 1 { i as f64 / (num_points - 1) as f64 } else { 0.5 };
             let x = stats.min + t * range;
 
             *density = if use_simd {
@@ -473,11 +449,8 @@ impl ViolinPlot {
 
             // Draw violin shape
             for (i, &density) in densities.iter().enumerate() {
-                let t = if densities.len() > 1 {
-                    i as f64 / (densities.len() - 1) as f64
-                } else {
-                    0.5
-                };
+                let t =
+                    if densities.len() > 1 { i as f64 / (densities.len() - 1) as f64 } else { 0.5 };
                 let value = val_min + t * val_range;
                 let y_norm = 1.0 - (value - val_min) / val_range;
                 let y = area.y + (y_norm * (area.height - 1) as f64) as u16;
@@ -583,11 +556,8 @@ impl ViolinPlot {
 
             // Draw violin shape horizontally
             for (i, &density) in densities.iter().enumerate() {
-                let t = if densities.len() > 1 {
-                    i as f64 / (densities.len() - 1) as f64
-                } else {
-                    0.5
-                };
+                let t =
+                    if densities.len() > 1 { i as f64 / (densities.len() - 1) as f64 } else { 0.5 };
                 let value = val_min + t * val_range;
                 let x_norm = (value - val_min) / val_range;
                 let x = area.x + (x_norm * (area.width - 1) as f64) as u16;
@@ -1038,10 +1008,7 @@ mod tests {
 
         #[test]
         fn test_global_range_multiple_violins() {
-            let data = vec![
-                ViolinData::new("A", &[1.0, 2.0]),
-                ViolinData::new("B", &[3.0, 10.0]),
-            ];
+            let data = vec![ViolinData::new("A", &[1.0, 2.0]), ViolinData::new("B", &[3.0, 10.0])];
             let plot = ViolinPlot::with_data(data);
             let (min, max) = plot.global_range();
             assert!(min < 1.0);
@@ -1242,10 +1209,7 @@ mod tests {
             let (area, mut buf) = create_test_buffer(15, 30);
             let data: Vec<ViolinData> = (0..5)
                 .map(|i| {
-                    ViolinData::new(
-                        format!("V{}", i),
-                        &[i as f64, i as f64 + 1.0, i as f64 + 2.0],
-                    )
+                    ViolinData::new(format!("V{}", i), &[i as f64, i as f64 + 1.0, i as f64 + 2.0])
                 })
                 .collect();
             let plot = ViolinPlot::with_data(data);
@@ -1257,10 +1221,7 @@ mod tests {
             let (area, mut buf) = create_test_buffer(60, 10);
             let data: Vec<ViolinData> = (0..5)
                 .map(|i| {
-                    ViolinData::new(
-                        format!("V{}", i),
-                        &[i as f64, i as f64 + 1.0, i as f64 + 2.0],
-                    )
+                    ViolinData::new(format!("V{}", i), &[i as f64, i as f64 + 1.0, i as f64 + 2.0])
                 })
                 .collect();
             let plot = ViolinPlot::with_data(data).orientation(ViolinOrientation::Horizontal);
@@ -1270,10 +1231,7 @@ mod tests {
         #[test]
         fn test_render_vertical_with_box_and_median() {
             let (area, mut buf) = create_test_buffer(40, 20);
-            let data = vec![ViolinData::new(
-                "Test",
-                &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
-            )];
+            let data = vec![ViolinData::new("Test", &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])];
             let plot = ViolinPlot::with_data(data).show_box(true).show_median(true);
             plot.render(area, &mut buf);
         }

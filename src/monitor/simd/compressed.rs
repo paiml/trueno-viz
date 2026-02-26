@@ -60,14 +60,7 @@ impl CompressedBlock {
         // Delta encode using SIMD
         let data = simd_delta_encode(&fixed);
 
-        Some(Self {
-            start_time,
-            end_time,
-            sample_count: samples.len(),
-            data,
-            base_value,
-            scale,
-        })
+        Some(Self { start_time, end_time, sample_count: samples.len(), data, base_value, scale })
     }
 
     /// Decompresses the block back to samples.
@@ -261,10 +254,7 @@ impl Default for CompressedMetricStore {
 /// Current timestamp in microseconds.
 #[must_use]
 pub fn now_micros() -> Timestamp {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or(Duration::ZERO)
-        .as_micros() as Timestamp
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or(Duration::ZERO).as_micros() as Timestamp
 }
 
 #[cfg(test)]
@@ -296,9 +286,8 @@ mod tests {
 
     #[test]
     fn test_compressed_block_roundtrip() {
-        let samples: Vec<(Timestamp, f64)> = (0..100)
-            .map(|i| (i as u64 * 1000, 50.0 + (i as f64 * 0.1)))
-            .collect();
+        let samples: Vec<(Timestamp, f64)> =
+            (0..100).map(|i| (i as u64 * 1000, 50.0 + (i as f64 * 0.1))).collect();
 
         let block = CompressedBlock::from_samples(&samples).unwrap();
         let decompressed = block.decompress();
@@ -376,10 +365,7 @@ mod tests {
         let block = CompressedBlock::from_samples(&samples).unwrap();
 
         // Should still achieve decent compression with delta encoding
-        println!(
-            "Compression ratio for trending data: {:.2}",
-            block.compression_ratio()
-        );
+        println!("Compression ratio for trending data: {:.2}", block.compression_ratio());
         assert!(block.compression_ratio() >= 0.9); // At minimum, don't expand much
     }
 

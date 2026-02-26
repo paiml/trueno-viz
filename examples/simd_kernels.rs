@@ -29,9 +29,7 @@ fn main() {
     println!("=============================================\n");
 
     // Generate test data
-    let data: Vec<f64> = (0..10000)
-        .map(|i| (i as f64 * 0.1).sin() * 100.0 + 50.0)
-        .collect();
+    let data: Vec<f64> = (0..10000).map(|i| (i as f64 * 0.1).sin() * 100.0 + 50.0).collect();
 
     println!("Processing 10,000 f64 values...\n");
 

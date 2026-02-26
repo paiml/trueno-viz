@@ -196,8 +196,7 @@ impl SimdProcessCollector {
         let total_mem: u64 = new_processes.values().map(|p| p.mem_bytes).sum();
 
         self.cpu_history.push(total_cpu / 100.0); // Normalized
-        self.mem_history
-            .push(total_mem as f64 / self.total_memory as f64);
+        self.mem_history.push(total_mem as f64 / self.total_memory as f64);
         self.count_history.push(new_processes.len() as f64);
 
         self.processes = new_processes;
@@ -312,11 +311,8 @@ impl SimdProcessCollector {
         let after_name = &stat[name_end + 2..];
 
         // Parse state character
-        let state = after_name
-            .chars()
-            .next()
-            .map(ProcessState::from_char)
-            .unwrap_or(ProcessState::Unknown);
+        let state =
+            after_name.chars().next().map(ProcessState::from_char).unwrap_or(ProcessState::Unknown);
 
         // Parse remaining fields using SIMD
         let fields_start = after_name.find(' ').map(|i| i + 1).unwrap_or(0);
@@ -389,9 +385,7 @@ impl SimdProcessCollector {
     pub fn top_by_cpu(&self, n: usize) -> Vec<&ProcessInfo> {
         let mut procs: Vec<_> = self.processes.values().collect();
         procs.sort_by(|a, b| {
-            b.cpu_percent
-                .partial_cmp(&a.cpu_percent)
-                .unwrap_or(std::cmp::Ordering::Equal)
+            b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal)
         });
         procs.truncate(n);
         procs
@@ -422,10 +416,7 @@ impl Collector for SimdProcessCollector {
         self.scan_processes()?;
 
         let mut metrics = Metrics::new();
-        metrics.insert(
-            "process.count",
-            MetricValue::Counter(self.processes.len() as u64),
-        );
+        metrics.insert("process.count", MetricValue::Counter(self.processes.len() as u64));
 
         // Count by state using SIMD-friendly iteration
         let mut running = 0u64;

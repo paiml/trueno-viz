@@ -185,6 +185,8 @@ impl RocmSmi {
 
     fn device_count(&self) -> u32 {
         let mut count: u32 = 0;
+        // SAFETY: rsmi_num_monitor_devices writes to a valid &mut u32 pointer.
+        // Function pointer is validated non-null during library loading.
         unsafe {
             if (self.rsmi_num_monitor_devices)(&mut count) == rsmi_status::RSMI_STATUS_SUCCESS {
                 count
@@ -196,13 +198,13 @@ impl RocmSmi {
 
     fn device_name(&self, index: u32) -> String {
         let mut name_buf = [0i8; 256];
+        // SAFETY: rsmi_dev_name_get writes at most 256 bytes into name_buf.
+        // CStr::from_ptr is safe because the buffer is null-terminated by ROCm SMI.
         unsafe {
             if (self.rsmi_dev_name_get)(index, name_buf.as_mut_ptr(), 256)
                 == rsmi_status::RSMI_STATUS_SUCCESS
             {
-                CStr::from_ptr(name_buf.as_ptr())
-                    .to_string_lossy()
-                    .into_owned()
+                CStr::from_ptr(name_buf.as_ptr()).to_string_lossy().into_owned()
             } else {
                 format!("AMD GPU {}", index)
             }
@@ -211,6 +213,7 @@ impl RocmSmi {
 
     fn gpu_utilization(&self, index: u32) -> u32 {
         let mut util: u32 = 0;
+        // SAFETY: FFI call with valid pointer to stack-allocated u32.
         unsafe {
             if (self.rsmi_dev_busy_percent_get)(index, &mut util)
                 == rsmi_status::RSMI_STATUS_SUCCESS
@@ -224,6 +227,7 @@ impl RocmSmi {
 
     fn mem_utilization(&self, index: u32) -> u32 {
         let mut util: u32 = 0;
+        // SAFETY: FFI call with valid pointer to stack-allocated u32.
         unsafe {
             if (self.rsmi_dev_memory_busy_percent_get)(index, &mut util)
                 == rsmi_status::RSMI_STATUS_SUCCESS
@@ -237,6 +241,7 @@ impl RocmSmi {
 
     fn vram_total(&self, index: u32) -> u64 {
         let mut total: u64 = 0;
+        // SAFETY: FFI call with valid pointer to stack-allocated u64.
         unsafe {
             if (self.rsmi_dev_memory_total_get)(
                 index,
@@ -253,6 +258,7 @@ impl RocmSmi {
 
     fn vram_used(&self, index: u32) -> u64 {
         let mut used: u64 = 0;
+        // SAFETY: FFI call with valid pointer to stack-allocated u64.
         unsafe {
             if (self.rsmi_dev_memory_usage_get)(
                 index,
@@ -270,6 +276,7 @@ impl RocmSmi {
     fn temperature(&self, index: u32) -> (f64, f64) {
         let mut current: i64 = 0;
         let mut max: i64 = 0;
+        // SAFETY: FFI calls with valid pointers to stack-allocated i64 values.
         unsafe {
             (self.rsmi_dev_temp_metric_get)(
                 index,
@@ -291,6 +298,7 @@ impl RocmSmi {
     fn power(&self, index: u32) -> (f64, f64) {
         let mut power: u64 = 0;
         let mut cap: u64 = 0;
+        // SAFETY: FFI calls with valid pointers to stack-allocated u64 values.
         unsafe {
             (self.rsmi_dev_power_ave_get)(index, 0, &mut power);
             (self.rsmi_dev_power_cap_get)(index, 0, &mut cap);
@@ -302,6 +310,7 @@ impl RocmSmi {
     fn pcie_throughput(&self, index: u32) -> (u64, u64) {
         let mut tx: u64 = 0;
         let mut rx: u64 = 0;
+        // SAFETY: FFI call with valid u64 pointers. Null pointer for unused size_sent param.
         unsafe {
             (self.rsmi_dev_pci_throughput_get)(index, &mut tx, &mut rx, std::ptr::null_mut());
         }
@@ -411,13 +420,10 @@ impl AmdGpuCollector {
     }
 
     fn collect_all(&mut self) -> Result<Vec<AmdGpuInfo>> {
-        let rsmi = self
-            .rsmi
-            .as_ref()
-            .ok_or_else(|| MonitorError::CollectionFailed {
-                collector: "amd_gpu",
-                message: "ROCm SMI not initialized".to_string(),
-            })?;
+        let rsmi = self.rsmi.as_ref().ok_or_else(|| MonitorError::CollectionFailed {
+            collector: "amd_gpu",
+            message: "ROCm SMI not initialized".to_string(),
+        })?;
 
         let mut gpus = Vec::with_capacity(self.gpu_count as usize);
 
@@ -475,24 +481,14 @@ impl Collector for AmdGpuCollector {
 
             metrics.insert(format!("{}.util", prefix), gpu.gpu_util);
             metrics.insert(format!("{}.mem_util", prefix), gpu.mem_util);
-            metrics.insert(
-                format!("{}.vram_used", prefix),
-                MetricValue::Counter(gpu.vram_used),
-            );
-            metrics.insert(
-                format!("{}.vram_total", prefix),
-                MetricValue::Counter(gpu.vram_total),
-            );
+            metrics.insert(format!("{}.vram_used", prefix), MetricValue::Counter(gpu.vram_used));
+            metrics.insert(format!("{}.vram_total", prefix), MetricValue::Counter(gpu.vram_total));
             metrics.insert(format!("{}.temp", prefix), gpu.temperature);
             metrics.insert(format!("{}.power_watts", prefix), gpu.power_watts);
-            metrics.insert(
-                format!("{}.pcie_tx_kbps", prefix),
-                MetricValue::Counter(gpu.pcie_tx_kbps),
-            );
-            metrics.insert(
-                format!("{}.pcie_rx_kbps", prefix),
-                MetricValue::Counter(gpu.pcie_rx_kbps),
-            );
+            metrics
+                .insert(format!("{}.pcie_tx_kbps", prefix), MetricValue::Counter(gpu.pcie_tx_kbps));
+            metrics
+                .insert(format!("{}.pcie_rx_kbps", prefix), MetricValue::Counter(gpu.pcie_rx_kbps));
 
             // Update history
             if let Some(history) = self.gpu_history.get_mut(i) {

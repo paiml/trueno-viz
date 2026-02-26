@@ -46,11 +46,7 @@ fn heatmap_palette_benchmark(c: &mut Criterion) {
 
     let size = 100;
     let data: Vec<Vec<f32>> = (0..size)
-        .map(|i| {
-            (0..size)
-                .map(|j| ((i + j) as f32) / (2.0 * size as f32) * 100.0)
-                .collect()
-        })
+        .map(|i| (0..size).map(|j| ((i + j) as f32) / (2.0 * size as f32) * 100.0).collect())
         .collect();
 
     for palette in [
