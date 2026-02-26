@@ -61,36 +61,36 @@ mod tests {
 
     #[test]
     fn test_png_to_bytes() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::RED);
 
-        let bytes = PngEncoder::to_bytes(&fb).unwrap();
+        let bytes = PngEncoder::to_bytes(&fb).expect("encoding should succeed");
         // PNG magic bytes
         assert_eq!(&bytes[0..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
     }
 
     #[test]
     fn test_png_write_to_file() {
-        let mut fb = Framebuffer::new(8, 8).unwrap();
+        let mut fb = Framebuffer::new(8, 8).expect("framebuffer creation should succeed");
         fb.clear(Rgba::BLUE);
 
-        let tmp = tempfile::NamedTempFile::new().unwrap();
+        let tmp = tempfile::NamedTempFile::new().expect("temp file creation should succeed");
         let path = tmp.path();
 
-        PngEncoder::write_to_file(&fb, path).unwrap();
+        PngEncoder::write_to_file(&fb, path).expect("file write should succeed");
 
         // Verify file was written and has PNG header
-        let data = std::fs::read(path).unwrap();
+        let data = std::fs::read(path).expect("file read should succeed");
         assert_eq!(&data[0..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
         assert!(data.len() > 8);
     }
 
     #[test]
     fn test_png_roundtrip_dimensions() {
-        let mut fb = Framebuffer::new(16, 24).unwrap();
+        let mut fb = Framebuffer::new(16, 24).expect("framebuffer creation should succeed");
         fb.clear(Rgba::GREEN);
 
-        let bytes = PngEncoder::to_bytes(&fb).unwrap();
+        let bytes = PngEncoder::to_bytes(&fb).expect("encoding should succeed");
 
         // Decode to verify dimensions are correct in header
         // PNG IHDR chunk starts at byte 8, width at 16, height at 20
@@ -105,8 +105,8 @@ mod tests {
     #[test]
     fn test_png_various_sizes() {
         for (w, h) in [(1, 1), (100, 50), (3, 7)] {
-            let fb = Framebuffer::new(w, h).unwrap();
-            let bytes = PngEncoder::to_bytes(&fb).unwrap();
+            let fb = Framebuffer::new(w, h).expect("framebuffer creation should succeed");
+            let bytes = PngEncoder::to_bytes(&fb).expect("encoding should succeed");
             assert!(!bytes.is_empty());
             assert_eq!(&bytes[0..8], &[137, 80, 78, 71, 13, 10, 26, 10]);
         }

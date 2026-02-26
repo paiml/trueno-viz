@@ -3,7 +3,7 @@
 //! Following ttop-demo.md specification Section 7.3-7.5 and 10.3.
 //! These tests verify that collectors produce CHANGING values, not static garbage.
 //!
-//! Run: cargo test --features monitor --test pixel_verification_test
+//! Run: cargo test --features monitor --test `pixel_verification_test`
 
 // Only compile these tests when the monitor feature is enabled
 #![cfg(all(feature = "monitor", any(target_os = "linux", target_os = "macos")))]
@@ -48,12 +48,8 @@ fn pixel_cpu_values_valid_range() {
     let metrics = cpu.collect().expect("CPU collection failed");
 
     if let Some(total) = metrics.get_gauge("cpu.total") {
-        assert!(total >= 0.0, "PIXEL FAIL: CPU total {}% is negative (impossible)", total);
-        assert!(
-            total <= 100.0,
-            "PIXEL FAIL: CPU total {}% exceeds 100% (bug in calculation)",
-            total
-        );
+        assert!(total >= 0.0, "PIXEL FAIL: CPU total {total}% is negative (impossible)");
+        assert!(total <= 100.0, "PIXEL FAIL: CPU total {total}% exceeds 100% (bug in calculation)");
         // Also verify it's not NaN or infinity
         assert!(total.is_finite(), "PIXEL FAIL: CPU total is NaN or Infinity");
     }
@@ -86,13 +82,13 @@ fn pixel_cpu_values_change_over_time() {
 
     // On a running system, at least one sample should show some CPU usage
     // This is a weak test but catches the "always 0" bug
-    println!("CPU samples: {:?}", samples);
+    println!("CPU samples: {samples:?}");
 
     // Verify values are reasonable (not all exactly 0 or all exactly 100)
     let all_same = samples.windows(2).all(|w| (w[0] - w[1]).abs() < 0.001);
     if all_same && samples.len() > 2 {
         // All values are identical - this is suspicious but possible on idle system
-        println!("WARNING: All CPU samples identical: {:?}", samples);
+        println!("WARNING: All CPU samples identical: {samples:?}");
     }
 }
 
@@ -115,9 +111,7 @@ fn pixel_cpu_history_updates() {
 
     assert!(
         final_len > initial_len,
-        "PIXEL FAIL: CPU history not updating - graph would be static! Initial: {}, Final: {}",
-        initial_len,
-        final_len
+        "PIXEL FAIL: CPU history not updating - graph would be static! Initial: {initial_len}, Final: {final_len}"
     );
 }
 
@@ -134,14 +128,12 @@ fn pixel_cpu_per_core_valid() {
     assert!(core_count >= 1, "PIXEL FAIL: No CPU cores detected");
 
     for i in 0..core_count {
-        if let Some(core_pct) = metrics.get_gauge(&format!("cpu.core.{}", i)) {
+        if let Some(core_pct) = metrics.get_gauge(&format!("cpu.core.{i}")) {
             assert!(
                 core_pct >= 0.0 && core_pct <= 100.0,
-                "PIXEL FAIL: Core {} at {}% outside valid range",
-                i,
-                core_pct
+                "PIXEL FAIL: Core {i} at {core_pct}% outside valid range"
             );
-            assert!(core_pct.is_finite(), "PIXEL FAIL: Core {} value is NaN/Infinity", i);
+            assert!(core_pct.is_finite(), "PIXEL FAIL: Core {i} value is NaN/Infinity");
         }
     }
 }
@@ -269,17 +261,16 @@ fn pixel_memory_values_consistent() {
     assert!(total > 0, "PIXEL FAIL: Total memory is 0");
 
     // Used must be <= total
-    assert!(used <= total, "PIXEL FAIL: Used memory ({}) > Total ({})", used, total);
+    assert!(used <= total, "PIXEL FAIL: Used memory ({used}) > Total ({total})");
 
     // Available should be reasonable
-    assert!(available <= total, "PIXEL FAIL: Available memory ({}) > Total ({})", available, total);
+    assert!(available <= total, "PIXEL FAIL: Available memory ({available}) > Total ({total})");
 
     // Percentage should be valid
     if let Some(pct) = metrics.get_gauge("memory.used.percent") {
         assert!(
             pct >= 0.0 && pct <= 100.0,
-            "PIXEL FAIL: Memory percent {}% outside 0-100 range",
-            pct
+            "PIXEL FAIL: Memory percent {pct}% outside 0-100 range"
         );
     }
 
@@ -324,7 +315,7 @@ fn pixel_network_interfaces_detected() {
 
     assert!(!interfaces.is_empty(), "PIXEL FAIL: No network interfaces detected");
 
-    println!("Detected interfaces: {:?}", interfaces);
+    println!("Detected interfaces: {interfaces:?}");
 
     // On macOS, should find en* interface
     #[cfg(target_os = "macos")]
@@ -410,10 +401,10 @@ fn pixel_process_count_reasonable() {
 
     let count = proc.count();
 
-    assert!(count >= 50, "PIXEL FAIL: Only {} processes, expected >= 50", count);
-    assert!(count < 10000, "PIXEL FAIL: {} processes seems unreasonable", count);
+    assert!(count >= 50, "PIXEL FAIL: Only {count} processes, expected >= 50");
+    assert!(count < 10000, "PIXEL FAIL: {count} processes seems unreasonable");
 
-    println!("Process count: {}", count);
+    println!("Process count: {count}");
 }
 
 #[test]

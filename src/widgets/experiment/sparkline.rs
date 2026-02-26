@@ -241,7 +241,7 @@ mod tests {
         let fb = sparkline.to_framebuffer();
         assert!(fb.is_ok());
 
-        let fb = fb.unwrap();
+        let fb = fb.expect("operation should succeed");
         assert_eq!(fb.width(), 100);
         assert_eq!(fb.height(), 20);
     }
@@ -310,7 +310,7 @@ mod tests {
     fn test_sparkline_clone_debug() {
         let sparkline = Sparkline::new(&[1.0, 2.0, 3.0]);
         let cloned = sparkline.clone();
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("Sparkline"));
     }
 
@@ -318,7 +318,7 @@ mod tests {
     fn test_trend_direction_debug() {
         let dirs = [TrendDirection::Rising, TrendDirection::Falling, TrendDirection::Stable];
         for dir in dirs {
-            let debug = format!("{:?}", dir);
+            let debug = format!("{dir:?}");
             assert!(!debug.is_empty());
             let cloned = dir;
             assert_eq!(dir, cloned);

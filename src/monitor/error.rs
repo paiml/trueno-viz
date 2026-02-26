@@ -100,8 +100,8 @@ mod tests {
         let err = MonitorError::ConfigParse { line: 42, message: "invalid value".to_string() };
         let display = err.to_string();
 
-        assert!(display.contains("42"), "Error should include line number: {}", display);
-        assert!(display.contains("invalid value"), "Error should include message: {}", display);
+        assert!(display.contains("42"), "Error should include line number: {display}");
+        assert!(display.contains("invalid value"), "Error should include message: {display}");
     }
 
     #[test]
@@ -109,7 +109,7 @@ mod tests {
         let err = MonitorError::CollectorUnavailable("nvidia_gpu");
         let display = err.to_string();
 
-        assert!(display.contains("nvidia_gpu"), "Error should include collector name: {}", display);
+        assert!(display.contains("nvidia_gpu"), "Error should include collector name: {display}");
     }
 
     #[test]
@@ -120,8 +120,8 @@ mod tests {
         };
         let display = err.to_string();
 
-        assert!(display.contains("cpu"), "Error should include collector: {}", display);
-        assert!(display.contains("/proc/stat"), "Error should include message: {}", display);
+        assert!(display.contains("cpu"), "Error should include collector: {display}");
+        assert!(display.contains("/proc/stat"), "Error should include message: {display}");
     }
 
     #[test]
@@ -132,7 +132,7 @@ mod tests {
         };
         let display = err.to_string();
 
-        assert!(display.contains("update_ms"), "Error should include key: {}", display);
+        assert!(display.contains("update_ms"), "Error should include key: {display}");
     }
 
     #[test]
@@ -140,8 +140,8 @@ mod tests {
         let err = MonitorError::BufferOverflow { requested: 1000, capacity: 500 };
         let display = err.to_string();
 
-        assert!(display.contains("1000"), "Error should include requested size: {}", display);
-        assert!(display.contains("500"), "Error should include capacity: {}", display);
+        assert!(display.contains("1000"), "Error should include requested size: {display}");
+        assert!(display.contains("500"), "Error should include capacity: {display}");
     }
 
     #[test]
@@ -166,7 +166,7 @@ mod tests {
         let err = MonitorError::ConfigNotFound("/etc/trueno.toml".to_string());
         let display = err.to_string();
 
-        assert!(display.contains("/etc/trueno.toml"), "Error should include path: {}", display);
+        assert!(display.contains("/etc/trueno.toml"), "Error should include path: {display}");
     }
 
     #[test]
@@ -176,8 +176,7 @@ mod tests {
 
         assert!(
             display.contains("invalid color format"),
-            "Error should include message: {}",
-            display
+            "Error should include message: {display}"
         );
     }
 
@@ -186,7 +185,7 @@ mod tests {
         let err = MonitorError::ProcessNotFound(12345);
         let display = err.to_string();
 
-        assert!(display.contains("12345"), "Error should include PID: {}", display);
+        assert!(display.contains("12345"), "Error should include PID: {display}");
     }
 
     #[test]
@@ -194,7 +193,7 @@ mod tests {
         let err = MonitorError::PermissionDenied("cannot send signal to init".to_string());
         let display = err.to_string();
 
-        assert!(display.contains("cannot send signal"), "Error should include reason: {}", display);
+        assert!(display.contains("cannot send signal"), "Error should include reason: {display}");
     }
 
     #[test]
@@ -203,13 +202,13 @@ mod tests {
         let err: MonitorError = io_err.into();
         let display = err.to_string();
 
-        assert!(display.contains("access denied"), "Error should include IO error: {}", display);
+        assert!(display.contains("access denied"), "Error should include IO error: {display}");
     }
 
     #[test]
     fn test_error_debug_format() {
         let err = MonitorError::CollectorUnavailable("test");
-        let debug = format!("{:?}", err);
+        let debug = format!("{err:?}");
         assert!(debug.contains("CollectorUnavailable"));
     }
 }

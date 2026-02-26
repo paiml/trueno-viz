@@ -3,7 +3,7 @@
 //! Following ttop-demo.md specification Section 10.
 //! Each test is a falsifiable claim that can be empirically refuted.
 //!
-//! Run: cargo test --features monitor --test popperian_falsification_test
+//! Run: cargo test --features monitor --test `popperian_falsification_test`
 
 // Only compile these tests when the monitor feature is enabled
 #![cfg(feature = "monitor")]
@@ -45,7 +45,7 @@ use trueno_viz::monitor::collectors::AppleGpuCollector;
 /// Test: Measure widget rendering time
 #[test]
 fn claim_01_frame_rendering_under_8ms() {
-    let data: Vec<f64> = (0..300).map(|i| (i as f64 / 300.0).sin().abs()).collect();
+    let data: Vec<f64> = (0..300).map(|i| (f64::from(i) / 300.0).sin().abs()).collect();
     let area = Rect::new(0, 0, 80, 24);
 
     let start = Instant::now();
@@ -57,7 +57,7 @@ fn claim_01_frame_rendering_under_8ms() {
     let elapsed = start.elapsed();
     let avg_ms = elapsed.as_millis() as f64 / 100.0;
 
-    assert!(avg_ms < 8.0, "Claim 1 FALSIFIED: Frame rendering {}ms >= 8ms", avg_ms);
+    assert!(avg_ms < 8.0, "Claim 1 FALSIFIED: Frame rendering {avg_ms}ms >= 8ms");
 }
 
 /// Claim 3: Startup time < 50ms
@@ -76,8 +76,7 @@ fn claim_03_startup_time_under_50ms() {
 
     assert!(
         elapsed < Duration::from_millis(50),
-        "Claim 3 FALSIFIED: Startup time {:?} >= 50ms",
-        elapsed
+        "Claim 3 FALSIFIED: Startup time {elapsed:?} >= 50ms"
     );
 }
 
@@ -89,22 +88,21 @@ fn claim_08_zero_allocations_after_warmup() {
 
     // Warmup
     for i in 0..300 {
-        buffer.push(i as f64);
+        buffer.push(f64::from(i));
     }
 
     let len_before = buffer.len();
 
     // Continue pushing (should not grow)
     for i in 0..1000 {
-        buffer.push(i as f64);
+        buffer.push(f64::from(i));
     }
 
     let len_after = buffer.len();
 
     assert_eq!(
         len_before, len_after,
-        "Claim 8 FALSIFIED: Buffer grew from {} to {}",
-        len_before, len_after
+        "Claim 8 FALSIFIED: Buffer grew from {len_before} to {len_after}"
     );
     assert_eq!(len_after, 300, "Buffer should stay at capacity");
 }
@@ -130,8 +128,7 @@ fn claim_09_process_list_linear_scaling() {
     let per_process_ns = elapsed.as_nanos() as f64 / count as f64;
     assert!(
         per_process_ns < 10000.0, // 10 microseconds per process max
-        "Claim 9 FALSIFIED: {} ns/process, expected < 10000 ns",
-        per_process_ns
+        "Claim 9 FALSIFIED: {per_process_ns} ns/process, expected < 10000 ns"
     );
 }
 
@@ -139,7 +136,7 @@ fn claim_09_process_list_linear_scaling() {
 /// Test: Rendering time scales linearly with dimensions
 #[test]
 fn claim_10_graph_rendering_linear() {
-    let data: Vec<f64> = (0..300).map(|i| (i as f64 / 300.0).sin().abs()).collect();
+    let data: Vec<f64> = (0..300).map(|i| (f64::from(i) / 300.0).sin().abs()).collect();
 
     // Small
     let small_area = Rect::new(0, 0, 40, 10);
@@ -163,7 +160,7 @@ fn claim_10_graph_rendering_linear() {
 
     // Large should be roughly 4x, allow up to 12x for overhead (including coverage)
     let ratio = large_time.as_nanos() as f64 / small_time.as_nanos().max(1) as f64;
-    assert!(ratio < 12.0, "Claim 10 FALSIFIED: Scaling ratio {} > 12x (expected ~4x)", ratio);
+    assert!(ratio < 12.0, "Claim 10 FALSIFIED: Scaling ratio {ratio} > 12x (expected ~4x)");
 }
 
 // ============================================================================
@@ -196,7 +193,7 @@ fn claim_21_braille_8_dots_per_cell() {
 #[test]
 fn claim_29_sparkline_8_levels() {
     // Test rendering sparkline with varying values
-    let data: Vec<f64> = (0..8).map(|i| i as f64 / 7.0).collect();
+    let data: Vec<f64> = (0..8).map(|i| f64::from(i) / 7.0).collect();
     let area = Rect::new(0, 0, 8, 1);
     let mut buffer = Buffer::empty(area);
 
@@ -224,7 +221,7 @@ fn claim_28_meter_gradient_correct() {
 
     for pct in [0, 25, 50, 75, 100] {
         let mut buffer = Buffer::empty(area);
-        let meter = Meter::new(pct as f64 / 100.0);
+        let meter = Meter::new(f64::from(pct) / 100.0);
         meter.render(area, &mut buffer);
 
         // Convert buffer to string
@@ -233,10 +230,8 @@ fn claim_28_meter_gradient_correct() {
 
         // Output should contain the percentage
         assert!(
-            output.contains(&format!("{}%", pct)) || pct == 0,
-            "Claim 28 FALSIFIED: Meter output doesn't show {}%: {}",
-            pct,
-            output
+            output.contains(&format!("{pct}%")) || pct == 0,
+            "Claim 28 FALSIFIED: Meter output doesn't show {pct}%: {output}"
         );
     }
 }
@@ -260,19 +255,16 @@ fn claim_41_cpu_accuracy() {
     if let Some(total) = metrics.get_gauge("cpu.total") {
         assert!(
             total >= 0.0 && total <= 100.0,
-            "Claim 41 FALSIFIED: CPU total {}% outside 0-100 range",
-            total
+            "Claim 41 FALSIFIED: CPU total {total}% outside 0-100 range"
         );
     }
 
     // Per-core validation
     for i in 0..cpu.core_count() {
-        if let Some(core_pct) = metrics.get_gauge(&format!("cpu.core.{}", i)) {
+        if let Some(core_pct) = metrics.get_gauge(&format!("cpu.core.{i}")) {
             assert!(
                 core_pct >= 0.0 && core_pct <= 100.0,
-                "Claim 41 FALSIFIED: Core {} at {}% outside 0-100",
-                i,
-                core_pct
+                "Claim 41 FALSIFIED: Core {i} at {core_pct}% outside 0-100"
             );
         }
     }
@@ -294,11 +286,11 @@ fn claim_42_memory_accuracy() {
     assert!(total > 0, "Claim 42 FALSIFIED: Total memory is 0");
 
     // Used + available should be <= total (with some slack for kernel)
-    assert!(used <= total, "Claim 42 FALSIFIED: Used {} > Total {}", used, total);
+    assert!(used <= total, "Claim 42 FALSIFIED: Used {used} > Total {total}");
 
     // Percentage should be 0-100
     if let Some(pct) = metrics.get_gauge("memory.used.percent") {
-        assert!(pct >= 0.0 && pct <= 100.0, "Claim 42 FALSIFIED: Memory {}% outside 0-100", pct);
+        assert!(pct >= 0.0 && pct <= 100.0, "Claim 42 FALSIFIED: Memory {pct}% outside 0-100");
     }
 }
 
@@ -354,9 +346,9 @@ fn claim_48_load_average_accuracy() {
     let metrics = cpu.collect().expect("CPU collection failed");
 
     if let Some(load1) = metrics.get_gauge("cpu.load.1") {
-        assert!(load1 >= 0.0, "Claim 48 FALSIFIED: Load average {} < 0", load1);
+        assert!(load1 >= 0.0, "Claim 48 FALSIFIED: Load average {load1} < 0");
         // Load can exceed 100 on multi-core, but shouldn't be absurd
-        assert!(load1 < 10000.0, "Claim 48 FALSIFIED: Load average {} unreasonably high", load1);
+        assert!(load1 < 10000.0, "Claim 48 FALSIFIED: Load average {load1} unreasonably high");
     }
 }
 
@@ -412,10 +404,10 @@ fn claim_58_process_count_accuracy() {
     let count = proc.count();
 
     // Should find at least kernel/init processes
-    assert!(count >= 10, "Claim 58 FALSIFIED: Only {} processes, expected >= 10", count);
+    assert!(count >= 10, "Claim 58 FALSIFIED: Only {count} processes, expected >= 10");
 
     // Sanity upper bound
-    assert!(count < 100000, "Claim 58 FALSIFIED: {} processes seems unreasonable", count);
+    assert!(count < 100000, "Claim 58 FALSIFIED: {count} processes seems unreasonable");
 }
 
 // ============================================================================
@@ -430,8 +422,8 @@ fn claim_61_deterministic_rendering() {
     let mut buf2 = RingBuffer::new(100);
 
     for i in 0..50 {
-        buf1.push(i as f64);
-        buf2.push(i as f64);
+        buf1.push(f64::from(i));
+        buf2.push(f64::from(i));
     }
 
     let data1: Vec<f64> = buf1.iter().copied().collect();
@@ -450,10 +442,10 @@ fn claim_67_process_sort_stable() {
         ("proc_c", 25.0),
     ];
 
-    data.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    data.sort_by(|a, b| b.1.partial_cmp(&a.1).expect("operation should succeed"));
     let order1: Vec<_> = data.iter().map(|p| p.0).collect();
 
-    data.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    data.sort_by(|a, b| b.1.partial_cmp(&a.1).expect("operation should succeed"));
     let order2: Vec<_> = data.iter().map(|p| p.0).collect();
 
     assert_eq!(order1, order2, "Claim 67 FALSIFIED: Sort not stable");
@@ -515,7 +507,7 @@ fn claim_81_edge_cases() {
     // RingBuffer overflow
     let mut buf = RingBuffer::new(5);
     for i in 0..100 {
-        buf.push(i as f64);
+        buf.push(f64::from(i));
     }
     assert_eq!(buf.len(), 5);
 
@@ -646,7 +638,7 @@ fn test_collector_ids_unique() {
     let ids: Vec<_> = collectors.iter().map(|(_, id)| *id).collect();
     let unique: std::collections::HashSet<_> = ids.iter().collect();
 
-    assert_eq!(ids.len(), unique.len(), "Collector IDs are not unique: {:?}", ids);
+    assert_eq!(ids.len(), unique.len(), "Collector IDs are not unique: {ids:?}");
 }
 
 /// Test all collectors implement Display name
@@ -679,8 +671,8 @@ fn test_interval_hints_reasonable() {
     ];
 
     for interval in intervals {
-        assert!(interval >= Duration::from_millis(100), "Interval too short: {:?}", interval);
-        assert!(interval <= Duration::from_secs(60), "Interval too long: {:?}", interval);
+        assert!(interval >= Duration::from_millis(100), "Interval too short: {interval:?}");
+        assert!(interval <= Duration::from_secs(60), "Interval too long: {interval:?}");
     }
 }
 
@@ -782,8 +774,8 @@ fn claim_12_gradient_interpolation_smooth() {
     let gradient = Gradient::default();
 
     for i in 0..99 {
-        let t1 = i as f64 / 100.0;
-        let t2 = (i + 1) as f64 / 100.0;
+        let t1 = f64::from(i) / 100.0;
+        let t2 = f64::from(i + 1) / 100.0;
 
         let c1 = gradient.sample(t1);
         let c2 = gradient.sample(t2);
@@ -792,10 +784,10 @@ fn claim_12_gradient_interpolation_smooth() {
         if let (ratatui::style::Color::Rgb(r1, g1, b1), ratatui::style::Color::Rgb(r2, g2, b2)) =
             (c1, c2)
         {
-            let diff = (r1 as i32 - r2 as i32).abs()
-                + (g1 as i32 - g2 as i32).abs()
-                + (b1 as i32 - b2 as i32).abs();
-            assert!(diff < 50, "Gradient jump too large at t={}: diff={}", t1, diff);
+            let diff = (i32::from(r1) - i32::from(r2)).abs()
+                + (i32::from(g1) - i32::from(g2)).abs()
+                + (i32::from(b1) - i32::from(b2)).abs();
+            assert!(diff < 50, "Gradient jump too large at t={t1}: diff={diff}");
         }
     }
 }
@@ -813,26 +805,26 @@ fn claim_13_gradient_edge_values() {
     let _ = gradient.sample(2.0);
 }
 
-/// Claim 14: RingBuffer FIFO order
+/// Claim 14: `RingBuffer` FIFO order
 /// Test: Values come out in correct order
 #[test]
 fn claim_14_ring_buffer_fifo() {
     let mut buf = RingBuffer::new(5);
     for i in 0..5 {
-        buf.push(i as f64);
+        buf.push(f64::from(i));
     }
 
     let values: Vec<f64> = buf.iter().copied().collect();
     assert_eq!(values, vec![0.0, 1.0, 2.0, 3.0, 4.0]);
 }
 
-/// Claim 15: RingBuffer overwrites oldest
+/// Claim 15: `RingBuffer` overwrites oldest
 /// Test: When full, oldest values are overwritten
 #[test]
 fn claim_15_ring_buffer_overwrites() {
     let mut buf = RingBuffer::new(3);
     for i in 0..5 {
-        buf.push(i as f64);
+        buf.push(f64::from(i));
     }
 
     let values: Vec<f64> = buf.iter().copied().collect();
@@ -848,7 +840,10 @@ fn claim_16_metrics_storage() {
     metrics.insert("test.gauge", MetricValue::Gauge(3.14));
 
     assert_eq!(metrics.get_counter("test.counter"), Some(42));
-    assert!((metrics.get_gauge("test.gauge").unwrap() - 3.14).abs() < f64::EPSILON);
+    assert!(
+        (metrics.get_gauge("test.gauge").expect("value should be present") - 3.14).abs()
+            < f64::EPSILON
+    );
 }
 
 /// Claim 17: Graph renders different modes
@@ -898,7 +893,7 @@ fn claim_19_meter_shows_label() {
     let text: String =
         buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
-    assert!(text.contains("TestLabel"), "Meter should show label: {}", text);
+    assert!(text.contains("TestLabel"), "Meter should show label: {text}");
 }
 
 /// Claim 20: Meter percentage display
@@ -914,7 +909,7 @@ fn claim_20_meter_shows_percentage() {
     let text: String =
         buffer.content().iter().map(|c| c.symbol().chars().next().unwrap_or(' ')).collect();
 
-    assert!(text.contains("75%"), "Meter should show 75%: {}", text);
+    assert!(text.contains("75%"), "Meter should show 75%: {text}");
 }
 
 // ============================================================================
@@ -937,8 +932,7 @@ fn claim_22_graph_tty_ascii_safe() {
         let c = cell.symbol().chars().next().unwrap_or(' ');
         assert!(
             c == ' ' || c == '░' || c == '▒' || c == '█',
-            "TTY mode should use basic chars, found: {:?}",
-            c
+            "TTY mode should use basic chars, found: {c:?}"
         );
     }
 }
@@ -1067,7 +1061,7 @@ fn claim_32_zero_size_area() {
 /// Test: Graph handles large data without issues
 #[test]
 fn claim_33_large_data_set() {
-    let data: Vec<f64> = (0..10000).map(|i| (i as f64 / 1000.0).sin().abs()).collect();
+    let data: Vec<f64> = (0..10000).map(|i| (f64::from(i) / 1000.0).sin().abs()).collect();
     let area = Rect::new(0, 0, 80, 24);
     let mut buffer = Buffer::empty(area);
 
@@ -1089,8 +1083,8 @@ fn claim_45_disk_percentages_valid() {
 
     for mount in disk.mounts() {
         let pct = mount.usage_percent();
-        assert!(pct >= 0.0, "Disk usage can't be negative: {}", pct);
-        assert!(pct <= 100.0, "Disk usage can't exceed 100%: {}", pct);
+        assert!(pct >= 0.0, "Disk usage can't be negative: {pct}");
+        assert!(pct <= 100.0, "Disk usage can't exceed 100%: {pct}");
     }
 }
 
@@ -1131,7 +1125,7 @@ fn claim_49_cpu_core_count() {
     let cores = cpu.core_count();
 
     assert!(cores >= 1, "Should have at least 1 core");
-    assert!(cores <= 1024, "Core count seems unreasonable: {}", cores);
+    assert!(cores <= 1024, "Core count seems unreasonable: {cores}");
 }
 
 /// Claim 52: Network rates non-negative
@@ -1159,7 +1153,7 @@ fn claim_53_process_pids_positive() {
     let _ = proc.collect();
 
     for (pid, _) in proc.processes() {
-        assert!(*pid > 0, "PID should be positive: {}", pid);
+        assert!(*pid > 0, "PID should be positive: {pid}");
     }
 }
 
@@ -1175,12 +1169,7 @@ fn claim_54_process_names_non_empty() {
 
     // Allow some processes with empty names (kernel threads)
     let total = proc.count();
-    assert!(
-        empty_names < total / 2,
-        "Too many processes with empty names: {}/{}",
-        empty_names,
-        total
-    );
+    assert!(empty_names < total / 2, "Too many processes with empty names: {empty_names}/{total}");
 }
 
 /// Claim 55: Collector IDs are static strings
@@ -1251,7 +1240,7 @@ fn claim_60_uptime_positive() {
 
     if let Ok(m) = metrics {
         if let Some(uptime) = m.get_gauge("cpu.uptime") {
-            assert!(uptime > 0.0, "Uptime should be positive: {}", uptime);
+            assert!(uptime > 0.0, "Uptime should be positive: {uptime}");
         }
     }
 }
@@ -1297,13 +1286,13 @@ fn claim_63_meter_deterministic() {
     assert_eq!(text1, text2, "Same meter should produce same output");
 }
 
-/// Claim 64: RingBuffer iteration order
+/// Claim 64: `RingBuffer` iteration order
 /// Test: Iteration order is consistent
 #[test]
 fn claim_64_ring_buffer_iteration_order() {
     let mut buf = RingBuffer::new(5);
     for i in 0..5 {
-        buf.push(i as f64);
+        buf.push(f64::from(i));
     }
 
     let v1: Vec<f64> = buf.iter().copied().collect();
@@ -1453,13 +1442,13 @@ fn claim_80_process_available() {
     let _available = proc.is_available();
 }
 
-/// Claim 83: Stress test RingBuffer
-/// Test: RingBuffer handles many operations
+/// Claim 83: Stress test `RingBuffer`
+/// Test: `RingBuffer` handles many operations
 #[test]
 fn claim_83_ring_buffer_stress() {
     let mut buf = RingBuffer::new(100);
     for i in 0..10000 {
-        buf.push(i as f64);
+        buf.push(f64::from(i));
     }
     assert_eq!(buf.len(), 100);
 }
@@ -1470,7 +1459,7 @@ fn claim_83_ring_buffer_stress() {
 fn claim_84_metrics_stress() {
     let mut metrics = Metrics::new();
     for i in 0..1000 {
-        metrics.insert(&format!("metric.{}", i), MetricValue::Counter(i as u64));
+        metrics.insert(&format!("metric.{i}"), MetricValue::Counter(i as u64));
     }
 }
 
@@ -1551,7 +1540,7 @@ fn claim_91_process_filter() {
 
     // Should be able to filter processes
     let count_before = proc.count();
-    let filtered: Vec<_> = proc.processes().values().filter(|p| p.name.contains("a")).collect();
+    let filtered: Vec<_> = proc.processes().values().filter(|p| p.name.contains('a')).collect();
 
     assert!(filtered.len() <= count_before);
 }
@@ -1603,12 +1592,12 @@ fn claim_95_gradient_three_stop() {
 // ============================================================================
 
 /// Claim 96: No buffer overflow
-/// Test: RingBuffer doesn't overflow
+/// Test: `RingBuffer` doesn't overflow
 #[test]
 fn claim_96_no_buffer_overflow() {
     let mut buf = RingBuffer::new(10);
     for i in 0..1_000_000 {
-        buf.push(i as f64);
+        buf.push(f64::from(i));
     }
     assert_eq!(buf.len(), 10);
 }

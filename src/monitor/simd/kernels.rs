@@ -30,7 +30,13 @@
 use super::SimdStats;
 
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use std::arch::x86_64::{
+    __m128i, __m256i, _mm256_add_pd, _mm256_and_si256, _mm256_cmpgt_epi64, _mm256_div_pd,
+    _mm256_fmadd_pd, _mm256_loadu_pd, _mm256_loadu_si256, _mm256_max_pd, _mm256_min_pd,
+    _mm256_mul_pd, _mm256_set1_pd, _mm256_set_pd, _mm256_setzero_pd, _mm256_storeu_pd,
+    _mm256_storeu_si256, _mm256_sub_epi64, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8,
+    _mm_set1_epi8,
+};
 
 #[cfg(target_arch = "aarch64")]
 use std::arch::aarch64::*;
@@ -101,7 +107,7 @@ pub fn simd_parse_integers(bytes: &[u8]) -> Vec<u64> {
 
     for &b in bytes {
         if b.is_ascii_digit() {
-            current = current.wrapping_mul(10).wrapping_add((b - b'0') as u64);
+            current = current.wrapping_mul(10).wrapping_add(u64::from(b - b'0'));
             in_number = true;
         } else if in_number {
             result.push(current);
@@ -172,40 +178,42 @@ pub fn simd_find_newlines(bytes: &[u8]) -> Vec<usize> {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn simd_find_newlines_sse2(bytes: &[u8]) -> Vec<usize> {
-    let mut positions = Vec::with_capacity(bytes.len() / 40);
-    let len = bytes.len();
-    let mut i = 0;
+    unsafe {
+        let mut positions = Vec::with_capacity(bytes.len() / 40);
+        let len = bytes.len();
+        let mut i = 0;
 
-    // Process 16 bytes at a time
-    let newline = _mm_set1_epi8(b'\n' as i8);
+        // Process 16 bytes at a time
+        let newline = _mm_set1_epi8(b'\n' as i8);
 
-    while i + 16 <= len {
-        let chunk = _mm_loadu_si128(bytes.as_ptr().add(i) as *const __m128i);
-        let cmp = _mm_cmpeq_epi8(chunk, newline);
-        let mask = _mm_movemask_epi8(cmp) as u32;
+        while i + 16 <= len {
+            let chunk = _mm_loadu_si128(bytes.as_ptr().add(i).cast::<__m128i>());
+            let cmp = _mm_cmpeq_epi8(chunk, newline);
+            let mask = _mm_movemask_epi8(cmp) as u32;
 
-        if mask != 0 {
-            // Extract positions from bitmask
-            let mut m = mask;
-            while m != 0 {
-                let bit_pos = m.trailing_zeros() as usize;
-                positions.push(i + bit_pos);
-                m &= m - 1; // Clear lowest set bit
+            if mask != 0 {
+                // Extract positions from bitmask
+                let mut m = mask;
+                while m != 0 {
+                    let bit_pos = m.trailing_zeros() as usize;
+                    positions.push(i + bit_pos);
+                    m &= m - 1; // Clear lowest set bit
+                }
             }
+
+            i += 16;
         }
 
-        i += 16;
-    }
-
-    // Handle remainder
-    while i < len {
-        if bytes[i] == b'\n' {
-            positions.push(i);
+        // Handle remainder
+        while i < len {
+            if bytes[i] == b'\n' {
+                positions.push(i);
+            }
+            i += 1;
         }
-        i += 1;
-    }
 
-    positions
+        positions
+    }
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -274,37 +282,39 @@ pub fn simd_find_byte(bytes: &[u8], target: u8) -> Vec<usize> {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "sse2")]
 unsafe fn simd_find_byte_sse2(bytes: &[u8], target: u8) -> Vec<usize> {
-    let mut positions = Vec::with_capacity(bytes.len() / 20);
-    let len = bytes.len();
-    let mut i = 0;
+    unsafe {
+        let mut positions = Vec::with_capacity(bytes.len() / 20);
+        let len = bytes.len();
+        let mut i = 0;
 
-    let target_vec = _mm_set1_epi8(target as i8);
+        let target_vec = _mm_set1_epi8(target as i8);
 
-    while i + 16 <= len {
-        let chunk = _mm_loadu_si128(bytes.as_ptr().add(i) as *const __m128i);
-        let cmp = _mm_cmpeq_epi8(chunk, target_vec);
-        let mask = _mm_movemask_epi8(cmp) as u32;
+        while i + 16 <= len {
+            let chunk = _mm_loadu_si128(bytes.as_ptr().add(i).cast::<__m128i>());
+            let cmp = _mm_cmpeq_epi8(chunk, target_vec);
+            let mask = _mm_movemask_epi8(cmp) as u32;
 
-        if mask != 0 {
-            let mut m = mask;
-            while m != 0 {
-                let bit_pos = m.trailing_zeros() as usize;
-                positions.push(i + bit_pos);
-                m &= m - 1;
+            if mask != 0 {
+                let mut m = mask;
+                while m != 0 {
+                    let bit_pos = m.trailing_zeros() as usize;
+                    positions.push(i + bit_pos);
+                    m &= m - 1;
+                }
             }
+
+            i += 16;
         }
 
-        i += 16;
-    }
-
-    while i < len {
-        if bytes[i] == target {
-            positions.push(i);
+        while i < len {
+            if bytes[i] == target {
+                positions.push(i);
+            }
+            i += 1;
         }
-        i += 1;
-    }
 
-    positions
+        positions
+    }
 }
 
 /// Finds positions of a specific byte pattern.
@@ -355,32 +365,34 @@ pub fn simd_delta(current: &[u64], previous: &[u64]) -> Vec<u64> {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn simd_delta_avx2(current: &[u64], previous: &[u64]) -> Vec<u64> {
-    let len = current.len();
-    let mut result = vec![0u64; len];
-    let mut i = 0;
+    unsafe {
+        let len = current.len();
+        let mut result = vec![0u64; len];
+        let mut i = 0;
 
-    // Process 4 u64s at a time (256 bits)
-    while i + 4 <= len {
-        let curr = _mm256_loadu_si256(current.as_ptr().add(i) as *const __m256i);
-        let prev = _mm256_loadu_si256(previous.as_ptr().add(i) as *const __m256i);
+        // Process 4 u64s at a time (256 bits)
+        while i + 4 <= len {
+            let curr = _mm256_loadu_si256(current.as_ptr().add(i).cast::<__m256i>());
+            let prev = _mm256_loadu_si256(previous.as_ptr().add(i).cast::<__m256i>());
 
-        // Saturating subtraction: max(curr - prev, 0)
-        // AVX2 doesn't have u64 saturating sub, so we use comparison + blend
-        let diff = _mm256_sub_epi64(curr, prev);
-        let mask = _mm256_cmpgt_epi64(curr, prev); // curr > prev
-        let saturated = _mm256_and_si256(diff, mask);
+            // Saturating subtraction: max(curr - prev, 0)
+            // AVX2 doesn't have u64 saturating sub, so we use comparison + blend
+            let diff = _mm256_sub_epi64(curr, prev);
+            let mask = _mm256_cmpgt_epi64(curr, prev); // curr > prev
+            let saturated = _mm256_and_si256(diff, mask);
 
-        _mm256_storeu_si256(result.as_mut_ptr().add(i) as *mut __m256i, saturated);
-        i += 4;
+            _mm256_storeu_si256(result.as_mut_ptr().add(i).cast::<__m256i>(), saturated);
+            i += 4;
+        }
+
+        // Handle remainder
+        while i < len {
+            result[i] = current[i].saturating_sub(previous[i]);
+            i += 1;
+        }
+
+        result
     }
-
-    // Handle remainder
-    while i < len {
-        result[i] = current[i].saturating_sub(previous[i]);
-        i += 1;
-    }
-
-    result
 }
 
 fn scalar_delta_unrolled(current: &[u64], previous: &[u64]) -> Vec<u64> {
@@ -432,43 +444,45 @@ pub fn simd_percentage(values: &[u64], totals: &[u64]) -> Vec<f64> {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn simd_percentage_avx2(values: &[u64], totals: &[u64]) -> Vec<f64> {
-    let len = values.len();
-    let mut result = vec![0.0f64; len];
-    let hundred = _mm256_set1_pd(100.0);
+    unsafe {
+        let len = values.len();
+        let mut result = vec![0.0f64; len];
+        let hundred = _mm256_set1_pd(100.0);
 
-    let mut i = 0;
+        let mut i = 0;
 
-    // Process 4 at a time
-    while i + 4 <= len {
-        // Convert u64 to f64 (no direct AVX2 instruction, use scalar conversion)
-        let val_f64 = _mm256_set_pd(
-            values[i + 3] as f64,
-            values[i + 2] as f64,
-            values[i + 1] as f64,
-            values[i] as f64,
-        );
-        let tot_f64 = _mm256_set_pd(
-            totals[i + 3] as f64,
-            totals[i + 2] as f64,
-            totals[i + 1] as f64,
-            totals[i] as f64,
-        );
+        // Process 4 at a time
+        while i + 4 <= len {
+            // Convert u64 to f64 (no direct AVX2 instruction, use scalar conversion)
+            let val_f64 = _mm256_set_pd(
+                values[i + 3] as f64,
+                values[i + 2] as f64,
+                values[i + 1] as f64,
+                values[i] as f64,
+            );
+            let tot_f64 = _mm256_set_pd(
+                totals[i + 3] as f64,
+                totals[i + 2] as f64,
+                totals[i + 1] as f64,
+                totals[i] as f64,
+            );
 
-        let scaled = _mm256_mul_pd(val_f64, hundred);
-        let pct = _mm256_div_pd(scaled, tot_f64);
+            let scaled = _mm256_mul_pd(val_f64, hundred);
+            let pct = _mm256_div_pd(scaled, tot_f64);
 
-        _mm256_storeu_pd(result.as_mut_ptr().add(i), pct);
-        i += 4;
+            _mm256_storeu_pd(result.as_mut_ptr().add(i), pct);
+            i += 4;
+        }
+
+        // Handle remainder
+        while i < len {
+            result[i] =
+                if totals[i] == 0 { 0.0 } else { (values[i] as f64 * 100.0) / totals[i] as f64 };
+            i += 1;
+        }
+
+        result
     }
-
-    // Handle remainder
-    while i < len {
-        result[i] =
-            if totals[i] == 0 { 0.0 } else { (values[i] as f64 * 100.0) / totals[i] as f64 };
-        i += 1;
-    }
-
-    result
 }
 
 fn scalar_percentage(values: &[u64], totals: &[u64]) -> Vec<f64> {
@@ -506,53 +520,55 @@ pub fn simd_statistics(values: &[f64]) -> SimdStats {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn simd_statistics_avx2(values: &[f64]) -> SimdStats {
-    let len = values.len();
-    let mut i = 0;
+    unsafe {
+        let len = values.len();
+        let mut i = 0;
 
-    let mut min_vec = _mm256_set1_pd(f64::MAX);
-    let mut max_vec = _mm256_set1_pd(f64::MIN);
-    let mut sum_vec = _mm256_setzero_pd();
-    let mut sum_sq_vec = _mm256_setzero_pd();
+        let mut min_vec = _mm256_set1_pd(f64::MAX);
+        let mut max_vec = _mm256_set1_pd(f64::MIN);
+        let mut sum_vec = _mm256_setzero_pd();
+        let mut sum_sq_vec = _mm256_setzero_pd();
 
-    // Process 4 at a time
-    while i + 4 <= len {
-        let v = _mm256_loadu_pd(values.as_ptr().add(i));
+        // Process 4 at a time
+        while i + 4 <= len {
+            let v = _mm256_loadu_pd(values.as_ptr().add(i));
 
-        min_vec = _mm256_min_pd(min_vec, v);
-        max_vec = _mm256_max_pd(max_vec, v);
-        sum_vec = _mm256_add_pd(sum_vec, v);
-        sum_sq_vec = _mm256_fmadd_pd(v, v, sum_sq_vec);
+            min_vec = _mm256_min_pd(min_vec, v);
+            max_vec = _mm256_max_pd(max_vec, v);
+            sum_vec = _mm256_add_pd(sum_vec, v);
+            sum_sq_vec = _mm256_fmadd_pd(v, v, sum_sq_vec);
 
-        i += 4;
+            i += 4;
+        }
+
+        // Horizontal reductions
+        let mut min_arr = [0.0f64; 4];
+        let mut max_arr = [0.0f64; 4];
+        let mut sum_arr = [0.0f64; 4];
+        let mut sum_sq_arr = [0.0f64; 4];
+
+        _mm256_storeu_pd(min_arr.as_mut_ptr(), min_vec);
+        _mm256_storeu_pd(max_arr.as_mut_ptr(), max_vec);
+        _mm256_storeu_pd(sum_arr.as_mut_ptr(), sum_vec);
+        _mm256_storeu_pd(sum_sq_arr.as_mut_ptr(), sum_sq_vec);
+
+        let mut min = min_arr[0].min(min_arr[1]).min(min_arr[2]).min(min_arr[3]);
+        let mut max = max_arr[0].max(max_arr[1]).max(max_arr[2]).max(max_arr[3]);
+        let mut sum = sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
+        let mut sum_sq = sum_sq_arr[0] + sum_sq_arr[1] + sum_sq_arr[2] + sum_sq_arr[3];
+
+        // Handle remainder
+        while i < len {
+            let v = values[i];
+            min = min.min(v);
+            max = max.max(v);
+            sum += v;
+            sum_sq += v * v;
+            i += 1;
+        }
+
+        SimdStats { min, max, sum, sum_sq, count: len as u64, _padding: [0; 24] }
     }
-
-    // Horizontal reductions
-    let mut min_arr = [0.0f64; 4];
-    let mut max_arr = [0.0f64; 4];
-    let mut sum_arr = [0.0f64; 4];
-    let mut sum_sq_arr = [0.0f64; 4];
-
-    _mm256_storeu_pd(min_arr.as_mut_ptr(), min_vec);
-    _mm256_storeu_pd(max_arr.as_mut_ptr(), max_vec);
-    _mm256_storeu_pd(sum_arr.as_mut_ptr(), sum_vec);
-    _mm256_storeu_pd(sum_sq_arr.as_mut_ptr(), sum_sq_vec);
-
-    let mut min = min_arr[0].min(min_arr[1]).min(min_arr[2]).min(min_arr[3]);
-    let mut max = max_arr[0].max(max_arr[1]).max(max_arr[2]).max(max_arr[3]);
-    let mut sum = sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
-    let mut sum_sq = sum_sq_arr[0] + sum_sq_arr[1] + sum_sq_arr[2] + sum_sq_arr[3];
-
-    // Handle remainder
-    while i < len {
-        let v = values[i];
-        min = min.min(v);
-        max = max.max(v);
-        sum += v;
-        sum_sq += v * v;
-        i += 1;
-    }
-
-    SimdStats { min, max, sum, sum_sq, count: len as u64, _padding: [0; 24] }
 }
 
 fn scalar_statistics(values: &[f64]) -> SimdStats {
@@ -590,26 +606,28 @@ pub fn simd_sum(values: &[f64]) -> f64 {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn simd_sum_avx2(values: &[f64]) -> f64 {
-    let len = values.len();
-    let mut i = 0;
-    let mut sum_vec = _mm256_setzero_pd();
+    unsafe {
+        let len = values.len();
+        let mut i = 0;
+        let mut sum_vec = _mm256_setzero_pd();
 
-    while i + 4 <= len {
-        let v = _mm256_loadu_pd(values.as_ptr().add(i));
-        sum_vec = _mm256_add_pd(sum_vec, v);
-        i += 4;
+        while i + 4 <= len {
+            let v = _mm256_loadu_pd(values.as_ptr().add(i));
+            sum_vec = _mm256_add_pd(sum_vec, v);
+            i += 4;
+        }
+
+        let mut sum_arr = [0.0f64; 4];
+        _mm256_storeu_pd(sum_arr.as_mut_ptr(), sum_vec);
+        let mut sum = sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
+
+        while i < len {
+            sum += values[i];
+            i += 1;
+        }
+
+        sum
     }
-
-    let mut sum_arr = [0.0f64; 4];
-    _mm256_storeu_pd(sum_arr.as_mut_ptr(), sum_vec);
-    let mut sum = sum_arr[0] + sum_arr[1] + sum_arr[2] + sum_arr[3];
-
-    while i < len {
-        sum += values[i];
-        i += 1;
-    }
-
-    sum
 }
 
 /// Mean calculation using SIMD.
@@ -638,32 +656,34 @@ pub fn simd_max(values: &[f64]) -> f64 {
         }
     }
 
-    values.iter().cloned().fold(f64::MIN, f64::max)
+    values.iter().copied().fold(f64::MIN, f64::max)
 }
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn simd_max_avx2(values: &[f64]) -> f64 {
-    let len = values.len();
-    let mut i = 0;
-    let mut max_vec = _mm256_set1_pd(f64::MIN);
+    unsafe {
+        let len = values.len();
+        let mut i = 0;
+        let mut max_vec = _mm256_set1_pd(f64::MIN);
 
-    while i + 4 <= len {
-        let v = _mm256_loadu_pd(values.as_ptr().add(i));
-        max_vec = _mm256_max_pd(max_vec, v);
-        i += 4;
+        while i + 4 <= len {
+            let v = _mm256_loadu_pd(values.as_ptr().add(i));
+            max_vec = _mm256_max_pd(max_vec, v);
+            i += 4;
+        }
+
+        let mut max_arr = [0.0f64; 4];
+        _mm256_storeu_pd(max_arr.as_mut_ptr(), max_vec);
+        let mut max = max_arr[0].max(max_arr[1]).max(max_arr[2]).max(max_arr[3]);
+
+        while i < len {
+            max = max.max(values[i]);
+            i += 1;
+        }
+
+        max
     }
-
-    let mut max_arr = [0.0f64; 4];
-    _mm256_storeu_pd(max_arr.as_mut_ptr(), max_vec);
-    let mut max = max_arr[0].max(max_arr[1]).max(max_arr[2]).max(max_arr[3]);
-
-    while i < len {
-        max = max.max(values[i]);
-        i += 1;
-    }
-
-    max
 }
 
 /// Min reduction using SIMD.
@@ -683,32 +703,34 @@ pub fn simd_min(values: &[f64]) -> f64 {
         }
     }
 
-    values.iter().cloned().fold(f64::MAX, f64::min)
+    values.iter().copied().fold(f64::MAX, f64::min)
 }
 
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn simd_min_avx2(values: &[f64]) -> f64 {
-    let len = values.len();
-    let mut i = 0;
-    let mut min_vec = _mm256_set1_pd(f64::MAX);
+    unsafe {
+        let len = values.len();
+        let mut i = 0;
+        let mut min_vec = _mm256_set1_pd(f64::MAX);
 
-    while i + 4 <= len {
-        let v = _mm256_loadu_pd(values.as_ptr().add(i));
-        min_vec = _mm256_min_pd(min_vec, v);
-        i += 4;
+        while i + 4 <= len {
+            let v = _mm256_loadu_pd(values.as_ptr().add(i));
+            min_vec = _mm256_min_pd(min_vec, v);
+            i += 4;
+        }
+
+        let mut min_arr = [0.0f64; 4];
+        _mm256_storeu_pd(min_arr.as_mut_ptr(), min_vec);
+        let mut min = min_arr[0].min(min_arr[1]).min(min_arr[2]).min(min_arr[3]);
+
+        while i < len {
+            min = min.min(values[i]);
+            i += 1;
+        }
+
+        min
     }
-
-    let mut min_arr = [0.0f64; 4];
-    _mm256_storeu_pd(min_arr.as_mut_ptr(), min_vec);
-    let mut min = min_arr[0].min(min_arr[1]).min(min_arr[2]).min(min_arr[3]);
-
-    while i < len {
-        min = min.min(values[i]);
-        i += 1;
-    }
-
-    min
 }
 
 /// Normalizes values to 0.0-1.0 range.
@@ -734,24 +756,26 @@ pub fn simd_normalize(values: &[f64], max_val: f64) -> Vec<f64> {
 #[cfg(target_arch = "x86_64")]
 #[target_feature(enable = "avx2")]
 unsafe fn simd_normalize_avx2(values: &[f64], max_val: f64) -> Vec<f64> {
-    let len = values.len();
-    let mut result = vec![0.0f64; len];
-    let divisor = _mm256_set1_pd(max_val);
-    let mut i = 0;
+    unsafe {
+        let len = values.len();
+        let mut result = vec![0.0f64; len];
+        let divisor = _mm256_set1_pd(max_val);
+        let mut i = 0;
 
-    while i + 4 <= len {
-        let v = _mm256_loadu_pd(values.as_ptr().add(i));
-        let normalized = _mm256_div_pd(v, divisor);
-        _mm256_storeu_pd(result.as_mut_ptr().add(i), normalized);
-        i += 4;
+        while i + 4 <= len {
+            let v = _mm256_loadu_pd(values.as_ptr().add(i));
+            let normalized = _mm256_div_pd(v, divisor);
+            _mm256_storeu_pd(result.as_mut_ptr().add(i), normalized);
+            i += 4;
+        }
+
+        while i < len {
+            result[i] = values[i] / max_val;
+            i += 1;
+        }
+
+        result
     }
-
-    while i < len {
-        result[i] = values[i] / max_val;
-        i += 1;
-    }
-
-    result
 }
 
 #[cfg(test)]
@@ -792,7 +816,7 @@ mod tests {
         // Test with data longer than 16 bytes to exercise SIMD path
         let mut input = Vec::new();
         for i in 0..10 {
-            input.extend_from_slice(format!("line{:02}\n", i).as_bytes());
+            input.extend_from_slice(format!("line{i:02}\n").as_bytes());
         }
         let positions = simd_find_newlines(&input);
         assert_eq!(positions.len(), 10);
@@ -863,7 +887,7 @@ mod tests {
 
     #[test]
     fn test_simd_statistics_large() {
-        let values: Vec<f64> = (0..100).map(|i| i as f64).collect();
+        let values: Vec<f64> = (0..100).map(f64::from).collect();
         let stats = simd_statistics(&values);
         assert!((stats.min - 0.0).abs() < 0.001);
         assert!((stats.max - 99.0).abs() < 0.001);

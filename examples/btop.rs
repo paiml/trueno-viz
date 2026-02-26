@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     terminal.show_cursor()?;
 
     if let Err(e) = result {
-        eprintln!("Error: {}", e);
+        eprintln!("Error: {e}");
     }
 
     Ok(())
@@ -217,7 +217,7 @@ impl App {
                 // Per-core percentages
                 self.per_core_percent.clear();
                 for i in 0..self.cpu.core_count() {
-                    if let Some(percent) = metrics.get_gauge(&format!("cpu.core.{}", i)) {
+                    if let Some(percent) = metrics.get_gauge(&format!("cpu.core.{i}")) {
                         self.per_core_percent.push(percent);
                     }
                 }
@@ -404,7 +404,7 @@ impl App {
             KeyCode::Tab | KeyCode::Char('s') => self.sort_by = self.sort_by.next(),
             KeyCode::Char('r') => self.sort_desc = !self.sort_desc,
             KeyCode::Char('t') => self.show_tree = !self.show_tree,
-            KeyCode::Char('f') | KeyCode::Char('/') => self.show_filter_input = true,
+            KeyCode::Char('f' | '/') => self.show_filter_input = true,
             KeyCode::Delete => self.filter.clear(),
             KeyCode::Char('0') => self.view_mode = ViewMode::Full,
             _ => {}
@@ -597,7 +597,7 @@ fn draw_cpu_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
             };
 
             let color = percent_color(percent);
-            let label = format!("{:2}", i);
+            let label = format!("{i:2}");
             let meter = Meter::new(percent / 100.0).label(label).color(color);
             f.render_widget(meter, meter_area);
         }
@@ -671,8 +671,7 @@ fn draw_network_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
         .network
         .current_interface()
         .and_then(|i| app.network.all_rates().get(i))
-        .map(|r| (r.rx_bytes_per_sec, r.tx_bytes_per_sec))
-        .unwrap_or((0.0, 0.0));
+        .map_or((0.0, 0.0), |r| (r.rx_bytes_per_sec, r.tx_bytes_per_sec));
 
     let title = format!(
         " Network ({}) | {} {} {} ",
@@ -735,9 +734,9 @@ fn draw_network_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
 #[cfg(feature = "monitor-nvidia")]
 fn draw_gpu_panel(f: &mut ratatui::Frame, app: &App, area: Rect) {
     let gpus = app.gpu.gpus();
-    let gpu_name = gpus.first().map(|g| g.name.as_str()).unwrap_or("GPU");
-    let gpu_temp = gpus.first().map(|g| g.temperature).unwrap_or(0.0);
-    let gpu_power = gpus.first().map(|g| g.power_mw / 1000).unwrap_or(0);
+    let gpu_name = gpus.first().map_or("GPU", |g| g.name.as_str());
+    let gpu_temp = gpus.first().map_or(0.0, |g| g.temperature);
+    let gpu_power = gpus.first().map_or(0, |g| g.power_mw / 1000);
 
     let title = format!(" {} | {}°C | {}W ", gpu_name, gpu_temp as u32, gpu_power);
 
@@ -802,16 +801,15 @@ fn draw_process_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
 
     let sort_indicator = app.sort_by.name();
     let direction = if app.sort_desc { "↓" } else { "↑" };
-    let filter_info = if !app.filter.is_empty() {
-        format!(" | Filter: \"{}\"", app.filter)
-    } else {
+    let filter_info = if app.filter.is_empty() {
         String::new()
+    } else {
+        format!(" | Filter: \"{}\"", app.filter)
     };
     let tree_info = if app.show_tree { " | Tree" } else { "" };
 
     let title = format!(
-        " Processes ({}) | Sort: {} {}{}{} ",
-        count, sort_indicator, direction, filter_info, tree_info
+        " Processes ({count}) | Sort: {sort_indicator} {direction}{filter_info}{tree_info} "
     );
 
     let block = Block::default()
@@ -1011,10 +1009,10 @@ fn format_uptime(secs: f64) -> String {
     let mins = (total_secs % 3600) / 60;
 
     if days > 0 {
-        format!("{}d {}h", days, hours)
+        format!("{days}d {hours}h")
     } else if hours > 0 {
-        format!("{}h {}m", hours, mins)
+        format!("{hours}h {mins}m")
     } else {
-        format!("{}m", mins)
+        format!("{mins}m")
     }
 }

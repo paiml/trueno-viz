@@ -172,7 +172,7 @@ impl App {
 
         let cpu_content = if let Some(metrics) = self.state.latest("cpu") {
             let percent = metrics.get_gauge("cpu.total").unwrap_or(0.0);
-            format!("CPU Usage: {:.1}%", percent)
+            format!("CPU Usage: {percent:.1}%")
         } else {
             "CPU: collecting...".to_string()
         };
@@ -211,8 +211,7 @@ impl App {
             let extra = String::new();
 
             format!(
-                "RAM: {:.0}/{:.0}G | Swap: {:.0}/{:.0}G{}",
-                used_gb, total_gb, swap_used_gb, swap_total_gb, extra
+                "RAM: {used_gb:.0}/{total_gb:.0}G | Swap: {swap_used_gb:.0}/{swap_total_gb:.0}G{extra}"
             )
         } else {
             "Memory: collecting...".to_string()

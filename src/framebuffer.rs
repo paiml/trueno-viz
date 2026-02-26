@@ -406,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_new_framebuffer() {
-        let fb = Framebuffer::new(100, 50).unwrap();
+        let fb = Framebuffer::new(100, 50).expect("framebuffer creation should succeed");
         assert_eq!(fb.width(), 100);
         assert_eq!(fb.height(), 50);
         assert_eq!(fb.pixel_count(), 5000);
@@ -423,7 +423,7 @@ mod tests {
 
     #[test]
     fn test_clear() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::RED);
 
         for y in 0..10 {
@@ -436,7 +436,7 @@ mod tests {
     #[test]
     fn test_clear_large() {
         // Test with larger buffer to exercise SIMD paths
-        let mut fb = Framebuffer::new(1920, 1080).unwrap();
+        let mut fb = Framebuffer::new(1920, 1080).expect("framebuffer creation should succeed");
         fb.clear(Rgba::BLUE);
 
         assert_eq!(fb.get_pixel(0, 0), Some(Rgba::BLUE));
@@ -446,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_fill_rect() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
         fb.fill_rect(10, 10, 20, 20, Rgba::RED);
 
@@ -458,7 +458,7 @@ mod tests {
 
     #[test]
     fn test_set_get_pixel() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
 
         fb.set_pixel(5, 5, Rgba::BLUE);
         assert_eq!(fb.get_pixel(5, 5), Some(Rgba::BLUE));
@@ -469,14 +469,14 @@ mod tests {
 
     #[test]
     fn test_blend_pixel() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         // Blend semi-transparent red
         let semi_red = Rgba::new(255, 0, 0, 128);
         fb.blend_pixel(5, 5, semi_red);
 
-        let result = fb.get_pixel(5, 5).unwrap();
+        let result = fb.get_pixel(5, 5).expect("operation should succeed");
         // Should be pinkish (blend of red and white)
         assert!(result.r > 200);
         assert!(result.g > 100);
@@ -485,15 +485,15 @@ mod tests {
 
     #[test]
     fn test_blend_over() {
-        let mut fb1 = Framebuffer::new(100, 100).unwrap();
-        let mut fb2 = Framebuffer::new(100, 100).unwrap();
+        let mut fb1 = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
+        let mut fb2 = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
 
         fb1.clear(Rgba::BLACK);
         fb2.clear(Rgba::WHITE);
 
-        fb1.blend_over(&fb2, 0.5).unwrap();
+        fb1.blend_over(&fb2, 0.5).expect("operation should succeed");
 
-        let result = fb1.get_pixel(50, 50).unwrap();
+        let result = fb1.get_pixel(50, 50).expect("operation should succeed");
         // Should be gray (50% blend)
         assert!(result.r > 100 && result.r < 150);
         assert!(result.g > 100 && result.g < 150);
@@ -502,12 +502,12 @@ mod tests {
 
     #[test]
     fn test_adjust_brightness() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::rgb(100, 100, 100));
 
         fb.adjust_brightness(2.0);
 
-        let result = fb.get_pixel(5, 5).unwrap();
+        let result = fb.get_pixel(5, 5).expect("operation should succeed");
         assert_eq!(result.r, 200);
         assert_eq!(result.g, 200);
         assert_eq!(result.b, 200);
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_luminance_stats() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::rgb(128, 128, 128));
 
         let (min, max, mean) = fb.luminance_stats();
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn test_row_access() {
-        let mut fb = Framebuffer::new(10, 5).unwrap();
+        let mut fb = Framebuffer::new(10, 5).expect("framebuffer creation should succeed");
         fb.clear(Rgba::BLACK);
 
         // Modify a row
@@ -538,20 +538,20 @@ mod tests {
         }
 
         // Verify
-        assert_eq!(fb.get_pixel(5, 2).unwrap().r, 255);
-        assert_eq!(fb.get_pixel(5, 1).unwrap().r, 0);
+        assert_eq!(fb.get_pixel(5, 2).expect("value should be present").r, 255);
+        assert_eq!(fb.get_pixel(5, 1).expect("value should be present").r, 0);
     }
 
     #[test]
     fn test_backend_selection() {
         let backend = Framebuffer::backend();
         // Should return a valid backend
-        println!("Selected backend: {:?}", backend);
+        println!("Selected backend: {backend:?}");
     }
 
     #[test]
     fn test_pixels_access() {
-        let fb = Framebuffer::new(10, 10).unwrap();
+        let fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         let pixels = fb.pixels();
         // Buffer size is stride * height (includes alignment padding)
         assert_eq!(pixels.len(), fb.stride() * 10);
@@ -561,7 +561,7 @@ mod tests {
 
     #[test]
     fn test_pixels_mut_access() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         // Buffer size is stride * height
         let expected_size = fb.stride() * 10;
         let pixels = fb.pixels_mut();
@@ -576,21 +576,21 @@ mod tests {
 
     #[test]
     fn test_row_out_of_bounds() {
-        let fb = Framebuffer::new(10, 5).unwrap();
+        let fb = Framebuffer::new(10, 5).expect("framebuffer creation should succeed");
         assert!(fb.row(5).is_none());
         assert!(fb.row(100).is_none());
     }
 
     #[test]
     fn test_row_mut_out_of_bounds() {
-        let mut fb = Framebuffer::new(10, 5).unwrap();
+        let mut fb = Framebuffer::new(10, 5).expect("framebuffer creation should succeed");
         assert!(fb.row_mut(5).is_none());
         assert!(fb.row_mut(100).is_none());
     }
 
     #[test]
     fn test_fill_rect_empty() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
         // Zero-width rect
         fb.fill_rect(10, 10, 0, 20, Rgba::RED);
@@ -603,7 +603,7 @@ mod tests {
 
     #[test]
     fn test_fill_rect_out_of_bounds() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
         // Rect starting outside
         fb.fill_rect(200, 200, 20, 20, Rgba::RED);
@@ -612,7 +612,7 @@ mod tests {
 
     #[test]
     fn test_blend_pixel_out_of_bounds() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
         // Out of bounds - should be no-op
         fb.blend_pixel(100, 100, Rgba::RED);
@@ -624,8 +624,8 @@ mod tests {
 
     #[test]
     fn test_blend_over_dimension_mismatch() {
-        let mut fb1 = Framebuffer::new(100, 100).unwrap();
-        let fb2 = Framebuffer::new(50, 50).unwrap();
+        let mut fb1 = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
+        let fb2 = Framebuffer::new(50, 50).expect("framebuffer creation should succeed");
 
         let result = fb1.blend_over(&fb2, 0.5);
         assert!(result.is_err());
@@ -633,14 +633,14 @@ mod tests {
 
     #[test]
     fn test_is_aligned() {
-        let fb = Framebuffer::new(100, 100).unwrap();
+        let fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         // Just verify it returns a bool (alignment depends on allocator)
         let _aligned = fb.is_aligned();
     }
 
     #[test]
     fn test_to_compact_pixels() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::RED);
         let compact = fb.to_compact_pixels();
         // Compact size should be width * height * 4 (no stride padding)
@@ -652,7 +652,7 @@ mod tests {
     #[test]
     fn test_to_compact_pixels_with_stride() {
         // Width that requires stride padding (not a multiple of 16)
-        let mut fb = Framebuffer::new(10, 5).unwrap();
+        let mut fb = Framebuffer::new(10, 5).expect("framebuffer creation should succeed");
         fb.clear(Rgba::GREEN);
 
         let compact = fb.to_compact_pixels();
@@ -666,7 +666,7 @@ mod tests {
 
     #[test]
     fn test_set_pixel_out_of_bounds() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         // Out of bounds - should be no-op
         fb.set_pixel(100, 100, Rgba::RED);
         fb.set_pixel(10, 5, Rgba::RED);

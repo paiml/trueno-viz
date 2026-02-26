@@ -264,6 +264,6 @@ mod tests {
     fn test_aes_debug_clone() {
         let aes = Aes::new().x("x").y("y");
         let aes2 = aes.clone();
-        let _ = format!("{:?}", aes2);
+        let _ = format!("{aes2:?}");
     }
 }

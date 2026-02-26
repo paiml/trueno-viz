@@ -167,7 +167,7 @@ impl DiskCollector {
             // Skip partitions (only collect whole disks and nvme namespaces)
             // Disks: sda, nvme0n1, vda, etc.
             // Partitions: sda1, nvme0n1p1, vda1, etc.
-            let is_partition = name.chars().last().map(|c| c.is_ascii_digit()).unwrap_or(false)
+            let is_partition = name.chars().last().is_some_and(|c| c.is_ascii_digit())
                 && !name.contains("nvme")
                 || (name.contains("nvme") && name.contains('p'));
 

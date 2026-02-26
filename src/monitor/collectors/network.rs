@@ -175,7 +175,7 @@ impl NetworkCollector {
         let content = std::fs::read_to_string("/proc/net/dev").map_err(|e| {
             MonitorError::CollectionFailed {
                 collector: "network",
-                message: format!("Failed to read /proc/net/dev: {}", e),
+                message: format!("Failed to read /proc/net/dev: {e}"),
             }
         })?;
 
@@ -681,13 +681,11 @@ mod tests {
             if let Some(s1) = stats1.get(name) {
                 assert!(
                     s2.rx_packets >= s1.rx_packets,
-                    "RX packets should not decrease for {}",
-                    name
+                    "RX packets should not decrease for {name}"
                 );
                 assert!(
                     s2.tx_packets >= s1.tx_packets,
-                    "TX packets should not decrease for {}",
-                    name
+                    "TX packets should not decrease for {name}"
                 );
             }
         }

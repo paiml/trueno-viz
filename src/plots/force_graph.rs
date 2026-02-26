@@ -467,8 +467,11 @@ mod tests {
 
     #[test]
     fn test_force_graph_single_node() {
-        let graph =
-            ForceGraph::new().add_node(GraphNode::new(0)).dimensions(200, 200).build().unwrap();
+        let graph = ForceGraph::new()
+            .add_node(GraphNode::new(0))
+            .dimensions(200, 200)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(graph.num_nodes(), 1);
         assert_eq!(graph.num_edges(), 0);
@@ -486,7 +489,7 @@ mod tests {
             .dimensions(300, 300)
             .iterations(50)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(graph.num_nodes(), 3);
         assert_eq!(graph.num_edges(), 3);
@@ -506,9 +509,9 @@ mod tests {
             .edge(0, 1)
             .dimensions(200, 150)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = graph.to_framebuffer().unwrap();
+        let fb = graph.to_framebuffer().expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
@@ -522,7 +525,7 @@ mod tests {
             .dimensions(400, 400)
             .iterations(100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let positions = graph.positions();
         let (x0, y0) = positions[0];
@@ -548,7 +551,7 @@ mod tests {
             .repulsion(5000.0)
             .attraction(0.05)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let graph_disconnected = ForceGraph::new()
             .add_node(GraphNode::new(0))
@@ -557,7 +560,7 @@ mod tests {
             .iterations(100)
             .repulsion(5000.0)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let pos_conn = graph_connected.positions();
         let pos_disc = graph_disconnected.positions();

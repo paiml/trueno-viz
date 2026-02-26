@@ -104,7 +104,7 @@ fn generate_sample_data() -> (Vec<f32>, Vec<f32>) {
 fn create_gradient_framebuffer() -> Framebuffer {
     let width = 100;
     let height = 40;
-    let mut fb = Framebuffer::new(width, height).unwrap();
+    let mut fb = Framebuffer::new(width, height).expect("framebuffer creation should succeed");
 
     for y in 0..height {
         for x in 0..width {

@@ -362,7 +362,7 @@ mod renacer_integration {
             .args([
                 "validate",
                 "--generate",
-                baseline_dir.to_str().unwrap(),
+                baseline_dir.to_str().expect("operation should succeed"),
                 "--",
                 "cargo",
                 "test",
@@ -450,11 +450,11 @@ mod probador_playbook {
         let result = collector.collect();
         assert!(result.is_ok());
 
-        let metrics = result.unwrap();
+        let metrics = result.expect("operation should succeed");
         let total = metrics.get_gauge("cpu.total");
         assert!(total.is_some(), "Should have cpu.total after warmup");
         assert!(
-            total.unwrap() >= 0.0 && total.unwrap() <= 100.0,
+            total.expect("operation should succeed") >= 0.0 && total.expect("operation should succeed") <= 100.0,
             "CPU total should be 0-100%"
         );
     }
@@ -464,8 +464,8 @@ mod probador_playbook {
     fn playbook_memory_total_consistent() {
         let mut collector = MemoryCollector::new();
 
-        let r1 = collector.collect().unwrap();
-        let r2 = collector.collect().unwrap();
+        let r1 = collector.collect().expect("operation should succeed");
+        let r2 = collector.collect().expect("operation should succeed");
 
         let total1 = r1.get_counter("memory.total").unwrap_or(0);
         let total2 = r2.get_counter("memory.total").unwrap_or(0);
@@ -602,7 +602,7 @@ mod edge_cases {
         let result = run_with_timeout("seq", &["1", "10000"], Duration::from_secs(5));
 
         assert!(result.is_success(), "seq should succeed");
-        let stdout = result.stdout_string().unwrap();
+        let stdout = result.stdout_string().expect("operation should succeed");
         assert!(stdout.contains("10000"), "Should include final number");
         assert!(stdout.lines().count() >= 10000, "Should have many lines");
     }

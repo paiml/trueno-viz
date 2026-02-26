@@ -451,7 +451,7 @@ mod tests {
         );
         let result = analyzer.get_mount_entropy("/home");
         assert!(result.is_some());
-        assert!((result.unwrap().entropy - 0.75).abs() < 0.01);
+        assert!((result.expect("value should be present").entropy - 0.75).abs() < 0.01);
     }
 
     #[test]

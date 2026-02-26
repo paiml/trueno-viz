@@ -302,7 +302,7 @@ mod tests {
 
         analyzer.collect(&pids, &cpu_percents);
 
-        let extra = analyzer.get(1234).unwrap();
+        let extra = analyzer.get(1234).expect("key should exist");
         assert_eq!(extra.cpu_history.len(), 1);
         assert!((extra.cpu_history[0] - 50.0).abs() < 0.01);
     }
@@ -411,7 +411,7 @@ mod tests {
 
         analyzer.collect(&pids, &cpu_percents);
 
-        let extra = analyzer.get(1234).unwrap();
+        let extra = analyzer.get(1234).expect("key should exist");
         assert!(extra.cpu_history.is_empty()); // No history added
     }
 
@@ -433,7 +433,7 @@ mod tests {
             analyzer.collect(&pids, &cpu_percents);
         }
 
-        let extra = analyzer.get(1234).unwrap();
+        let extra = analyzer.get(1234).expect("key should exist");
         // History should be limited to history_len (60)
         assert!(extra.cpu_history.len() <= 60);
     }
@@ -466,7 +466,7 @@ mod tests {
     fn test_container_badge_long() {
         let mut extra = ProcessExtra::default();
         extra.container = Some("verylongcontainername123".to_string());
-        let badge = extra.container_badge().unwrap();
+        let badge = extra.container_badge().expect("operation should succeed");
         assert!(badge.contains("…")); // Should be truncated
         // Format: [11chars…] = 14 chars max
     }

@@ -116,7 +116,7 @@ impl Config {
     /// Returns an error with line number if parsing fails.
     pub fn parse(yaml: &str) -> Result<Self> {
         serde_yaml_ng::from_str(yaml).map_err(|e| {
-            let line = e.location().map(|l| l.line()).unwrap_or(0);
+            let line = e.location().map_or(0, |l| l.line());
             MonitorError::ConfigParse { line, message: e.to_string() }
         })
     }
@@ -151,23 +151,23 @@ mod tests {
     #[test]
     fn test_config_parse_minimal() {
         let yaml = "version: 1";
-        let config = Config::parse(yaml).unwrap();
+        let config = Config::parse(yaml).expect("parsing should succeed");
 
         assert_eq!(config.version, 1);
     }
 
     #[test]
     fn test_config_parse_full() {
-        let yaml = r#"
+        let yaml = r"
 version: 1
 global:
   update_ms: 500
   history_size: 100
   vim_keys: false
 theme: dracula
-"#;
+";
 
-        let config = Config::parse(yaml).unwrap();
+        let config = Config::parse(yaml).expect("parsing should succeed");
 
         assert_eq!(config.global.update_ms, 500);
         assert_eq!(config.global.history_size, 100);
@@ -177,18 +177,18 @@ theme: dracula
 
     #[test]
     fn test_config_parse_error_includes_line() {
-        let yaml = r#"
+        let yaml = r"
 version: 1
 global:
   update_ms: not_a_number
-"#;
+";
 
         let result = Config::parse(yaml);
         assert!(result.is_err());
 
         let err = result.unwrap_err();
         let display = err.to_string();
-        assert!(display.contains("4"), "Error should include line number");
+        assert!(display.contains('4'), "Error should include line number");
     }
 
     #[test]

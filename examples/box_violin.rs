@@ -27,7 +27,7 @@ fn main() {
 
     for (name, data) in [("A", &group_a), ("B", &group_b), ("C", &group_c)] {
         if let Some(stats) = BoxStats::from_data(data) {
-            println!("\n  Group {}:", name);
+            println!("\n  Group {name}:");
             println!("    Min:    {:.2}", stats.min);
             println!("    Q1:     {:.2}", stats.q1);
             println!("    Median: {:.2}", stats.median);

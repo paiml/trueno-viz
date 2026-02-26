@@ -159,7 +159,7 @@ impl BoxPlot {
     /// Set group labels.
     #[must_use]
     pub fn labels(mut self, labels: &[&str]) -> Self {
-        self.labels = labels.iter().map(|s| s.to_string()).collect();
+        self.labels = labels.iter().map(|s| (*s).to_string()).collect();
         self
     }
 
@@ -902,7 +902,7 @@ mod tests {
     #[test]
     fn test_box_stats_basic() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0];
-        let stats = BoxStats::from_data(&data).unwrap();
+        let stats = BoxStats::from_data(&data).expect("operation should succeed");
 
         assert!((stats.median - 5.0).abs() < 0.01);
         // Q1 at 25th percentile: index 2 = value 3.0
@@ -915,7 +915,7 @@ mod tests {
     #[test]
     fn test_box_stats_with_outliers() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 100.0]; // 100 is an outlier
-        let stats = BoxStats::from_data(&data).unwrap();
+        let stats = BoxStats::from_data(&data).expect("operation should succeed");
 
         assert!(!stats.outliers.is_empty());
         assert!(stats.outliers.contains(&100.0));
@@ -930,7 +930,7 @@ mod tests {
     #[test]
     fn test_box_stats_single() {
         let data = vec![42.0];
-        let stats = BoxStats::from_data(&data).unwrap();
+        let stats = BoxStats::from_data(&data).expect("operation should succeed");
         assert!((stats.median - 42.0).abs() < 0.01);
     }
 
@@ -948,7 +948,7 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A")
             .add_group(&[2.0, 4.0, 6.0, 8.0, 10.0], "Group B")
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(plot.num_groups(), 2);
     }
@@ -965,17 +965,19 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .dimensions(200, 150)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
 
     #[test]
     fn test_violin_build() {
-        let plot =
-            ViolinPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A").build().unwrap();
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A")
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(plot.num_groups(), 1);
     }
@@ -986,9 +988,9 @@ mod tests {
             .add_group(&[1.0, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0], "A")
             .dimensions(200, 150)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
@@ -1014,7 +1016,11 @@ mod tests {
     #[test]
     fn test_boxplot_data_method() {
         let groups = vec![vec![1.0, 2.0, 3.0], vec![4.0, 5.0, 6.0]];
-        let plot = BoxPlot::new().data(groups).labels(&["A", "B"]).build().unwrap();
+        let plot = BoxPlot::new()
+            .data(groups)
+            .labels(&["A", "B"])
+            .build()
+            .expect("builder should produce valid result");
         assert_eq!(plot.num_groups(), 2);
     }
 
@@ -1026,15 +1032,18 @@ mod tests {
             .outline_color(Rgba::BLACK)
             .median_color(Rgba::BLUE)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
     fn test_boxplot_margin() {
-        let plot =
-            BoxPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A").margin(10).build().unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .margin(10)
+            .build()
+            .expect("builder should produce valid result");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1043,8 +1052,8 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .box_width(0.8)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1053,15 +1062,15 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .box_width(2.0) // Should clamp to 1.0
             .build()
-            .unwrap();
-        let _ = plot1.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot1.to_framebuffer().expect("operation should succeed");
 
         let plot2 = BoxPlot::new()
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .box_width(0.05) // Should clamp to 0.1
             .build()
-            .unwrap();
-        let _ = plot2.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot2.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1070,8 +1079,8 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0, 100.0], "A") // Has outlier
             .show_outliers(false)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1080,13 +1089,16 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0, 100.0], "A") // Has outlier
             .show_outliers(true)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
     fn test_built_boxplot_stats_labels() {
-        let plot = BoxPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A").build().unwrap();
+        let plot = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "Group A")
+            .build()
+            .expect("builder should produce valid result");
 
         assert!(plot.stats(0).is_some());
         assert!(plot.stats(99).is_none());
@@ -1096,7 +1108,8 @@ mod tests {
     #[test]
     fn test_violin_data_method() {
         let groups = vec![vec![1.0, 2.0, 3.0, 4.0, 5.0]];
-        let plot = ViolinPlot::new().data(groups).build().unwrap();
+        let plot =
+            ViolinPlot::new().data(groups).build().expect("builder should produce valid result");
         assert_eq!(plot.num_groups(), 1);
     }
 
@@ -1106,8 +1119,8 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .fill_color(Rgba::GREEN)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1116,8 +1129,8 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .show_box(false)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1126,8 +1139,8 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .bandwidth(Some(0.5))
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1136,13 +1149,16 @@ mod tests {
             .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
             .margin(20)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
     fn test_violin_labels() {
-        let plot = ViolinPlot::new().add_group(&[1.0, 2.0, 3.0], "Test Label").build().unwrap();
+        let plot = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0], "Test Label")
+            .build()
+            .expect("builder should produce valid result");
         assert_eq!(plot.labels(), &["Test Label".to_string()]);
     }
 
@@ -1155,7 +1171,7 @@ mod tests {
     #[test]
     fn test_box_stats_nan_filtered() {
         let data = vec![1.0, f32::NAN, 3.0, 4.0, 5.0];
-        let stats = BoxStats::from_data(&data).unwrap();
+        let stats = BoxStats::from_data(&data).expect("operation should succeed");
         assert!((stats.median - 3.5).abs() < 0.5); // NaN filtered out
     }
 
@@ -1227,7 +1243,7 @@ mod tests {
             .dimensions(50, 50)
             .margin(30) // Margin larger than half dimensions
             .build()
-            .unwrap();
+            .expect("operation should succeed");
         // This should still render (plot area will be small but not zero)
         let _ = plot.to_framebuffer();
     }
@@ -1239,7 +1255,7 @@ mod tests {
             .dimensions(50, 50)
             .margin(30)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
         let _ = plot.to_framebuffer();
     }
 
@@ -1247,33 +1263,40 @@ mod tests {
     fn test_boxplot_debug_clone() {
         let plot = BoxPlot::new().add_group(&[1.0, 2.0, 3.0], "A");
         let plot2 = plot.clone();
-        let _ = format!("{:?}", plot2);
+        let _ = format!("{plot2:?}");
     }
 
     #[test]
     fn test_violin_debug_clone() {
         let plot = ViolinPlot::new().add_group(&[1.0, 2.0, 3.0], "A");
         let plot2 = plot.clone();
-        let _ = format!("{:?}", plot2);
+        let _ = format!("{plot2:?}");
     }
 
     #[test]
     fn test_box_stats_debug_clone() {
-        let stats = BoxStats::from_data(&[1.0, 2.0, 3.0, 4.0, 5.0]).unwrap();
+        let stats =
+            BoxStats::from_data(&[1.0, 2.0, 3.0, 4.0, 5.0]).expect("operation should succeed");
         let stats2 = stats.clone();
-        let _ = format!("{:?}", stats2);
+        let _ = format!("{stats2:?}");
     }
 
     #[test]
     fn test_built_boxplot_debug() {
-        let built = BoxPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A").build().unwrap();
-        let _ = format!("{:?}", built);
+        let built = BoxPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .build()
+            .expect("builder should produce valid result");
+        let _ = format!("{built:?}");
     }
 
     #[test]
     fn test_built_violin_debug() {
-        let built = ViolinPlot::new().add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A").build().unwrap();
-        let _ = format!("{:?}", built);
+        let built = ViolinPlot::new()
+            .add_group(&[1.0, 2.0, 3.0, 4.0, 5.0], "A")
+            .build()
+            .expect("builder should produce valid result");
+        let _ = format!("{built:?}");
     }
 
     #[test]
@@ -1291,8 +1314,8 @@ mod tests {
             .show_outliers(true)
             .dimensions(300, 200)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 
     #[test]
@@ -1302,7 +1325,7 @@ mod tests {
             .add_group(&[10.0, 20.0, 30.0, 40.0, 50.0], "B")
             .dimensions(300, 200)
             .build()
-            .unwrap();
-        let _ = plot.to_framebuffer().unwrap();
+            .expect("operation should succeed");
+        let _ = plot.to_framebuffer().expect("operation should succeed");
     }
 }

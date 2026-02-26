@@ -215,7 +215,7 @@ mod tests {
     fn test_simd_stats() {
         let mut stats = SimdStats::new();
         for i in 1..=10 {
-            stats.update(i as f64);
+            stats.update(f64::from(i));
         }
         assert_eq!(stats.count, 10);
         assert!((stats.mean() - 5.5).abs() < 0.001);
@@ -229,10 +229,10 @@ mod tests {
         let mut stats2 = SimdStats::new();
 
         for i in 1..=5 {
-            stats1.update(i as f64);
+            stats1.update(f64::from(i));
         }
         for i in 6..=10 {
-            stats2.update(i as f64);
+            stats2.update(f64::from(i));
         }
 
         stats1.merge(&stats2);

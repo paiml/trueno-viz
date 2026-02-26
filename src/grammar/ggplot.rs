@@ -622,9 +622,9 @@ mod tests {
             .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
             .geom(Geom::point())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert_eq!(fb.width(), 800);
         assert_eq!(fb.height(), 600);
     }
@@ -637,9 +637,9 @@ mod tests {
             .theme(Theme::dark())
             .dimensions(400, 300)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert_eq!(fb.width(), 400);
         assert_eq!(fb.height(), 300);
     }
@@ -651,9 +651,9 @@ mod tests {
             .geom(Geom::line())
             .geom(Geom::point().aes(Aes::new().color_value(Rgba::RED)))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -671,9 +671,9 @@ mod tests {
             .geom(Geom::point())
             .coord(Coord::cartesian().xlim(0.0, 5.0).ylim(0.0, 10.0))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -684,9 +684,9 @@ mod tests {
             .aes(Aes::new().color_value(Rgba::BLUE))
             .geom(Geom::point().aes(Aes::new().size_value(10.0)))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -711,19 +711,22 @@ mod tests {
             .aes(Aes::new().x("x").y("y"))
             .geom(Geom::point())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_ggplot_layer() {
         let layer = Layer::new(Geom::line());
-        let plot =
-            GGPlot::new().data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0]).layer(layer).build().unwrap();
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
+            .layer(layer)
+            .build()
+            .expect("builder should produce valid result");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -734,9 +737,9 @@ mod tests {
             .geom(Geom::point())
             .facet(Facet::wrap("category", 2))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -749,9 +752,9 @@ mod tests {
             .xlab("X Axis")
             .ylab("Y Axis")
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -761,9 +764,9 @@ mod tests {
             .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
             .geom(Geom::bar())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -773,9 +776,9 @@ mod tests {
             .data_xy(&[1.0, 2.0, 3.0, 4.0], &[1.0, 3.0, 2.0, 4.0])
             .geom(Geom::area())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -786,9 +789,9 @@ mod tests {
             .geom(Geom::point())
             .geom(Geom::hline(2.5))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -799,9 +802,9 @@ mod tests {
             .geom(Geom::point())
             .geom(Geom::vline(1.5))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -811,9 +814,9 @@ mod tests {
             .data_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
             .geom(Geom::point().shape(PointShape::Square))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -824,18 +827,22 @@ mod tests {
             .data_xy(&[1.0, 2.0], &[3.0, 4.0])
             .geom(Geom::point().shape(PointShape::Triangle))
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_ggplot_single_point() {
         // Edge case: single point triggers range adjustment
-        let plot = GGPlot::new().data_xy(&[5.0], &[5.0]).geom(Geom::point()).build().unwrap();
+        let plot = GGPlot::new()
+            .data_xy(&[5.0], &[5.0])
+            .geom(Geom::point())
+            .build()
+            .expect("builder should produce valid result");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -847,9 +854,9 @@ mod tests {
             .geom(Geom::point())
             .theme(Theme::bw())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -861,9 +868,9 @@ mod tests {
             .geom(Geom::point())
             .theme(Theme::void())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -872,9 +879,13 @@ mod tests {
         let layer =
             Layer::new(Geom::point()).data(DataFrame::from_xy(&[10.0, 20.0], &[30.0, 40.0]));
 
-        let plot = GGPlot::new().data_xy(&[1.0, 2.0], &[3.0, 4.0]).layer(layer).build().unwrap();
+        let plot = GGPlot::new()
+            .data_xy(&[1.0, 2.0], &[3.0, 4.0])
+            .layer(layer)
+            .build()
+            .expect("builder should produce valid result");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -888,20 +899,24 @@ mod tests {
     fn test_layer_debug_clone() {
         let layer = Layer::new(Geom::point());
         let layer2 = layer.clone();
-        let _ = format!("{:?}", layer2);
+        let _ = format!("{layer2:?}");
     }
 
     #[test]
     fn test_ggplot_debug_clone() {
         let plot = GGPlot::new().data_xy(&[1.0], &[2.0]);
         let plot2 = plot.clone();
-        let _ = format!("{:?}", plot2);
+        let _ = format!("{plot2:?}");
     }
 
     #[test]
     fn test_built_ggplot_debug() {
-        let built = GGPlot::new().data_xy(&[1.0], &[2.0]).geom(Geom::point()).build().unwrap();
-        let _ = format!("{:?}", built);
+        let built = GGPlot::new()
+            .data_xy(&[1.0], &[2.0])
+            .geom(Geom::point())
+            .build()
+            .expect("builder should produce valid result");
+        let _ = format!("{built:?}");
     }
 
     #[test]
@@ -912,9 +927,9 @@ mod tests {
             .geom(Geom::point())
             .coord(Coord::polar())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -925,9 +940,9 @@ mod tests {
             .data_xy(&[1.0, 2.0, 3.0], &[-2.0, 3.0, -1.0])
             .geom(Geom::bar())
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
-        let fb = plot.to_framebuffer().unwrap();
+        let fb = plot.to_framebuffer().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 }

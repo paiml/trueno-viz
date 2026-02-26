@@ -267,7 +267,7 @@ mod tests {
     fn test_geom_with_aes() {
         let g = Geom::point().aes(Aes::new().color("category"));
         assert!(g.aes.is_some());
-        assert_eq!(g.aes.unwrap().color, Some("category".to_string()));
+        assert_eq!(g.aes.expect("value should be present").color, Some("category".to_string()));
     }
 
     #[test]
@@ -458,7 +458,7 @@ mod tests {
             Geom::smooth(),
         ];
         for g in geoms {
-            let _ = format!("{:?}", g);
+            let _ = format!("{g:?}");
         }
     }
 
@@ -476,7 +476,7 @@ mod tests {
     fn test_smooth_methods_debug() {
         let methods = [SmoothMethod::Loess, SmoothMethod::Linear];
         for m in methods {
-            let debug = format!("{:?}", m);
+            let debug = format!("{m:?}");
             assert!(!debug.is_empty());
         }
     }
@@ -499,7 +499,7 @@ mod tests {
             GeomType::Smooth { method: SmoothMethod::Linear },
         ];
         for t in types {
-            let debug = format!("{:?}", t);
+            let debug = format!("{t:?}");
             assert!(!debug.is_empty());
         }
     }

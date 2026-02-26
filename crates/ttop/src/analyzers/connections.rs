@@ -703,7 +703,7 @@ mod tests {
         // 127.0.0.1:631 in hex (little endian)
         let result = ConnectionAnalyzer::parse_addr("0100007F:0277");
         assert!(result.is_some());
-        let (ip, port) = result.unwrap();
+        let (ip, port) = result.expect("operation should succeed");
         assert_eq!(ip, Ipv4Addr::new(127, 0, 0, 1));
         assert_eq!(port, 631);
     }

@@ -642,7 +642,7 @@ mod tests {
         let rendered = table.render();
 
         // r2 should show "-" for missing metric
-        assert!(rendered.contains("-"));
+        assert!(rendered.contains('-'));
         assert!(rendered.contains("0.0500"));
     }
 }

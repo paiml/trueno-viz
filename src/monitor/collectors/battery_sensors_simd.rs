@@ -141,7 +141,7 @@ impl SimdBatterySensorsCollector {
         self.battery.calculate_time_remaining();
 
         // Update history
-        self.battery_history.push(self.battery.capacity as f64 / 100.0);
+        self.battery_history.push(f64::from(self.battery.capacity) / 100.0);
 
         Ok(())
     }
@@ -194,18 +194,16 @@ impl SimdBatterySensorsCollector {
                     let current = temp_raw as f64 / 1000.0; // Convert from millidegrees
 
                     // Read label if available
-                    let label =
-                        std::fs::read_to_string(hwmon_path.join(format!("{}_label", prefix)))
-                            .unwrap_or_else(|_| format!("{} {}", name, prefix))
-                            .trim()
-                            .to_string();
+                    let label = std::fs::read_to_string(hwmon_path.join(format!("{prefix}_label")))
+                        .unwrap_or_else(|_| format!("{name} {prefix}"))
+                        .trim()
+                        .to_string();
 
                     // Read thresholds
-                    let high = Self::read_sysfs_u64(&hwmon_path.join(format!("{}_max", prefix)))
+                    let high = Self::read_sysfs_u64(&hwmon_path.join(format!("{prefix}_max")))
                         .map(|v| v as f64 / 1000.0);
-                    let critical =
-                        Self::read_sysfs_u64(&hwmon_path.join(format!("{}_crit", prefix)))
-                            .map(|v| v as f64 / 1000.0);
+                    let critical = Self::read_sysfs_u64(&hwmon_path.join(format!("{prefix}_crit")))
+                        .map(|v| v as f64 / 1000.0);
 
                     self.sensors.add_temp(&label, current, high, critical);
                 }
@@ -308,7 +306,8 @@ impl Collector for SimdBatterySensorsCollector {
 
         // Battery metrics
         if self.has_battery {
-            metrics.insert("battery.capacity", MetricValue::Counter(self.battery.capacity as u64));
+            metrics
+                .insert("battery.capacity", MetricValue::Counter(u64::from(self.battery.capacity)));
             metrics.insert("battery.health", MetricValue::Gauge(self.battery.health_pct));
 
             if self.battery.power_now > 0 {

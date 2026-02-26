@@ -755,7 +755,7 @@ mod tests {
         let drift = history.drift_rate();
         assert!(drift.is_some());
         // Drift should be positive (increasing)
-        assert!(drift.unwrap() > 0.0);
+        assert!(drift.expect("value should be present") > 0.0);
     }
 
     #[test]
@@ -1401,7 +1401,7 @@ mod tests {
 
         let summary = analyzer.thermal_summary();
         assert!(summary.is_some());
-        let (max, _headroom, avg) = summary.unwrap();
+        let (max, _headroom, avg) = summary.expect("operation should succeed");
         assert_eq!(max, 65.0);
         assert_eq!(avg, 65.0);
     }
@@ -1606,7 +1606,7 @@ mod tests {
 
         let summary = analyzer.thermal_summary();
         assert!(summary.is_some());
-        let (max, _headroom, avg) = summary.unwrap();
+        let (max, _headroom, avg) = summary.expect("operation should succeed");
         assert_eq!(max, 65.0);
         assert!((avg - 55.0).abs() < 0.1);
     }

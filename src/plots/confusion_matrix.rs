@@ -234,8 +234,8 @@ impl ConfusionMatrix {
     /// Get the value extent for color scaling.
     fn value_extent(&self) -> (f32, f32) {
         let normalized = self.normalized_values();
-        let min = normalized.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = normalized.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let min = normalized.iter().copied().fold(f32::INFINITY, f32::min);
+        let max = normalized.iter().copied().fold(f32::NEG_INFINITY, f32::max);
 
         // Ensure we have a valid range
         if (max - min).abs() < f32::EPSILON {
@@ -483,7 +483,10 @@ mod tests {
     #[test]
     fn test_confusion_matrix_builder() {
         let data = vec![50, 10, 5, 45];
-        let cm = ConfusionMatrix::new().data(&data, 2).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(cm.num_classes(), 2);
         assert_eq!(cm.total(), 110);
@@ -494,7 +497,10 @@ mod tests {
         let y_true = vec![0, 0, 1, 1, 1, 0];
         let y_pred = vec![0, 1, 1, 1, 0, 0];
 
-        let cm = ConfusionMatrix::new().from_predictions(&y_true, &y_pred, 2).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .from_predictions(&y_true, &y_pred, 2)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(cm.num_classes(), 2);
         assert_eq!(cm.total(), 6);
@@ -516,8 +522,12 @@ mod tests {
     #[test]
     fn test_confusion_matrix_render() {
         let data = vec![50, 10, 5, 45];
-        let cm =
-            ConfusionMatrix::new().data(&data, 2).dimensions(200, 200).margin(20).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .dimensions(200, 200)
+            .margin(20)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = cm.to_framebuffer();
         assert!(fb.is_ok());
@@ -526,8 +536,11 @@ mod tests {
     #[test]
     fn test_confusion_matrix_normalization_row() {
         let data = vec![80, 20, 10, 90];
-        let cm =
-            ConfusionMatrix::new().data(&data, 2).normalize(Normalization::Row).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .normalize(Normalization::Row)
+            .build()
+            .expect("builder should produce valid result");
 
         let normalized = cm.normalized_values();
         // Row 0: 80/(80+20) = 0.8, 20/(80+20) = 0.2
@@ -541,8 +554,11 @@ mod tests {
     #[test]
     fn test_confusion_matrix_normalization_column() {
         let data = vec![80, 20, 10, 90];
-        let cm =
-            ConfusionMatrix::new().data(&data, 2).normalize(Normalization::Column).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .normalize(Normalization::Column)
+            .build()
+            .expect("builder should produce valid result");
 
         let normalized = cm.normalized_values();
         // Col 0: 80/(80+10) ≈ 0.889, 10/(80+10) ≈ 0.111
@@ -554,7 +570,10 @@ mod tests {
     fn test_confusion_matrix_metrics() {
         // Binary classification: TP=50, FP=10, FN=5, TN=35
         let data = vec![50, 10, 5, 35];
-        let cm = ConfusionMatrix::new().data(&data, 2).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .build()
+            .expect("builder should produce valid result");
 
         let metrics = cm.metrics();
 
@@ -571,7 +590,10 @@ mod tests {
     #[test]
     fn test_confusion_matrix_f1_scores() {
         let data = vec![50, 10, 5, 35];
-        let cm = ConfusionMatrix::new().data(&data, 2).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .build()
+            .expect("builder should produce valid result");
 
         let metrics = cm.metrics();
         let f1_scores = metrics.f1_scores();
@@ -584,7 +606,10 @@ mod tests {
     #[test]
     fn test_confusion_matrix_data_2d() {
         let matrix = vec![vec![10, 2], vec![3, 15]];
-        let cm = ConfusionMatrix::new().data_2d(&matrix).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data_2d(&matrix)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(cm.num_classes(), 2);
         assert_eq!(cm.total(), 30);
@@ -597,7 +622,7 @@ mod tests {
             .data(&data, 2)
             .labels(&["Positive", "Negative"])
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(cm.num_classes(), 2);
     }
@@ -610,7 +635,11 @@ mod tests {
             1, 2, 25, // Class 2: 1 predicted as 0, 2 predicted as 1, 25 correct
         ];
 
-        let cm = ConfusionMatrix::new().data(&data, 3).dimensions(150, 150).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 3)
+            .dimensions(150, 150)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(cm.num_classes(), 3);
 
@@ -625,8 +654,11 @@ mod tests {
     #[test]
     fn test_normalization_all() {
         let data = vec![50, 10, 5, 35];
-        let cm =
-            ConfusionMatrix::new().data(&data, 2).normalize(Normalization::All).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .normalize(Normalization::All)
+            .build()
+            .expect("builder should produce valid result");
 
         let normalized = cm.normalized_values();
         // Total = 100, so each cell is divided by 100
@@ -639,8 +671,11 @@ mod tests {
     #[test]
     fn test_normalization_none() {
         let data = vec![50, 10, 5, 35];
-        let cm =
-            ConfusionMatrix::new().data(&data, 2).normalize(Normalization::None).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .normalize(Normalization::None)
+            .build()
+            .expect("builder should produce valid result");
 
         let normalized = cm.normalized_values();
         // No normalization - values should be as-is (converted to f64)
@@ -651,7 +686,11 @@ mod tests {
     #[test]
     fn test_confusion_matrix_border_options() {
         let data = vec![50, 10, 5, 35];
-        let cm = ConfusionMatrix::new().data(&data, 2).borders(false).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .borders(false)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = cm.to_framebuffer();
         assert!(fb.is_ok());
@@ -660,8 +699,12 @@ mod tests {
     #[test]
     fn test_confusion_matrix_color_scale() {
         let data = vec![50, 10, 5, 35];
-        let scale = ColorScale::viridis((0.0, 100.0)).unwrap();
-        let cm = ConfusionMatrix::new().data(&data, 2).color_scale(scale).build().unwrap();
+        let scale = ColorScale::viridis((0.0, 100.0)).expect("operation should succeed");
+        let cm = ConfusionMatrix::new()
+            .data(&data, 2)
+            .color_scale(scale)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = cm.to_framebuffer();
         assert!(fb.is_ok());
@@ -685,7 +728,7 @@ mod tests {
         let data = vec![50, 10, 5, 35];
         let cm = ConfusionMatrix::new().data(&data, 2);
         let cloned = cm.clone();
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("ConfusionMatrix"));
     }
 
@@ -695,7 +738,7 @@ mod tests {
         let cloned = norm;
         assert_eq!(norm, cloned);
 
-        let debug = format!("{:?}", norm);
+        let debug = format!("{norm:?}");
         assert!(debug.contains("Row"));
     }
 
@@ -704,7 +747,10 @@ mod tests {
         let y_true = vec![0, 1, 2, 0, 1];
         let y_pred = vec![0, 1, 2, 1, 1];
 
-        let cm = ConfusionMatrix::new().from_predictions(&y_true, &y_pred, 3).build().unwrap();
+        let cm = ConfusionMatrix::new()
+            .from_predictions(&y_true, &y_pred, 3)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(cm.num_classes(), 3);
         assert_eq!(cm.total(), 5);

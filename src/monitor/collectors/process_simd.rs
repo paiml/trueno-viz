@@ -168,7 +168,7 @@ impl SimdProcessCollector {
     fn scan_processes(&mut self) -> Result<()> {
         let proc_dir = std::fs::read_dir("/proc").map_err(|e| MonitorError::CollectionFailed {
             collector: "process_simd",
-            message: format!("Failed to read /proc: {}", e),
+            message: format!("Failed to read /proc: {e}"),
         })?;
 
         let mut new_processes = BTreeMap::new();
@@ -234,7 +234,7 @@ impl SimdProcessCollector {
     /// Reads process info using SIMD-optimized parsing.
     #[cfg(target_os = "linux")]
     fn read_process_info(&self, pid: u32, curr_total_cpu: u64) -> Result<(ProcessInfo, u64)> {
-        let stat_path = format!("/proc/{}/stat", pid);
+        let stat_path = format!("/proc/{pid}/stat");
         let stat =
             std::fs::read_to_string(&stat_path).map_err(|_| MonitorError::ProcessNotFound(pid))?;
 
@@ -262,14 +262,11 @@ impl SimdProcessCollector {
         };
 
         // Read memory from statm using SIMD parsing
-        let statm_path = format!("/proc/{}/statm", pid);
-        let mem_bytes = std::fs::read_to_string(&statm_path)
-            .ok()
-            .map(|s| {
-                let values = kernels::simd_parse_integers(s.as_bytes());
-                values.get(1).copied().unwrap_or(0) * 4096
-            })
-            .unwrap_or(0);
+        let statm_path = format!("/proc/{pid}/statm");
+        let mem_bytes = std::fs::read_to_string(&statm_path).ok().map_or(0, |s| {
+            let values = kernels::simd_parse_integers(s.as_bytes());
+            values.get(1).copied().unwrap_or(0) * 4096
+        });
 
         let mem_percent = if self.total_memory > 0 {
             (mem_bytes as f64 / self.total_memory as f64) * 100.0
@@ -278,7 +275,7 @@ impl SimdProcessCollector {
         };
 
         // Read cmdline
-        let cmdline_path = format!("/proc/{}/cmdline", pid);
+        let cmdline_path = format!("/proc/{pid}/cmdline");
         let cmdline = std::fs::read_to_string(&cmdline_path)
             .ok()
             .map(|s| s.replace('\0', " ").trim().to_string())
@@ -312,10 +309,10 @@ impl SimdProcessCollector {
 
         // Parse state character
         let state =
-            after_name.chars().next().map(ProcessState::from_char).unwrap_or(ProcessState::Unknown);
+            after_name.chars().next().map_or(ProcessState::Unknown, ProcessState::from_char);
 
         // Parse remaining fields using SIMD
-        let fields_start = after_name.find(' ').map(|i| i + 1).unwrap_or(0);
+        let fields_start = after_name.find(' ').map_or(0, |i| i + 1);
         let fields = kernels::simd_parse_integers(&after_name.as_bytes()[fields_start..]);
 
         Ok((name, state, fields))
@@ -522,7 +519,8 @@ mod tests {
     fn test_simd_parse_stat() {
         let stat = "1234 (test_process) S 1 1234 1234 0 -1 4194304 100 0 0 0 10 5 0 0 20 0 1 0 123456 12345678 1234 18446744073709551615 0 0 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0";
 
-        let (name, state, fields) = SimdProcessCollector::parse_stat_simd(stat).unwrap();
+        let (name, state, fields) =
+            SimdProcessCollector::parse_stat_simd(stat).expect("parsing should succeed");
 
         assert_eq!(name, "test_process");
         assert_eq!(state, ProcessState::Sleeping);

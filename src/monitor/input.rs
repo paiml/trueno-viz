@@ -52,9 +52,8 @@ impl InputHandler {
     pub fn handle_key(&self, event: KeyEvent) -> Action {
         // Check for Ctrl+C or Ctrl+Q
         if event.modifiers.contains(KeyModifiers::CONTROL) {
-            match event.code {
-                KeyCode::Char('c') | KeyCode::Char('q') => return Action::Quit,
-                _ => {}
+            if let KeyCode::Char('c' | 'q') = event.code {
+                return Action::Quit;
             }
         }
 
@@ -84,7 +83,7 @@ impl InputHandler {
             KeyCode::Char(c @ '0'..='9') => Action::Preset(c.to_digit(10).unwrap_or(0) as u8),
 
             // Filter
-            KeyCode::Char('/') | KeyCode::Char('f') => Action::Filter,
+            KeyCode::Char('/' | 'f') => Action::Filter,
 
             // Tree toggle
             KeyCode::Char('t') => Action::Tree,
@@ -267,7 +266,7 @@ mod tests {
     #[test]
     fn test_input_handler_debug() {
         let handler = InputHandler::new(false);
-        let debug = format!("{:?}", handler);
+        let debug = format!("{handler:?}");
         assert!(debug.contains("InputHandler"));
     }
 

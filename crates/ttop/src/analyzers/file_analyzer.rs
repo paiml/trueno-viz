@@ -1006,7 +1006,7 @@ mod tests {
 
         // With growth, should have estimate
         watched.growth_rate = 100.0;
-        let ttf = watched.time_to_full(1000).unwrap();
+        let ttf = watched.time_to_full(1000).expect("operation should succeed");
         assert!((ttf.as_secs_f64() - 10.0).abs() < 0.1);
     }
 

@@ -482,7 +482,7 @@ mod tests {
             10 * 1024 * 1024 * 1024, // 10GB
         );
         assert!(anomaly.is_some());
-        assert!(anomaly.unwrap().z_score > 3.5);
+        assert!(anomaly.expect("value should be present").z_score > 3.5);
 
         // A 500KB file should be normal
         let normal =

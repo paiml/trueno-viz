@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
         let max_core = app.per_core_percent
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap());
+            .max_by(|a, b| a.1.partial_cmp(b.1).expect("operation should succeed"));
         if let Some((idx, pct)) = max_core {
             println!("  Hottest core: {} at {:.1}%", idx, pct);
         }

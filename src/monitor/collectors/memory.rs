@@ -29,7 +29,7 @@ impl MemoryCollector {
         let content = std::fs::read_to_string("/proc/meminfo").map_err(|e| {
             MonitorError::CollectionFailed {
                 collector: "memory",
-                message: format!("Failed to read /proc/meminfo: {}", e),
+                message: format!("Failed to read /proc/meminfo: {e}"),
             }
         })?;
 
@@ -315,7 +315,7 @@ mod tests {
         let metrics = collector.collect();
 
         assert!(metrics.is_ok());
-        let m = metrics.unwrap();
+        let m = metrics.expect("operation should succeed");
 
         assert!(m.get_counter("memory.total").is_some());
         assert!(m.get_gauge("memory.used.percent").is_some());

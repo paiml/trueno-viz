@@ -114,13 +114,13 @@ impl MetricSeries {
     /// Get the minimum value.
     #[must_use]
     pub fn min(&self) -> Option<f32> {
-        self.values.iter().cloned().reduce(f32::min)
+        self.values.iter().copied().reduce(f32::min)
     }
 
     /// Get the maximum value.
     #[must_use]
     pub fn max(&self) -> Option<f32> {
-        self.values.iter().cloned().reduce(f32::max)
+        self.values.iter().copied().reduce(f32::max)
     }
 
     /// Get the index of the minimum value.
@@ -553,15 +553,23 @@ mod tests {
 
     #[test]
     fn test_loss_curve_builder() {
-        let loss_curve =
-            LossCurve::new().train_loss().val_loss().dimensions(400, 200).build().unwrap();
+        let loss_curve = LossCurve::new()
+            .train_loss()
+            .val_loss()
+            .dimensions(400, 200)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(loss_curve.series_count(), 2);
     }
 
     #[test]
     fn test_loss_curve_push() {
-        let mut loss_curve = LossCurve::new().train_loss().val_loss().build().unwrap();
+        let mut loss_curve = LossCurve::new()
+            .train_loss()
+            .val_loss()
+            .build()
+            .expect("builder should produce valid result");
 
         // Push values
         loss_curve.push(0, 1.0);
@@ -580,8 +588,12 @@ mod tests {
 
     #[test]
     fn test_loss_curve_render() {
-        let mut loss_curve =
-            LossCurve::new().train_loss().val_loss().dimensions(200, 100).build().unwrap();
+        let mut loss_curve = LossCurve::new()
+            .train_loss()
+            .val_loss()
+            .dimensions(200, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         // Add some data
         for i in 0..10 {
@@ -595,7 +607,11 @@ mod tests {
 
     #[test]
     fn test_loss_curve_render_empty_series() {
-        let loss_curve = LossCurve::new().train_loss().dimensions(200, 100).build().unwrap();
+        let loss_curve = LossCurve::new()
+            .train_loss()
+            .dimensions(200, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         // Render with empty series should not panic
         let fb = loss_curve.to_framebuffer();
@@ -604,7 +620,11 @@ mod tests {
 
     #[test]
     fn test_loss_curve_summary() {
-        let mut loss_curve = LossCurve::new().train_loss().lower_is_better(true).build().unwrap();
+        let mut loss_curve = LossCurve::new()
+            .train_loss()
+            .lower_is_better(true)
+            .build()
+            .expect("builder should produce valid result");
 
         loss_curve.push(0, 1.0);
         loss_curve.push(0, 0.5);
@@ -624,7 +644,7 @@ mod tests {
             .add_series(MetricSeries::new("Accuracy", Rgba::GREEN))
             .lower_is_better(false)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         loss_curve.push(0, 0.5);
         loss_curve.push(0, 0.7);
@@ -637,8 +657,12 @@ mod tests {
 
     #[test]
     fn test_loss_curve_fixed_y_range() {
-        let mut loss_curve =
-            LossCurve::new().train_loss().y_range(0.0, 2.0).dimensions(200, 100).build().unwrap();
+        let mut loss_curve = LossCurve::new()
+            .train_loss()
+            .y_range(0.0, 2.0)
+            .dimensions(200, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         loss_curve.push(0, 1.0);
         loss_curve.push(0, 0.5);
@@ -649,13 +673,17 @@ mod tests {
 
     #[test]
     fn test_loss_curve_series_by_name() {
-        let mut loss_curve = LossCurve::new().train_loss().val_loss().build().unwrap();
+        let mut loss_curve = LossCurve::new()
+            .train_loss()
+            .val_loss()
+            .build()
+            .expect("builder should produce valid result");
 
         if let Some(train) = loss_curve.series_by_name_mut("Train Loss") {
             train.push(1.0);
         }
 
-        assert_eq!(loss_curve.series_mut(0).unwrap().len(), 1);
+        assert_eq!(loss_curve.series_mut(0).expect("value should be present").len(), 1);
     }
 
     #[test]
@@ -672,8 +700,12 @@ mod tests {
 
     #[test]
     fn test_loss_curve_best_markers() {
-        let mut loss_curve =
-            LossCurve::new().train_loss().best_markers(true).dimensions(200, 100).build().unwrap();
+        let mut loss_curve = LossCurve::new()
+            .train_loss()
+            .best_markers(true)
+            .dimensions(200, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         for i in 0..5 {
             loss_curve.push(0, 1.0 - (i as f32) * 0.1);

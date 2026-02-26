@@ -144,7 +144,7 @@ impl CpuCollector {
         let content =
             std::fs::read_to_string("/proc/stat").map_err(|e| MonitorError::CollectionFailed {
                 collector: "cpu",
-                message: format!("Failed to read /proc/stat: {}", e),
+                message: format!("Failed to read /proc/stat: {e}"),
             })?;
 
         let mut total = CpuStats::default();
@@ -447,21 +447,21 @@ impl CpuCollector {
     /// Reads CPU frequency for a specific core.
     #[cfg(target_os = "linux")]
     fn read_frequency(core: usize) -> CpuFrequency {
-        let base = format!("/sys/devices/system/cpu/cpu{}/cpufreq", core);
+        let base = format!("/sys/devices/system/cpu/cpu{core}/cpufreq");
 
-        let current = std::fs::read_to_string(format!("{}/scaling_cur_freq", base))
+        let current = std::fs::read_to_string(format!("{base}/scaling_cur_freq"))
             .ok()
             .and_then(|s| s.trim().parse::<u64>().ok())
             .unwrap_or(0)
             / 1000; // Convert from kHz to MHz
 
-        let min = std::fs::read_to_string(format!("{}/scaling_min_freq", base))
+        let min = std::fs::read_to_string(format!("{base}/scaling_min_freq"))
             .ok()
             .and_then(|s| s.trim().parse::<u64>().ok())
             .unwrap_or(0)
             / 1000;
 
-        let max = std::fs::read_to_string(format!("{}/scaling_max_freq", base))
+        let max = std::fs::read_to_string(format!("{base}/scaling_max_freq"))
             .ok()
             .and_then(|s| s.trim().parse::<u64>().ok())
             .unwrap_or(0)
@@ -551,7 +551,7 @@ impl Collector for CpuCollector {
         for (i, curr) in curr_cores.iter().enumerate() {
             if let Some(prev) = self.prev_cores.get(i) {
                 let percent = Self::calculate_percentage(prev, curr);
-                metrics.insert(format!("cpu.core.{}", i), percent);
+                metrics.insert(format!("cpu.core.{i}"), percent);
 
                 // Update per-core history
                 if let Some(history) = self.core_history.get_mut(i) {
@@ -579,7 +579,7 @@ impl Collector for CpuCollector {
             if let Some(f) = self.frequencies.get_mut(i) {
                 *f = freq;
             }
-            metrics.insert(format!("cpu.freq.{}", i), MetricValue::Counter(freq.current_mhz));
+            metrics.insert(format!("cpu.freq.{i}"), MetricValue::Counter(freq.current_mhz));
         }
 
         // Average frequency across all cores
@@ -736,7 +736,7 @@ mod tests {
     #[test]
     fn test_parse_cpu_line() {
         let line = "cpu0 100 10 50 800 20 5 5 10 0 0";
-        let stats = CpuCollector::parse_cpu_line(line).unwrap();
+        let stats = CpuCollector::parse_cpu_line(line).expect("parsing should succeed");
 
         assert_eq!(stats.user, 100);
         assert_eq!(stats.nice, 10);
@@ -751,7 +751,7 @@ mod tests {
     #[test]
     fn test_parse_cpu_line_total() {
         let line = "cpu  12345 678 9012 345678 901 23 45 67 0 0";
-        let stats = CpuCollector::parse_cpu_line(line).unwrap();
+        let stats = CpuCollector::parse_cpu_line(line).expect("parsing should succeed");
 
         assert_eq!(stats.user, 12345);
         assert_eq!(stats.nice, 678);
@@ -763,7 +763,7 @@ mod tests {
     fn test_parse_cpu_line_minimal() {
         // Minimal line with just enough fields
         let line = "cpu0 1 2 3 4 5 6 7 8";
-        let stats = CpuCollector::parse_cpu_line(line).unwrap();
+        let stats = CpuCollector::parse_cpu_line(line).expect("parsing should succeed");
 
         assert_eq!(stats.user, 1);
         assert_eq!(stats.nice, 2);
@@ -1021,7 +1021,7 @@ mod tests {
     fn test_parse_cpu_line_with_extra_fields() {
         // Some systems have extra fields beyond steal
         let line = "cpu0 100 10 50 800 20 5 5 10 100 200";
-        let stats = CpuCollector::parse_cpu_line(line).unwrap();
+        let stats = CpuCollector::parse_cpu_line(line).expect("parsing should succeed");
 
         assert_eq!(stats.user, 100);
         assert_eq!(stats.steal, 10);

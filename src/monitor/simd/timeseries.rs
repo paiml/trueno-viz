@@ -420,7 +420,7 @@ impl TimeSeriesTable {
                 .samples
                 .iter()
                 .filter(|(ts, _)| *ts >= window_start && *ts < window_end)
-                .cloned()
+                .copied()
                 .collect();
 
             if !window_samples.is_empty() {
@@ -581,7 +581,7 @@ mod tests {
 
         // Insert samples
         for i in 0..100 {
-            table.insert(i as u64 * 1000, i as f64);
+            table.insert(i as u64 * 1000, f64::from(i));
         }
 
         // Query all
@@ -596,7 +596,7 @@ mod tests {
 
         // Insert known values
         for i in 1..=10 {
-            table.insert(i as u64 * 1000, i as f64);
+            table.insert(i as u64 * 1000, f64::from(i));
         }
 
         let result = table.query(0, 20_000);
@@ -612,7 +612,7 @@ mod tests {
         let mut table = TimeSeriesTable::new("filter_test");
 
         for i in 1..=20 {
-            table.insert(i as u64 * 1000, i as f64);
+            table.insert(i as u64 * 1000, f64::from(i));
         }
 
         // Filter to values > 10
@@ -627,7 +627,7 @@ mod tests {
 
         // Insert 100 samples over 100 seconds
         for i in 0..100 {
-            table.insert(i as u64 * 1_000_000, i as f64); // 1 second intervals
+            table.insert(i as u64 * 1_000_000, f64::from(i)); // 1 second intervals
         }
 
         // 10-second windows
@@ -640,7 +640,7 @@ mod tests {
         let mut table = TimeSeriesTable::new("stats_test");
 
         for i in 0..50 {
-            table.insert(i as u64 * 1000, i as f64);
+            table.insert(i as u64 * 1000, f64::from(i));
         }
 
         let stats = table.stats();
@@ -699,7 +699,7 @@ mod tests {
 
         // Insert 10,000 samples
         for i in 0..10_000 {
-            table.insert(i as u64 * 1000, (i % 100) as f64);
+            table.insert(i as u64 * 1000, f64::from(i % 100));
         }
 
         let start = std::time::Instant::now();
@@ -749,7 +749,7 @@ mod tests {
         let mut table = TimeSeriesTable::new("total_test");
 
         for i in 0..10 {
-            table.insert(i as u64 * 1000, i as f64);
+            table.insert(i as u64 * 1000, f64::from(i));
         }
 
         let stats = table.stats();
@@ -822,7 +822,7 @@ mod tests {
         let db = TimeSeriesDb::with_persistence(&temp_dir);
         assert!(db.is_ok());
 
-        let db = db.unwrap();
+        let db = db.expect("operation should succeed");
         db.insert("persisted_metric", 1000, 100.0);
         db.flush();
 

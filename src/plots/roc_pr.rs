@@ -85,7 +85,7 @@ pub fn compute_roc(y_true: &[u8], y_scores: &[f32]) -> Result<RocData> {
     let mut fp = 0.0;
 
     // Start at (0, 0) with threshold above max
-    let max_score = y_scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let max_score = y_scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     points.push(CurvePoint { x: 0.0, y: 0.0, threshold: max_score + 1.0 });
 
     for &idx in &indices {
@@ -152,7 +152,7 @@ pub fn compute_pr(y_true: &[u8], y_scores: &[f32]) -> Result<PrData> {
     let mut fp = 0.0;
 
     // Start at (0, 1) - at highest threshold, precision is undefined but we use 1
-    let max_score = y_scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+    let max_score = y_scores.iter().copied().fold(f32::NEG_INFINITY, f32::max);
     points.push(CurvePoint { x: 0.0, y: 1.0, threshold: max_score + 1.0 });
 
     for &idx in &indices {
@@ -507,7 +507,7 @@ mod tests {
         let y_true = vec![0, 0, 1, 1, 1];
         let y_scores = vec![0.1, 0.4, 0.35, 0.8, 0.9];
 
-        let roc = compute_roc(&y_true, &y_scores).unwrap();
+        let roc = compute_roc(&y_true, &y_scores).expect("operation should succeed");
 
         // AUC should be between 0 and 1
         assert!(roc.auc >= 0.0 && roc.auc <= 1.0);
@@ -524,7 +524,7 @@ mod tests {
         let y_true = vec![0, 0, 0, 1, 1, 1];
         let y_scores = vec![0.1, 0.2, 0.3, 0.7, 0.8, 0.9];
 
-        let roc = compute_roc(&y_true, &y_scores).unwrap();
+        let roc = compute_roc(&y_true, &y_scores).expect("operation should succeed");
 
         // Perfect classifier should have AUC = 1.0
         assert!((roc.auc - 1.0).abs() < 0.01);
@@ -536,7 +536,7 @@ mod tests {
         let y_true = vec![0, 1, 0, 1, 0, 1, 0, 1];
         let y_scores = vec![0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
 
-        let roc = compute_roc(&y_true, &y_scores).unwrap();
+        let roc = compute_roc(&y_true, &y_scores).expect("operation should succeed");
 
         // Random classifier should have AUC ≈ 0.5
         assert!((roc.auc - 0.5).abs() < 0.2);
@@ -547,7 +547,7 @@ mod tests {
         let y_true = vec![0, 0, 1, 1, 1];
         let y_scores = vec![0.1, 0.4, 0.35, 0.8, 0.9];
 
-        let pr = compute_pr(&y_true, &y_scores).unwrap();
+        let pr = compute_pr(&y_true, &y_scores).expect("operation should succeed");
 
         // Average precision should be between 0 and 1
         assert!(pr.average_precision >= 0.0 && pr.average_precision <= 1.0);
@@ -589,10 +589,10 @@ mod tests {
 
         let roc = RocCurve::new()
             .from_predictions(&y_true, &y_scores)
-            .unwrap()
+            .expect("operation should succeed")
             .dimensions(200, 200)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = roc.to_framebuffer();
         assert!(fb.is_ok());
@@ -605,10 +605,10 @@ mod tests {
 
         let pr = PrCurve::new()
             .from_predictions(&y_true, &y_scores)
-            .unwrap()
+            .expect("operation should succeed")
             .dimensions(200, 200)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = pr.to_framebuffer();
         assert!(fb.is_ok());
@@ -619,7 +619,11 @@ mod tests {
         let y_true = vec![0, 0, 1, 1];
         let y_scores = vec![0.1, 0.2, 0.8, 0.9];
 
-        let roc = RocCurve::new().from_predictions(&y_true, &y_scores).unwrap().build().unwrap();
+        let roc = RocCurve::new()
+            .from_predictions(&y_true, &y_scores)
+            .expect("builder should produce valid result")
+            .build()
+            .expect("builder should produce valid result");
 
         let auc = roc.auc();
         assert!(auc > 0.5);
@@ -630,7 +634,11 @@ mod tests {
         let y_true = vec![0, 0, 1, 1];
         let y_scores = vec![0.1, 0.2, 0.8, 0.9];
 
-        let pr = PrCurve::new().from_predictions(&y_true, &y_scores).unwrap().build().unwrap();
+        let pr = PrCurve::new()
+            .from_predictions(&y_true, &y_scores)
+            .expect("builder should produce valid result")
+            .build()
+            .expect("builder should produce valid result");
 
         let ap = pr.average_precision();
         assert!(ap > 0.5);
@@ -661,7 +669,11 @@ mod tests {
             auc: 0.875,
         };
 
-        let roc = RocCurve::new().data(roc_data).dimensions(200, 200).build().unwrap();
+        let roc = RocCurve::new()
+            .data(roc_data)
+            .dimensions(200, 200)
+            .build()
+            .expect("builder should produce valid result");
 
         assert!((roc.auc() - 0.875).abs() < 0.001);
     }
@@ -673,11 +685,11 @@ mod tests {
 
         let roc = RocCurve::new()
             .from_predictions(&y_true, &y_scores)
-            .unwrap()
+            .expect("operation should succeed")
             .color(Rgba::RED)
             .dimensions(200, 200)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = roc.to_framebuffer();
         assert!(fb.is_ok());
@@ -690,11 +702,11 @@ mod tests {
 
         let roc = RocCurve::new()
             .from_predictions(&y_true, &y_scores)
-            .unwrap()
+            .expect("operation should succeed")
             .diagonal(false)
             .dimensions(200, 200)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = roc.to_framebuffer();
         assert!(fb.is_ok());
@@ -707,11 +719,11 @@ mod tests {
 
         let pr = PrCurve::new()
             .from_predictions(&y_true, &y_scores)
-            .unwrap()
+            .expect("operation should succeed")
             .color(Rgba::GREEN)
             .dimensions(200, 200)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = pr.to_framebuffer();
         assert!(fb.is_ok());
@@ -724,11 +736,11 @@ mod tests {
 
         let pr = PrCurve::new()
             .from_predictions(&y_true, &y_scores)
-            .unwrap()
+            .expect("operation should succeed")
             .baseline(false)
             .dimensions(200, 200)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = pr.to_framebuffer();
         assert!(fb.is_ok());
@@ -745,7 +757,11 @@ mod tests {
             average_precision: 0.75,
         };
 
-        let pr = PrCurve::new().data(pr_data).dimensions(200, 200).build().unwrap();
+        let pr = PrCurve::new()
+            .data(pr_data)
+            .dimensions(200, 200)
+            .build()
+            .expect("builder should produce valid result");
 
         assert!((pr.average_precision() - 0.75).abs() < 0.001);
     }
@@ -754,7 +770,7 @@ mod tests {
     fn test_curve_point_clone_debug() {
         let point = CurvePoint { x: 0.5, y: 0.8, threshold: 0.7 };
         let cloned = point;
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("CurvePoint"));
         assert!((point.x - cloned.x).abs() < f32::EPSILON);
     }
@@ -764,7 +780,7 @@ mod tests {
         let data =
             RocData { points: vec![CurvePoint { x: 0.0, y: 0.0, threshold: 1.0 }], auc: 0.8 };
         let cloned = data.clone();
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("RocData"));
     }
 
@@ -775,7 +791,7 @@ mod tests {
             average_precision: 0.9,
         };
         let cloned = data.clone();
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("PrData"));
     }
 

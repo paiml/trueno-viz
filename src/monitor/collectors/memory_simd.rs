@@ -40,15 +40,15 @@ pub struct SimdMemoryCollector {
 /// Using byte patterns for SIMD-friendly comparison.
 #[cfg(target_os = "linux")]
 mod meminfo_keys {
-    pub const MEM_TOTAL: &[u8] = b"MemTotal:";
-    pub const MEM_FREE: &[u8] = b"MemFree:";
-    pub const MEM_AVAILABLE: &[u8] = b"MemAvailable:";
-    pub const BUFFERS: &[u8] = b"Buffers:";
-    pub const CACHED: &[u8] = b"Cached:";
-    pub const SWAP_TOTAL: &[u8] = b"SwapTotal:";
-    pub const SWAP_FREE: &[u8] = b"SwapFree:";
-    pub const DIRTY: &[u8] = b"Dirty:";
-    pub const SLAB: &[u8] = b"Slab:";
+    pub(super) const MEM_TOTAL: &[u8] = b"MemTotal:";
+    pub(super) const MEM_FREE: &[u8] = b"MemFree:";
+    pub(super) const MEM_AVAILABLE: &[u8] = b"MemAvailable:";
+    pub(super) const BUFFERS: &[u8] = b"Buffers:";
+    pub(super) const CACHED: &[u8] = b"Cached:";
+    pub(super) const SWAP_TOTAL: &[u8] = b"SwapTotal:";
+    pub(super) const SWAP_FREE: &[u8] = b"SwapFree:";
+    pub(super) const DIRTY: &[u8] = b"Dirty:";
+    pub(super) const SLAB: &[u8] = b"Slab:";
 }
 
 impl SimdMemoryCollector {
@@ -72,13 +72,13 @@ impl SimdMemoryCollector {
 
         let mut file = File::open("/proc/meminfo").map_err(|e| MonitorError::CollectionFailed {
             collector: "memory_simd",
-            message: format!("Failed to open /proc/meminfo: {}", e),
+            message: format!("Failed to open /proc/meminfo: {e}"),
         })?;
 
         let bytes_read =
             file.read(&mut self.read_buffer).map_err(|e| MonitorError::CollectionFailed {
                 collector: "memory_simd",
-                message: format!("Failed to read /proc/meminfo: {}", e),
+                message: format!("Failed to read /proc/meminfo: {e}"),
             })?;
 
         // Copy to local buffer to avoid borrow conflict (self.read_buffer vs &mut self)
@@ -90,7 +90,9 @@ impl SimdMemoryCollector {
     /// Parses meminfo buffer using SIMD-assisted line finding.
     #[cfg(target_os = "linux")]
     fn parse_meminfo_buffer(&mut self, buffer: &[u8]) -> Result<()> {
-        use meminfo_keys::*;
+        use meminfo_keys::{
+            BUFFERS, CACHED, DIRTY, MEM_AVAILABLE, MEM_FREE, MEM_TOTAL, SLAB, SWAP_FREE, SWAP_TOTAL,
+        };
 
         // Find line boundaries using SIMD
         let newlines = kernels::simd_find_newlines(buffer);

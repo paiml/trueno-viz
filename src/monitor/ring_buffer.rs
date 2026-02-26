@@ -215,7 +215,7 @@ mod tests {
                 buf.push(i as i32);
             }
 
-            assert_eq!(buf.len(), capacity, "Buffer with capacity {} should be bounded", capacity);
+            assert_eq!(buf.len(), capacity, "Buffer with capacity {capacity} should be bounded");
         }
     }
 
@@ -229,7 +229,7 @@ mod tests {
         let mut buf = RingBuffer::<f64>::new(1000);
 
         for i in 0..1000 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         // latest() should work regardless of buffer size
@@ -266,7 +266,7 @@ mod tests {
 
         // Warmup: fill to capacity
         for i in 0..100 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         // Get pointer after warmup
@@ -274,7 +274,7 @@ mod tests {
 
         // Push more values - should not reallocate
         for i in 100..1000 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         let _ptr_after = buf.data_ptr();

@@ -112,9 +112,9 @@ impl BatteryInfo {
         let minutes = (seconds % 3600) / 60;
 
         if hours > 0 {
-            Some(format!("{}h {}m", hours, minutes))
+            Some(format!("{hours}h {minutes}m"))
         } else {
-            Some(format!("{}m", minutes))
+            Some(format!("{minutes}m"))
         }
     }
 }
@@ -174,7 +174,7 @@ impl BatteryCollector {
             Some(((total_energy as f64 / total_full as f64) * 100.0) as u8)
         } else {
             // Fall back to simple average of capacity
-            let sum: u32 = self.batteries.iter().map(|b| b.capacity as u32).sum();
+            let sum: u32 = self.batteries.iter().map(|b| u32::from(b.capacity)).sum();
             Some((sum / self.batteries.len() as u32) as u8)
         }
     }
@@ -190,7 +190,7 @@ impl BatteryCollector {
             .ok()
             .map(|entries| {
                 entries
-                    .filter_map(|e| e.ok())
+                    .filter_map(std::result::Result::ok)
                     .filter_map(|e| {
                         let name = e.file_name().to_string_lossy().to_string();
                         // Check if it's a battery
@@ -305,7 +305,7 @@ impl Collector for BatteryCollector {
 
         // Primary battery info
         if let Some(primary) = self.primary() {
-            metrics.insert("battery.capacity", MetricValue::Gauge(primary.capacity as f64));
+            metrics.insert("battery.capacity", MetricValue::Gauge(f64::from(primary.capacity)));
             metrics.insert(
                 "battery.charging",
                 MetricValue::Gauge(if primary.state.is_charging() { 1.0 } else { 0.0 }),
@@ -322,7 +322,7 @@ impl Collector for BatteryCollector {
 
         // Total capacity
         if let Some(total) = self.total_capacity() {
-            metrics.insert("battery.total_capacity", MetricValue::Gauge(total as f64));
+            metrics.insert("battery.total_capacity", MetricValue::Gauge(f64::from(total)));
         }
 
         Ok(metrics)

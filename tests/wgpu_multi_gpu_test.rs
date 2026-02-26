@@ -3,8 +3,8 @@
 //! EXTREME TDD: These tests are written FIRST, before implementation.
 //! All tests should FAIL initially until implementation is complete.
 //!
-//! Run: cargo test --features "gpu-wgpu,monitor" --test wgpu_multi_gpu_test
-//! Run with GPU: cargo test --features "gpu-wgpu,monitor" --test wgpu_multi_gpu_test -- --ignored
+//! Run: cargo test --features "gpu-wgpu,monitor" --test `wgpu_multi_gpu_test`
+//! Run with GPU: cargo test --features "gpu-wgpu,monitor" --test `wgpu_multi_gpu_test` -- --ignored
 //!
 //! NOTE: These tests require real GPU hardware and may block on Metal initialization.
 //! They are marked #[ignore] by default and should be run manually on systems with GPUs.
@@ -32,7 +32,7 @@ use trueno_viz::monitor::ffi::wgpu::{GpuAdapterInfo, WgpuBackendType, WgpuMonito
 // ============================================================================
 
 /// Claim 26: WGPU detects all physical GPUs
-/// Failure criterion: Missing GPU compared to system_profiler
+/// Failure criterion: Missing GPU compared to `system_profiler`
 #[test]
 #[ignore = "Requires real GPU - run with --ignored"]
 #[cfg(feature = "gpu-wgpu")]
@@ -68,7 +68,7 @@ fn claim_27_dual_amd_w5700x_enumerated() {
 }
 
 /// Claim 28: GPU names match system report
-/// Failure criterion: Name mismatch with system_profiler
+/// Failure criterion: Name mismatch with `system_profiler`
 #[test]
 #[ignore = "Requires real GPU - run with --ignored"]
 #[cfg(feature = "gpu-wgpu")]
@@ -119,7 +119,7 @@ fn claim_30_vulkan_backend_on_linux() {
     }
 }
 
-/// Claim 31: Device type is DiscreteGpu for dedicated cards
+/// Claim 31: Device type is `DiscreteGpu` for dedicated cards
 /// Failure criterion: Wrong device type for discrete GPU
 #[test]
 #[ignore = "Requires real GPU - run with --ignored"]
@@ -153,8 +153,7 @@ fn claim_32_wgpu_init_under_100ms() {
 
     assert!(
         elapsed < Duration::from_millis(100),
-        "FALSIFIED Claim 32: WGPU init took {:?}, expected < 100ms",
-        elapsed
+        "FALSIFIED Claim 32: WGPU init took {elapsed:?}, expected < 100ms"
     );
 }
 
@@ -172,8 +171,7 @@ fn claim_33_adapter_enum_under_50ms() {
 
     assert!(
         elapsed < Duration::from_millis(50),
-        "FALSIFIED Claim 33: Adapter enumeration took {:?}, expected < 50ms",
-        elapsed
+        "FALSIFIED Claim 33: Adapter enumeration took {elapsed:?}, expected < 50ms"
     );
 }
 
@@ -193,8 +191,7 @@ fn claim_34_non_blocking_discovery() {
     let elapsed = start.elapsed();
     assert!(
         elapsed < Duration::from_millis(500),
-        "FALSIFIED Claim 34: Discovery appears to block ({:?})",
-        elapsed
+        "FALSIFIED Claim 34: Discovery appears to block ({elapsed:?})"
     );
 }
 
@@ -265,7 +262,7 @@ fn claim_37_buffer_allocation_tracking() {
     let tracked = monitor.buffer_allocated_bytes(0);
 
     let error = (tracked as i64 - test_size as i64).unsigned_abs();
-    assert!(error <= 1024, "FALSIFIED Claim 37: Buffer tracking error {} > 1KB", error);
+    assert!(error <= 1024, "FALSIFIED Claim 37: Buffer tracking error {error} > 1KB");
 }
 
 /// Claim 38: Compute dispatch counting accurate
@@ -307,7 +304,7 @@ fn claim_39_per_gpu_isolation() {
 
 /// Claim 40: WGPU collector is 100% safe Rust
 /// Failure criterion: Unsafe code found
-/// This is a compile-time check - the module should have #![forbid(unsafe_code)]
+/// This is a compile-time check - the module should have #![`forbid(unsafe_code)`]
 #[test]
 #[ignore = "Requires real GPU - run with --ignored"]
 #[cfg(feature = "gpu-wgpu")]
@@ -474,9 +471,7 @@ fn claim_48_load_balancing() {
         let diff = (gpu0_load as i64 - gpu1_load as i64).unsigned_abs();
         assert!(
             diff <= 2,
-            "FALSIFIED Claim 48: Imbalanced load: GPU0={}, GPU1={}",
-            gpu0_load,
-            gpu1_load
+            "FALSIFIED Claim 48: Imbalanced load: GPU0={gpu0_load}, GPU1={gpu1_load}"
         );
     }
 }
@@ -519,10 +514,10 @@ fn claim_50_update_rate() {
     }
 
     // At 10Hz minimum, we should get at least 2 updates in 200ms
-    assert!(updates >= 2, "FALSIFIED Claim 50: Only {} updates in 200ms (need 10Hz)", updates);
+    assert!(updates >= 2, "FALSIFIED Claim 50: Only {updates} updates in 200ms (need 10Hz)");
 
-    let hz = updates as f64 / 0.2;
-    println!("Update rate: {:.1} Hz", hz);
+    let hz = f64::from(updates) / 0.2;
+    println!("Update rate: {hz:.1} Hz");
 }
 
 // ============================================================================

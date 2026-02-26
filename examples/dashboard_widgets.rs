@@ -1,8 +1,8 @@
 //! Dashboard Widgets Example
 //!
-//! Demonstrates the experiment dashboard widgets: Sparkline, ResourceBar, and RunTable.
+//! Demonstrates the experiment dashboard widgets: Sparkline, `ResourceBar`, and `RunTable`.
 //!
-//! Run with: cargo run --example dashboard_widgets
+//! Run with: cargo run --example `dashboard_widgets`
 
 use trueno_viz::prelude::*;
 

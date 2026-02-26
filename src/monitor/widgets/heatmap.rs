@@ -191,7 +191,7 @@ impl Heatmap {
     /// Returns the number of columns.
     #[must_use]
     pub fn cols(&self) -> usize {
-        self.cells.first().map(|r| r.len()).unwrap_or(0)
+        self.cells.first().map_or(0, std::vec::Vec::len)
     }
 
     /// Gets a cell at the given position.
@@ -213,11 +213,10 @@ impl Heatmap {
 
         // Add label if enabled and available
         if self.show_labels {
-            let label = cell
-                .label
-                .as_deref()
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| format!("{:.0}", cell.value * 100.0));
+            let label = cell.label.as_deref().map_or_else(
+                || format!("{:.0}", cell.value * 100.0),
+                std::string::ToString::to_string,
+            );
 
             let label_len = label.len() as u16;
             if label_len <= self.cell_width {
@@ -378,8 +377,8 @@ mod tests {
         let heatmap = Heatmap::from_values(&[&[0.1, 0.2], &[0.3, 0.4]]);
 
         assert!(heatmap.get(0, 0).is_some());
-        assert!((heatmap.get(0, 0).unwrap().value - 0.1).abs() < 0.01);
-        assert!((heatmap.get(1, 1).unwrap().value - 0.4).abs() < 0.01);
+        assert!((heatmap.get(0, 0).expect("key should exist").value - 0.1).abs() < 0.01);
+        assert!((heatmap.get(1, 1).expect("key should exist").value - 0.4).abs() < 0.01);
         assert!(heatmap.get(5, 5).is_none());
     }
 
@@ -471,7 +470,7 @@ mod tests {
     fn test_heatmap_render_larger_with_labels() {
         // Render with larger cells to ensure label text_color branch is hit
         let backend = TestBackend::new(60, 15);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {

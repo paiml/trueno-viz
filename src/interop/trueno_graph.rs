@@ -94,24 +94,24 @@ impl GraphViz for CsrGraph {
 
     fn to_community_graph(&self) -> Result<Framebuffer> {
         let communities = louvain(self)
-            .map_err(|e| crate::error::Error::Rendering(format!("Louvain failed: {}", e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("Louvain failed: {e}")))?;
 
         graph_with_communities(self, &communities, 600, 500)
     }
 
     fn to_pagerank_graph(&self) -> Result<Framebuffer> {
         let scores = pagerank(self, 20, 1e-6)
-            .map_err(|e| crate::error::Error::Rendering(format!("PageRank failed: {}", e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("PageRank failed: {e}")))?;
 
         graph_with_pagerank(self, &scores, 600, 500)
     }
 
     fn to_analysis_graph(&self) -> Result<Framebuffer> {
         let communities = louvain(self)
-            .map_err(|e| crate::error::Error::Rendering(format!("Louvain failed: {}", e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("Louvain failed: {e}")))?;
 
         let scores = pagerank(self, 20, 1e-6)
-            .map_err(|e| crate::error::Error::Rendering(format!("PageRank failed: {}", e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("PageRank failed: {e}")))?;
 
         graph_with_analysis(self, &communities, &scores, 600, 500)
     }
@@ -202,8 +202,8 @@ fn graph_with_pagerank(
     let mut fg = ForceGraph::new().dimensions(width, height).iterations(100);
 
     // Find min/max for normalization
-    let max_score = scores.iter().cloned().fold(0.0f32, f32::max);
-    let min_score = scores.iter().cloned().fold(f32::MAX, f32::min);
+    let max_score = scores.iter().copied().fold(0.0f32, f32::max);
+    let min_score = scores.iter().copied().fold(f32::MAX, f32::min);
     let score_range = (max_score - min_score).max(0.001);
 
     // Add nodes with PageRank-based sizing
@@ -240,8 +240,8 @@ fn graph_with_analysis(
     let mut fg = ForceGraph::new().dimensions(width, height).iterations(100);
 
     // Find min/max for normalization
-    let max_score = scores.iter().cloned().fold(0.0f32, f32::max);
-    let min_score = scores.iter().cloned().fold(f32::MAX, f32::min);
+    let max_score = scores.iter().copied().fold(0.0f32, f32::max);
+    let min_score = scores.iter().copied().fold(f32::MAX, f32::min);
     let score_range = (max_score - min_score).max(0.001);
 
     // Add nodes with both community colors and PageRank sizing
@@ -397,7 +397,7 @@ mod tests {
     #[test]
     fn test_to_force_graph() {
         let graph = create_test_graph();
-        let fb = graph.to_force_graph().unwrap();
+        let fb = graph.to_force_graph().expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 500);
     }
@@ -405,7 +405,7 @@ mod tests {
     #[test]
     fn test_to_force_graph_with() {
         let graph = create_test_graph();
-        let fb = graph.to_force_graph_with(800, 600).unwrap();
+        let fb = graph.to_force_graph_with(800, 600).expect("operation should succeed");
         assert_eq!(fb.width(), 800);
         assert_eq!(fb.height(), 600);
     }
@@ -413,28 +413,28 @@ mod tests {
     #[test]
     fn test_to_community_graph() {
         let graph = create_test_graph();
-        let fb = graph.to_community_graph().unwrap();
+        let fb = graph.to_community_graph().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_to_pagerank_graph() {
         let graph = create_test_graph();
-        let fb = graph.to_pagerank_graph().unwrap();
+        let fb = graph.to_pagerank_graph().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_to_analysis_graph() {
         let graph = create_test_graph();
-        let fb = graph.to_analysis_graph().unwrap();
+        let fb = graph.to_analysis_graph().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_degree_histogram() {
         let graph = create_test_graph();
-        let fb = graph.degree_histogram().unwrap();
+        let fb = graph.degree_histogram().expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 400);
     }
@@ -442,7 +442,7 @@ mod tests {
     #[test]
     fn test_degree_scatter() {
         let graph = create_test_graph();
-        let fb = graph.degree_scatter().unwrap();
+        let fb = graph.degree_scatter().expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 500);
     }
@@ -450,24 +450,24 @@ mod tests {
     #[test]
     fn test_pagerank_histogram() {
         let graph = create_test_graph();
-        let scores = pagerank(&graph, 20, 1e-6).unwrap();
-        let fb = scores.to_histogram().unwrap();
+        let scores = pagerank(&graph, 20, 1e-6).expect("operation should succeed");
+        let fb = scores.to_histogram().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_pagerank_top_n() {
         let graph = create_test_graph();
-        let scores = pagerank(&graph, 20, 1e-6).unwrap();
-        let fb = scores.top_n_bar(3).unwrap();
+        let scores = pagerank(&graph, 20, 1e-6).expect("operation should succeed");
+        let fb = scores.top_n_bar(3).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_community_size_histogram() {
         let graph = create_test_graph();
-        let communities = louvain(&graph).unwrap();
-        let fb = communities.size_histogram().unwrap();
+        let communities = louvain(&graph).expect("operation should succeed");
+        let fb = communities.size_histogram().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -475,16 +475,16 @@ mod tests {
     fn test_convenience_functions() {
         let graph = create_test_graph();
 
-        let fb = visualize_graph(&graph).unwrap();
+        let fb = visualize_graph(&graph).expect("operation should succeed");
         assert!(fb.width() > 0);
 
-        let fb = visualize_communities(&graph).unwrap();
+        let fb = visualize_communities(&graph).expect("operation should succeed");
         assert!(fb.width() > 0);
 
-        let fb = visualize_pagerank(&graph).unwrap();
+        let fb = visualize_pagerank(&graph).expect("operation should succeed");
         assert!(fb.width() > 0);
 
-        let fb = visualize_analysis(&graph).unwrap();
+        let fb = visualize_analysis(&graph).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 }

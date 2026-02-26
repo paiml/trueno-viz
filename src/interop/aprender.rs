@@ -201,10 +201,10 @@ impl DataFrameViz for AprenderDataFrame {
     fn scatter(&self, x_col: &str, y_col: &str) -> Result<Framebuffer> {
         let x = self
             .column(x_col)
-            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", x_col, e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{x_col}': {e}")))?;
         let y = self
             .column(y_col)
-            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", y_col, e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{y_col}': {e}")))?;
 
         let plot = ScatterPlot::new()
             .x(x.as_slice())
@@ -220,7 +220,7 @@ impl DataFrameViz for AprenderDataFrame {
     fn histogram(&self, col: &str) -> Result<Framebuffer> {
         let data = self
             .column(col)
-            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", col, e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{col}': {e}")))?;
 
         let plot = Histogram::new()
             .data(data.as_slice())
@@ -247,7 +247,7 @@ impl DataFrameViz for AprenderDataFrame {
     fn line(&self, col: &str) -> Result<Framebuffer> {
         let data = self
             .column(col)
-            .map_err(|e| crate::error::Error::Rendering(format!("Column '{}': {}", col, e)))?;
+            .map_err(|e| crate::error::Error::Rendering(format!("Column '{col}': {e}")))?;
 
         let x: Vec<f32> = (0..data.len()).map(|i| i as f32).collect();
 
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn test_vector_histogram() {
         let v = Vector::from_slice(&[1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 5.0]);
-        let fb = v.to_histogram().unwrap();
+        let fb = v.to_histogram().expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 400);
     }
@@ -380,7 +380,7 @@ mod tests {
     #[test]
     fn test_vector_histogram_with() {
         let v = Vector::from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0]);
-        let fb = v.to_histogram_with(400, 300, Rgba::RED).unwrap();
+        let fb = v.to_histogram_with(400, 300, Rgba::RED).expect("operation should succeed");
         assert_eq!(fb.width(), 400);
         assert_eq!(fb.height(), 300);
     }
@@ -389,7 +389,7 @@ mod tests {
     fn test_vector_scatter_vs() {
         let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
         let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
-        let fb = pred.scatter_vs(&actual).unwrap();
+        let fb = pred.scatter_vs(&actual).expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 600);
     }
@@ -398,7 +398,8 @@ mod tests {
     fn test_vector_scatter_vs_with() {
         let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
         let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
-        let fb = pred.scatter_vs_with(&actual, 500, 500, Rgba::GREEN).unwrap();
+        let fb =
+            pred.scatter_vs_with(&actual, 500, 500, Rgba::GREEN).expect("operation should succeed");
         assert_eq!(fb.width(), 500);
         assert_eq!(fb.height(), 500);
     }
@@ -406,7 +407,7 @@ mod tests {
     #[test]
     fn test_vector_to_line() {
         let v = Vector::from_slice(&[1.0, 2.0, 3.0, 2.5, 4.0, 3.5]);
-        let fb = v.to_line().unwrap();
+        let fb = v.to_line().expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 400);
     }
@@ -415,29 +416,32 @@ mod tests {
     fn test_vector_residual_plot() {
         let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
         let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
-        let fb = pred.residual_plot(&actual).unwrap();
+        let fb = pred.residual_plot(&actual).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_matrix_heatmap() {
-        let m = Matrix::from_vec(3, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]).unwrap();
-        let fb = m.to_heatmap().unwrap();
+        let m = Matrix::from_vec(3, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
+            .expect("operation should succeed");
+        let fb = m.to_heatmap().expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 500);
     }
 
     #[test]
     fn test_matrix_heatmap_with_palette() {
-        let m = Matrix::from_vec(3, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]).unwrap();
-        let fb = m.to_heatmap_with(HeatmapPalette::Magma).unwrap();
+        let m = Matrix::from_vec(3, 3, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
+            .expect("operation should succeed");
+        let fb = m.to_heatmap_with(HeatmapPalette::Magma).expect("operation should succeed");
         assert_eq!(fb.width(), 600);
     }
 
     #[test]
     fn test_matrix_correlation_heatmap() {
-        let m = Matrix::from_vec(3, 3, vec![1.0, 0.5, 0.3, 0.5, 1.0, 0.7, 0.3, 0.7, 1.0]).unwrap();
-        let fb = m.correlation_heatmap().unwrap();
+        let m = Matrix::from_vec(3, 3, vec![1.0, 0.5, 0.3, 0.5, 1.0, 0.7, 0.3, 0.7, 1.0])
+            .expect("operation should succeed");
+        let fb = m.correlation_heatmap().expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 600);
     }
@@ -480,15 +484,15 @@ mod tests {
             ("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0])),
             ("y".to_string(), Vector::from_slice(&[2.0, 4.0, 3.0, 5.0])),
         ];
-        let df = AprenderDataFrame::new(columns).unwrap();
-        let fb = df.scatter("x", "y").unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
+        let fb = df.scatter("x", "y").expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_dataframe_scatter_missing_column() {
         let columns = vec![("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0]))];
-        let df = AprenderDataFrame::new(columns).unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
         let result = df.scatter("x", "missing");
         assert!(result.is_err());
     }
@@ -499,15 +503,15 @@ mod tests {
             "values".to_string(),
             Vector::from_slice(&[1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 5.0]),
         )];
-        let df = AprenderDataFrame::new(columns).unwrap();
-        let fb = df.histogram("values").unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
+        let fb = df.histogram("values").expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_dataframe_histogram_missing_column() {
         let columns = vec![("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0]))];
-        let df = AprenderDataFrame::new(columns).unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
         let result = df.histogram("missing");
         assert!(result.is_err());
     }
@@ -518,23 +522,23 @@ mod tests {
             ("a".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 4.0, 5.0])),
             ("b".to_string(), Vector::from_slice(&[2.0, 3.0, 4.0, 5.0, 6.0])),
         ];
-        let df = AprenderDataFrame::new(columns).unwrap();
-        let fb = df.boxplot(&["a", "b"]).unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
+        let fb = df.boxplot(&["a", "b"]).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_dataframe_line() {
         let columns = vec![("values".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0, 2.5, 4.0]))];
-        let df = AprenderDataFrame::new(columns).unwrap();
-        let fb = df.line("values").unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
+        let fb = df.line("values").expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_dataframe_line_missing_column() {
         let columns = vec![("x".to_string(), Vector::from_slice(&[1.0, 2.0, 3.0]))];
-        let df = AprenderDataFrame::new(columns).unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
         let result = df.line("missing");
         assert!(result.is_err());
     }
@@ -546,8 +550,8 @@ mod tests {
             ("b".to_string(), Vector::from_slice(&[2.0, 4.0, 6.0, 8.0])),
             ("c".to_string(), Vector::from_slice(&[8.0, 6.0, 4.0, 2.0])),
         ];
-        let df = AprenderDataFrame::new(columns).unwrap();
-        let fb = df.correlation_matrix().unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
+        let fb = df.correlation_matrix().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -557,7 +561,7 @@ mod tests {
             ("a".to_string(), Vector::from_slice(&[1.0])),
             ("b".to_string(), Vector::from_slice(&[2.0])),
         ];
-        let df = AprenderDataFrame::new(columns).unwrap();
+        let df = AprenderDataFrame::new(columns).expect("rendering should succeed");
         let result = df.correlation_matrix();
         assert!(result.is_err()); // Need at least 2 rows
     }
@@ -566,7 +570,7 @@ mod tests {
     fn test_convenience_predictions_vs_actual() {
         let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
         let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
-        let fb = predictions_vs_actual(&pred, &actual).unwrap();
+        let fb = predictions_vs_actual(&pred, &actual).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -574,14 +578,14 @@ mod tests {
     fn test_convenience_residuals() {
         let pred = Vector::from_slice(&[2.0, 4.0, 3.0, 5.0]);
         let actual = Vector::from_slice(&[2.1, 3.9, 3.1, 4.8]);
-        let fb = residuals(&pred, &actual).unwrap();
+        let fb = residuals(&pred, &actual).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_convenience_loss_curve() {
         let losses = Vector::from_slice(&[1.0, 0.8, 0.6, 0.4, 0.3, 0.25]);
-        let fb = loss_curve(&losses).unwrap();
+        let fb = loss_curve(&losses).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 }

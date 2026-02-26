@@ -453,7 +453,7 @@ impl ViolinPlot {
                     if densities.len() > 1 { i as f64 / (densities.len() - 1) as f64 } else { 0.5 };
                 let value = val_min + t * val_range;
                 let y_norm = 1.0 - (value - val_min) / val_range;
-                let y = area.y + (y_norm * (area.height - 1) as f64) as u16;
+                let y = area.y + (y_norm * f64::from(area.height - 1)) as u16;
 
                 if y < area.y || y >= area.y + area.height {
                     continue;
@@ -491,7 +491,7 @@ impl ViolinPlot {
             if self.show_median {
                 let stats = violin.stats();
                 let median_y_norm = 1.0 - (stats.median - val_min) / val_range;
-                let median_y = area.y + (median_y_norm * (area.height - 1) as f64) as u16;
+                let median_y = area.y + (median_y_norm * f64::from(area.height - 1)) as u16;
 
                 if median_y >= area.y && median_y < area.y + area.height {
                     let style = Style::default().fg(Color::White);
@@ -560,7 +560,7 @@ impl ViolinPlot {
                     if densities.len() > 1 { i as f64 / (densities.len() - 1) as f64 } else { 0.5 };
                 let value = val_min + t * val_range;
                 let x_norm = (value - val_min) / val_range;
-                let x = area.x + (x_norm * (area.width - 1) as f64) as u16;
+                let x = area.x + (x_norm * f64::from(area.width - 1)) as u16;
 
                 if x < area.x || x >= area.x + area.width {
                     continue;
@@ -586,7 +586,7 @@ impl ViolinPlot {
             if self.show_median {
                 let stats = violin.stats();
                 let median_x_norm = (stats.median - val_min) / val_range;
-                let median_x = area.x + (median_x_norm * (area.width - 1) as f64) as u16;
+                let median_x = area.x + (median_x_norm * f64::from(area.width - 1)) as u16;
 
                 if median_x >= area.x && median_x < area.x + area.width {
                     let style = Style::default().fg(Color::White);
@@ -824,7 +824,7 @@ mod tests {
         #[test]
         fn test_kde_large_dataset_simd_path() {
             // Test SIMD path (>100 elements)
-            let values: Vec<f64> = (0..200).map(|i| i as f64 / 10.0).collect();
+            let values: Vec<f64> = (0..200).map(|i| f64::from(i) / 10.0).collect();
             let mut data = ViolinData::from_vec("Large", values);
             data.compute_kde(50);
             assert!(data.densities().is_some());
@@ -848,7 +848,7 @@ mod tests {
 
         #[test]
         fn test_scalar_and_simd_match() {
-            let values: Vec<f64> = (0..150).map(|i| i as f64 / 10.0).collect();
+            let values: Vec<f64> = (0..150).map(|i| f64::from(i) / 10.0).collect();
             let data = ViolinData::from_vec("Test", values);
 
             let x = 7.5;
@@ -863,7 +863,7 @@ mod tests {
         #[test]
         fn test_simd_unaligned() {
             // Test SIMD path with values not divisible by 4
-            let values: Vec<f64> = (0..103).map(|i| i as f64 / 10.0).collect();
+            let values: Vec<f64> = (0..103).map(|i| f64::from(i) / 10.0).collect();
             let data = ViolinData::from_vec("Test", values);
 
             let result = data.kde_at_point_simd(5.0, 0.5);
@@ -1162,7 +1162,7 @@ mod tests {
         #[test]
         fn test_render_large_dataset() {
             let (area, mut buf) = create_test_buffer(80, 30);
-            let values: Vec<f64> = (0..200).map(|i| i as f64 / 20.0).collect();
+            let values: Vec<f64> = (0..200).map(|i| f64::from(i) / 20.0).collect();
             let data = vec![ViolinData::from_vec("Large", values)];
             let plot = ViolinPlot::with_data(data);
             plot.render(area, &mut buf);
@@ -1209,7 +1209,10 @@ mod tests {
             let (area, mut buf) = create_test_buffer(15, 30);
             let data: Vec<ViolinData> = (0..5)
                 .map(|i| {
-                    ViolinData::new(format!("V{}", i), &[i as f64, i as f64 + 1.0, i as f64 + 2.0])
+                    ViolinData::new(
+                        format!("V{i}"),
+                        &[f64::from(i), f64::from(i) + 1.0, f64::from(i) + 2.0],
+                    )
                 })
                 .collect();
             let plot = ViolinPlot::with_data(data);
@@ -1221,7 +1224,10 @@ mod tests {
             let (area, mut buf) = create_test_buffer(60, 10);
             let data: Vec<ViolinData> = (0..5)
                 .map(|i| {
-                    ViolinData::new(format!("V{}", i), &[i as f64, i as f64 + 1.0, i as f64 + 2.0])
+                    ViolinData::new(
+                        format!("V{i}"),
+                        &[f64::from(i), f64::from(i) + 1.0, f64::from(i) + 2.0],
+                    )
                 })
                 .collect();
             let plot = ViolinPlot::with_data(data).orientation(ViolinOrientation::Horizontal);

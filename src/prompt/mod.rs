@@ -34,7 +34,7 @@
 use crate::color::Rgba;
 use crate::error::{Error, Result};
 use crate::framebuffer::Framebuffer;
-use crate::plots::*;
+use crate::plots::{BoxPlot, Heatmap, Histogram, LineChart, LineSeries, ScatterPlot};
 use batuta_common::display::WithDimensions;
 
 /// A parsed plot specification.
@@ -199,15 +199,15 @@ pub fn parse_prompt(prompt: &str) -> Result<PlotSpec> {
                 "groups" => spec.groups = Some(parse_matrix(value)?),
                 "width" => {
                     spec.width =
-                        value.parse().map_err(|_| Error::Rendering("Invalid width".into()))?
+                        value.parse().map_err(|_| Error::Rendering("Invalid width".into()))?;
                 }
                 "height" => {
                     spec.height =
-                        value.parse().map_err(|_| Error::Rendering("Invalid height".into()))?
+                        value.parse().map_err(|_| Error::Rendering("Invalid height".into()))?;
                 }
                 "size" => {
                     spec.size =
-                        value.parse().map_err(|_| Error::Rendering("Invalid size".into()))?
+                        value.parse().map_err(|_| Error::Rendering("Invalid size".into()))?;
                 }
                 "color" => spec.color = parse_color(value)?,
                 "title" => {
@@ -358,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_parse_array() {
-        let arr = parse_array("[1,2,3,4,5]").unwrap();
+        let arr = parse_array("[1,2,3,4,5]").expect("parsing should succeed");
         assert_eq!(arr.len(), 5);
         assert!((arr[0] - 1.0).abs() < 0.01);
         assert!((arr[4] - 5.0).abs() < 0.01);
@@ -366,20 +366,20 @@ mod tests {
 
     #[test]
     fn test_parse_array_floats() {
-        let arr = parse_array("[1.5,2.5,3.5]").unwrap();
+        let arr = parse_array("[1.5,2.5,3.5]").expect("parsing should succeed");
         assert_eq!(arr.len(), 3);
         assert!((arr[1] - 2.5).abs() < 0.01);
     }
 
     #[test]
     fn test_parse_array_empty() {
-        let arr = parse_array("[]").unwrap();
+        let arr = parse_array("[]").expect("parsing should succeed");
         assert!(arr.is_empty());
     }
 
     #[test]
     fn test_parse_matrix() {
-        let mat = parse_matrix("[[1,2],[3,4]]").unwrap();
+        let mat = parse_matrix("[[1,2],[3,4]]").expect("parsing should succeed");
         assert_eq!(mat.len(), 2);
         assert_eq!(mat[0].len(), 2);
         assert!((mat[0][0] - 1.0).abs() < 0.01);
@@ -388,14 +388,14 @@ mod tests {
 
     #[test]
     fn test_parse_color_named() {
-        assert_eq!(parse_color("red").unwrap(), Rgba::RED);
-        assert_eq!(parse_color("BLUE").unwrap(), Rgba::BLUE);
-        assert_eq!(parse_color("Green").unwrap(), Rgba::GREEN);
+        assert_eq!(parse_color("red").expect("parsing should succeed"), Rgba::RED);
+        assert_eq!(parse_color("BLUE").expect("parsing should succeed"), Rgba::BLUE);
+        assert_eq!(parse_color("Green").expect("parsing should succeed"), Rgba::GREEN);
     }
 
     #[test]
     fn test_parse_color_hex() {
-        let color = parse_color("#ff8800").unwrap();
+        let color = parse_color("#ff8800").expect("parsing should succeed");
         assert_eq!(color.r, 255);
         assert_eq!(color.g, 136);
         assert_eq!(color.b, 0);
@@ -403,15 +403,16 @@ mod tests {
 
     #[test]
     fn test_parse_prompt_scatter() {
-        let spec = parse_prompt("scatter x=[1,2,3] y=[4,5,6]").unwrap();
+        let spec = parse_prompt("scatter x=[1,2,3] y=[4,5,6]").expect("parsing should succeed");
         assert_eq!(spec.plot_type, "scatter");
-        assert_eq!(spec.x_data.as_ref().unwrap().len(), 3);
-        assert_eq!(spec.y_data.as_ref().unwrap().len(), 3);
+        assert_eq!(spec.x_data.as_ref().expect("value should be present").len(), 3);
+        assert_eq!(spec.y_data.as_ref().expect("value should be present").len(), 3);
     }
 
     #[test]
     fn test_parse_prompt_with_options() {
-        let spec = parse_prompt("scatter x=[1,2] y=[3,4] width=800 height=600 color=red").unwrap();
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4] width=800 height=600 color=red")
+            .expect("parsing should succeed");
         assert_eq!(spec.width, 800);
         assert_eq!(spec.height, 600);
         assert_eq!(spec.color, Rgba::RED);
@@ -419,29 +420,31 @@ mod tests {
 
     #[test]
     fn test_parse_prompt_histogram() {
-        let spec = parse_prompt("histogram data=[1,2,2,3,3,3,4,4,5]").unwrap();
+        let spec =
+            parse_prompt("histogram data=[1,2,2,3,3,3,4,4,5]").expect("parsing should succeed");
         assert_eq!(spec.plot_type, "histogram");
-        assert_eq!(spec.data.as_ref().unwrap().len(), 9);
+        assert_eq!(spec.data.as_ref().expect("value should be present").len(), 9);
     }
 
     #[test]
     fn test_parse_prompt_heatmap() {
-        let spec = parse_prompt("heatmap matrix=[[1,2],[3,4]]").unwrap();
+        let spec = parse_prompt("heatmap matrix=[[1,2],[3,4]]").expect("parsing should succeed");
         assert_eq!(spec.plot_type, "heatmap");
-        let mat = spec.matrix.as_ref().unwrap();
+        let mat = spec.matrix.as_ref().expect("operation should succeed");
         assert_eq!(mat.len(), 2);
     }
 
     #[test]
     fn test_parse_prompt_boxplot() {
-        let spec = parse_prompt("boxplot groups=[[1,2,3],[4,5,6]]").unwrap();
+        let spec =
+            parse_prompt("boxplot groups=[[1,2,3],[4,5,6]]").expect("parsing should succeed");
         assert_eq!(spec.plot_type, "boxplot");
-        assert_eq!(spec.groups.as_ref().unwrap().len(), 2);
+        assert_eq!(spec.groups.as_ref().expect("value should be present").len(), 2);
     }
 
     #[test]
     fn test_parse_prompt_case_insensitive() {
-        let spec = parse_prompt("SCATTER X=[1,2] Y=[3,4]").unwrap();
+        let spec = parse_prompt("SCATTER X=[1,2] Y=[3,4]").expect("parsing should succeed");
         assert_eq!(spec.plot_type, "scatter");
     }
 
@@ -459,29 +462,32 @@ mod tests {
 
     #[test]
     fn test_from_prompt_scatter() {
-        let fb = from_prompt("scatter x=[1,2,3,4,5] y=[1,4,9,16,25] width=200 height=150").unwrap();
+        let fb = from_prompt("scatter x=[1,2,3,4,5] y=[1,4,9,16,25] width=200 height=150")
+            .expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
 
     #[test]
     fn test_from_prompt_line() {
-        let fb = from_prompt("line x=[0,1,2,3] y=[0,1,0,1] width=200 height=150").unwrap();
+        let fb = from_prompt("line x=[0,1,2,3] y=[0,1,0,1] width=200 height=150")
+            .expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
 
     #[test]
     fn test_from_prompt_histogram() {
-        let fb = from_prompt("histogram data=[1,2,2,3,3,3,4,4,5] width=200 height=150").unwrap();
+        let fb = from_prompt("histogram data=[1,2,2,3,3,3,4,4,5] width=200 height=150")
+            .expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
 
     #[test]
     fn test_from_prompt_heatmap() {
-        let fb =
-            from_prompt("heatmap matrix=[[1,2,3],[4,5,6],[7,8,9]] width=200 height=150").unwrap();
+        let fb = from_prompt("heatmap matrix=[[1,2,3],[4,5,6],[7,8,9]] width=200 height=150")
+            .expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
@@ -491,23 +497,47 @@ mod tests {
         let fb = from_prompt(
             "boxplot groups=[[1,2,3,4,5],[2,3,4,5,6],[3,4,5,6,7]] width=200 height=150",
         )
-        .unwrap();
+        .expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 150);
     }
 
     #[test]
     fn test_parse_color_all_named() {
-        assert_eq!(parse_color("black").unwrap(), Rgba::BLACK);
-        assert_eq!(parse_color("white").unwrap(), Rgba::WHITE);
-        assert_eq!(parse_color("yellow").unwrap(), Rgba::new(255, 255, 0, 255));
-        assert_eq!(parse_color("cyan").unwrap(), Rgba::new(0, 255, 255, 255));
-        assert_eq!(parse_color("magenta").unwrap(), Rgba::new(255, 0, 255, 255));
-        assert_eq!(parse_color("orange").unwrap(), Rgba::new(255, 165, 0, 255));
-        assert_eq!(parse_color("purple").unwrap(), Rgba::new(128, 0, 128, 255));
-        assert_eq!(parse_color("pink").unwrap(), Rgba::new(255, 192, 203, 255));
-        assert_eq!(parse_color("gray").unwrap(), Rgba::new(128, 128, 128, 255));
-        assert_eq!(parse_color("grey").unwrap(), Rgba::new(128, 128, 128, 255));
+        assert_eq!(parse_color("black").expect("parsing should succeed"), Rgba::BLACK);
+        assert_eq!(parse_color("white").expect("parsing should succeed"), Rgba::WHITE);
+        assert_eq!(
+            parse_color("yellow").expect("parsing should succeed"),
+            Rgba::new(255, 255, 0, 255)
+        );
+        assert_eq!(
+            parse_color("cyan").expect("parsing should succeed"),
+            Rgba::new(0, 255, 255, 255)
+        );
+        assert_eq!(
+            parse_color("magenta").expect("parsing should succeed"),
+            Rgba::new(255, 0, 255, 255)
+        );
+        assert_eq!(
+            parse_color("orange").expect("parsing should succeed"),
+            Rgba::new(255, 165, 0, 255)
+        );
+        assert_eq!(
+            parse_color("purple").expect("parsing should succeed"),
+            Rgba::new(128, 0, 128, 255)
+        );
+        assert_eq!(
+            parse_color("pink").expect("parsing should succeed"),
+            Rgba::new(255, 192, 203, 255)
+        );
+        assert_eq!(
+            parse_color("gray").expect("parsing should succeed"),
+            Rgba::new(128, 128, 128, 255)
+        );
+        assert_eq!(
+            parse_color("grey").expect("parsing should succeed"),
+            Rgba::new(128, 128, 128, 255)
+        );
     }
 
     #[test]
@@ -536,19 +566,22 @@ mod tests {
 
     #[test]
     fn test_parse_prompt_title() {
-        let spec = parse_prompt("scatter x=[1,2] y=[3,4] title=\"My Plot\"").unwrap();
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4] title=\"My Plot\"")
+            .expect("parsing should succeed");
         assert_eq!(spec.title, Some("My Plot".to_string()));
     }
 
     #[test]
     fn test_parse_prompt_title_multiword() {
-        let spec = parse_prompt("scatter x=[1,2] y=[3,4] title=\"My Multi Word Title\"").unwrap();
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4] title=\"My Multi Word Title\"")
+            .expect("parsing should succeed");
         assert_eq!(spec.title, Some("My Multi Word Title".to_string()));
     }
 
     #[test]
     fn test_parse_prompt_size() {
-        let spec = parse_prompt("scatter x=[1,2] y=[3,4] size=10.0").unwrap();
+        let spec =
+            parse_prompt("scatter x=[1,2] y=[3,4] size=10.0").expect("parsing should succeed");
         assert!((spec.size - 10.0).abs() < 0.01);
     }
 
@@ -573,8 +606,9 @@ mod tests {
     #[test]
     fn test_parse_prompt_unknown_option() {
         // Unknown options should be ignored
-        let spec = parse_prompt("scatter x=[1,2] y=[3,4] unknown=value").unwrap();
-        assert_eq!(spec.x_data.as_ref().unwrap().len(), 2);
+        let spec =
+            parse_prompt("scatter x=[1,2] y=[3,4] unknown=value").expect("parsing should succeed");
+        assert_eq!(spec.x_data.as_ref().expect("value should be present").len(), 2);
     }
 
     #[test]
@@ -675,14 +709,14 @@ mod tests {
 
     #[test]
     fn test_plotspec_debug_clone() {
-        let spec = parse_prompt("scatter x=[1,2] y=[3,4]").unwrap();
+        let spec = parse_prompt("scatter x=[1,2] y=[3,4]").expect("parsing should succeed");
         let spec2 = spec.clone();
-        let _ = format!("{:?}", spec2);
+        let _ = format!("{spec2:?}");
     }
 
     #[test]
     fn test_parse_matrix_multiple_rows() {
-        let mat = parse_matrix("[[1,2,3],[4,5,6],[7,8,9]]").unwrap();
+        let mat = parse_matrix("[[1,2,3],[4,5,6],[7,8,9]]").expect("parsing should succeed");
         assert_eq!(mat.len(), 3);
         assert_eq!(mat[0].len(), 3);
         assert_eq!(mat[2].len(), 3);

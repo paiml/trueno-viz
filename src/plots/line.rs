@@ -479,8 +479,8 @@ mod tests {
         // Should reduce the number of points
         assert!(simplified.len() < points.len());
         // First and last points should be preserved
-        assert_eq!(simplified.first().unwrap().x, 0.0);
-        assert_eq!(simplified.last().unwrap().x, 7.0);
+        assert_eq!(simplified.first().expect("collection should not be empty").x, 0.0);
+        assert_eq!(simplified.last().expect("collection should not be empty").x, 7.0);
     }
 
     #[test]
@@ -522,7 +522,7 @@ mod tests {
             .data(&[1.0, 2.0, 3.0], &[4.0, 5.0, 6.0])
             .dimensions(100, 100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(chart.series_count(), 1);
         assert_eq!(chart.total_points(), 3);
@@ -546,7 +546,7 @@ mod tests {
             .data(&[0.0, 1.0, 2.0, 3.0], &[0.0, 1.0, 0.5, 2.0])
             .dimensions(100, 100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = chart.to_framebuffer();
         assert!(fb.is_ok());
@@ -557,8 +557,12 @@ mod tests {
         let x: Vec<f32> = (0..100).map(|i| i as f32).collect();
         let y: Vec<f32> = x.iter().map(|&x| (x * 0.1).sin()).collect();
 
-        let chart =
-            LineChart::new().data(&x, &y).simplify(1.0).dimensions(200, 100).build().unwrap();
+        let chart = LineChart::new()
+            .data(&x, &y)
+            .simplify(1.0)
+            .dimensions(200, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = chart.to_framebuffer();
         assert!(fb.is_ok());
@@ -577,7 +581,7 @@ mod tests {
             .add_series(series2)
             .dimensions(100, 100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(chart.series_count(), 2);
 
@@ -593,7 +597,7 @@ mod tests {
             .marker_size(6.0)
             .dimensions(100, 100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = chart.to_framebuffer();
         assert!(fb.is_ok());

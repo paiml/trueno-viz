@@ -7,7 +7,7 @@
 //! Run with: `cargo run --example grammar_of_graphics`
 
 use trueno_viz::color::Rgba;
-use trueno_viz::grammar::*;
+use trueno_viz::grammar::{Aes, Coord, DataFrame, GGPlot, Geom, Layer, Theme};
 use trueno_viz::output::PngEncoder;
 
 fn main() {

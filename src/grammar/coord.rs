@@ -216,20 +216,20 @@ mod tests {
     fn test_coord_debug_clone() {
         let c = Coord::cartesian().xlim(0.0, 10.0);
         let c2 = c.clone();
-        let _ = format!("{:?}", c2);
+        let _ = format!("{c2:?}");
     }
 
     #[test]
     fn test_polar_debug_clone() {
         let c = Coord::polar().start_angle(0.5);
         let c2 = c.clone();
-        let _ = format!("{:?}", c2);
+        let _ = format!("{c2:?}");
     }
 
     #[test]
     fn test_fixed_debug_clone() {
         let c = Coord::fixed(2.0);
         let c2 = c.clone();
-        let _ = format!("{:?}", c2);
+        let _ = format!("{c2:?}");
     }
 }

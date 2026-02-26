@@ -48,7 +48,7 @@ fn main() {
         auc if auc >= 0.6 => "Poor",
         _ => "Random",
     };
-    println!("  Interpretation: {}", auc_interpretation);
+    println!("  Interpretation: {auc_interpretation}");
 
     // Step 3: Compute PR curve
     println!("\nStep 3: Computing Precision-Recall curve...");
@@ -91,16 +91,16 @@ fn main() {
     println!("\nStep 6: Finding optimal operating point...");
 
     // For ROC: Find point closest to (0, 1) - top-left corner
-    let roc_data_ref = compute_roc(&y_true, &y_scores).unwrap();
+    let roc_data_ref = compute_roc(&y_true, &y_scores).expect("operation should succeed");
     let optimal_roc = roc_data_ref
         .points
         .iter()
         .min_by(|a, b| {
             let dist_a = a.x.powi(2) + (1.0 - a.y).powi(2);
             let dist_b = b.x.powi(2) + (1.0 - b.y).powi(2);
-            dist_a.partial_cmp(&dist_b).unwrap()
+            dist_a.partial_cmp(&dist_b).expect("operation should succeed")
         })
-        .unwrap();
+        .expect("operation should succeed");
 
     println!("  Optimal ROC point (closest to perfect):");
     println!("    Threshold: {:.3}", optimal_roc.threshold);
@@ -118,7 +118,7 @@ fn main() {
 
 /// Simulate a binary classifier with moderately good performance.
 ///
-/// Returns (ground_truth_labels, prediction_scores).
+/// Returns (`ground_truth_labels`, `prediction_scores`).
 fn simulate_binary_classifier() -> (Vec<u8>, Vec<f32>) {
     let mut y_true = Vec::new();
     let mut y_scores = Vec::new();

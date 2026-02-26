@@ -95,7 +95,7 @@ impl HtmlExporter {
     #[must_use]
     pub fn to_html(&self) -> String {
         let dark_mode_css = if self.dark_mode {
-            r#"
+            r"
         @media (prefers-color-scheme: dark) {
             body {
                 background-color: #1a1a1a;
@@ -105,18 +105,18 @@ impl HtmlExporter {
                 background-color: #2d2d2d;
             }
         }
-"#
+"
         } else {
             ""
         };
 
         let responsive_css = if self.responsive {
-            r#"
+            r"
         .chart-container svg {
             max-width: 100%;
             height: auto;
         }
-"#
+"
         } else {
             ""
         };
@@ -277,7 +277,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Verify file was written
-        let content = std::fs::read_to_string(&temp_path).unwrap();
+        let content = std::fs::read_to_string(&temp_path).expect("file read should succeed");
         assert!(content.contains("Save Test"));
 
         // Cleanup

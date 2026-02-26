@@ -9,7 +9,7 @@ fn framebuffer_clear_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("framebuffer_clear");
 
     for (width, height) in [(800, 600), (1920, 1080), (3840, 2160)] {
-        let mut fb = Framebuffer::new(width, height).unwrap();
+        let mut fb = Framebuffer::new(width, height).expect("framebuffer creation should succeed");
 
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{width}x{height}")),
@@ -28,7 +28,7 @@ fn framebuffer_clear_benchmark(c: &mut Criterion) {
 fn framebuffer_blend_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("framebuffer_blend");
 
-    let mut fb = Framebuffer::new(800, 600).unwrap();
+    let mut fb = Framebuffer::new(800, 600).expect("framebuffer creation should succeed");
     fb.clear(Rgba::WHITE);
 
     let semi_transparent = Rgba::new(255, 0, 0, 128);

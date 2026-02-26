@@ -117,8 +117,8 @@ impl MonitorTable {
         self.sort_direction = direction;
 
         self.rows.sort_by(|a, b| {
-            let a_val = a.get(column).map(String::as_str).unwrap_or("");
-            let b_val = b.get(column).map(String::as_str).unwrap_or("");
+            let a_val = a.get(column).map_or("", String::as_str);
+            let b_val = b.get(column).map_or("", String::as_str);
 
             // Try numeric comparison first
             let cmp = match (a_val.parse::<f64>(), b_val.parse::<f64>()) {
@@ -188,7 +188,7 @@ impl Widget for MonitorTable {
                         SortDirection::Ascending => "▲",
                         SortDirection::Descending => "▼",
                     };
-                    format!("{} {}", header, indicator)
+                    format!("{header} {indicator}")
                 } else {
                     header.clone()
                 };
@@ -450,7 +450,7 @@ mod tests {
             table.add_row(vec![
                 format!("Row {}", i),
                 format!("{}", i * 2),
-                format!("{:.2}", i as f64 / 100.0),
+                format!("{:.2}", f64::from(i) / 100.0),
             ]);
         }
 
@@ -465,8 +465,7 @@ mod tests {
         // Should complete in under 1 second for 60fps
         assert!(
             elapsed.as_secs_f64() < 1.0,
-            "Scrolling 60 times took {:?}, should be under 1 second",
-            elapsed
+            "Scrolling 60 times took {elapsed:?}, should be under 1 second"
         );
     }
 
@@ -509,7 +508,7 @@ mod tests {
         table.render(Rect::new(0, 0, 40, 10), &mut buf);
 
         // Check header rendered
-        let content = buf.cell((0, 0)).map(|c| c.symbol()).unwrap_or("");
+        let content = buf.cell((0, 0)).map_or("", ratatui::buffer::Cell::symbol);
         assert_eq!(content, "N"); // First char of "Name"
     }
 
@@ -523,7 +522,7 @@ mod tests {
         table.render(Rect::new(0, 0, 40, 10), &mut buf);
 
         // Check first row rendered (at y=1 after header)
-        let content = buf.cell((0, 1)).map(|c| c.symbol()).unwrap_or("");
+        let content = buf.cell((0, 1)).map_or("", ratatui::buffer::Cell::symbol);
         assert_eq!(content, "R"); // First char of "Row1"
     }
 
@@ -538,7 +537,7 @@ mod tests {
         table.render(Rect::new(0, 0, 40, 10), &mut buf);
 
         // Selected row should have different background
-        let cell = buf.cell((0, 2)).unwrap(); // Row 1 at y=2 (after header + row 0)
+        let cell = buf.cell((0, 2)).expect("operation should succeed"); // Row 1 at y=2 (after header + row 0)
         assert_eq!(cell.bg, Color::DarkGray);
     }
 

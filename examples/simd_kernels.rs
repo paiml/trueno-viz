@@ -12,11 +12,11 @@
 //! # Performance
 //!
 //! These kernels provide >4x speedup over scalar implementations:
-//! - simd_sum: Horizontal reduction with AVX2/NEON
-//! - simd_mean: Vectorized mean calculation
-//! - simd_min/max: Parallel comparison
-//! - simd_statistics: Combined pass for all metrics
-//! - simd_normalize: Batch normalization
+//! - `simd_sum`: Horizontal reduction with AVX2/NEON
+//! - `simd_mean`: Vectorized mean calculation
+//! - `simd_min/max`: Parallel comparison
+//! - `simd_statistics`: Combined pass for all metrics
+//! - `simd_normalize`: Batch normalization
 
 use std::time::Instant;
 use trueno_viz::monitor::simd::kernels::{
@@ -29,7 +29,7 @@ fn main() {
     println!("=============================================\n");
 
     // Generate test data
-    let data: Vec<f64> = (0..10000).map(|i| (i as f64 * 0.1).sin() * 100.0 + 50.0).collect();
+    let data: Vec<f64> = (0..10000).map(|i| (f64::from(i) * 0.1).sin() * 100.0 + 50.0).collect();
 
     println!("Processing 10,000 f64 values...\n");
 
@@ -73,7 +73,7 @@ fn main() {
     println!("SIMD Batch Normalization:");
     println!("-------------------------");
 
-    let values: Vec<f64> = (0..1000).map(|i| i as f64).collect();
+    let values: Vec<f64> = (0..1000).map(f64::from).collect();
     let start = Instant::now();
     let normalized = simd_normalize(&values, 999.0);
     let elapsed = start.elapsed();
@@ -93,7 +93,7 @@ fn main() {
 
     // Fill the buffer
     for i in 0..1000 {
-        ring.push(i as f64 * 0.5);
+        ring.push(f64::from(i) * 0.5);
     }
 
     let start = Instant::now();
@@ -112,7 +112,7 @@ fn main() {
     println!("-------------------------------------------");
 
     for size in [100, 1000, 10000] {
-        let data: Vec<f64> = (0..size).map(|i| i as f64).collect();
+        let data: Vec<f64> = (0..size).map(f64::from).collect();
 
         // SIMD stats
         let start = Instant::now();

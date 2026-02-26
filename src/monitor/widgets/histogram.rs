@@ -299,7 +299,7 @@ impl Histogram {
 
         // Calculate layout
         let label_width = if self.show_labels { 5 } else { 0 };
-        let label_height = if self.show_labels { 1 } else { 0 };
+        let label_height = u16::from(self.show_labels);
 
         let plot_x = area.x + label_width;
         let plot_y = area.y;
@@ -315,7 +315,7 @@ impl Histogram {
 
         // Draw Y axis labels
         if self.show_labels {
-            let max_label = format!("{:>4}", max_count);
+            let max_label = format!("{max_count:>4}");
             for (i, ch) in max_label.chars().enumerate() {
                 if let Some(cell) = buf.cell_mut((area.x + i as u16, plot_y)) {
                     cell.set_char(ch).set_style(Style::default().fg(Color::DarkGray));
@@ -326,7 +326,7 @@ impl Histogram {
         // Draw bars
         for (i, bin) in self.computed_bins.iter().enumerate() {
             let bar_height_f = if max_count > 0 {
-                (bin.count as f64 / max_count as f64) * plot_height as f64
+                (bin.count as f64 / max_count as f64) * f64::from(plot_height)
             } else {
                 0.0
             };
@@ -392,7 +392,7 @@ impl Histogram {
         // Draw bars
         for (i, bin) in self.computed_bins.iter().enumerate() {
             let bar_width_f = if max_count > 0 {
-                (bin.count as f64 / max_count as f64) * plot_width as f64
+                (bin.count as f64 / max_count as f64) * f64::from(plot_width)
             } else {
                 0.0
             };
@@ -606,7 +606,7 @@ mod tests {
 
         #[test]
         fn test_sturges() {
-            let data: Vec<f64> = (0..100).map(|i| i as f64).collect();
+            let data: Vec<f64> = (0..100).map(f64::from).collect();
             let hist = Histogram::new(data).bin_strategy(BinStrategy::Sturges);
             // Sturges for 100 elements: ceil(log2(100) + 1) ≈ 8
             assert!(!hist.computed_bins.is_empty());
@@ -615,14 +615,14 @@ mod tests {
 
         #[test]
         fn test_scott() {
-            let data: Vec<f64> = (0..100).map(|i| i as f64).collect();
+            let data: Vec<f64> = (0..100).map(f64::from).collect();
             let hist = Histogram::new(data).bin_strategy(BinStrategy::Scott);
             assert!(!hist.computed_bins.is_empty());
         }
 
         #[test]
         fn test_freedman_diaconis() {
-            let data: Vec<f64> = (0..100).map(|i| i as f64).collect();
+            let data: Vec<f64> = (0..100).map(f64::from).collect();
             let hist = Histogram::new(data).bin_strategy(BinStrategy::FreedmanDiaconis);
             assert!(!hist.computed_bins.is_empty());
         }
@@ -637,7 +637,7 @@ mod tests {
 
         #[test]
         fn test_width() {
-            let data: Vec<f64> = (0..10).map(|i| i as f64).collect();
+            let data: Vec<f64> = (0..10).map(f64::from).collect();
             let hist = Histogram::new(data).bin_strategy(BinStrategy::Width(2.0));
             assert!(!hist.computed_bins.is_empty());
         }
@@ -674,7 +674,7 @@ mod tests {
 
         #[test]
         fn test_large_data() {
-            let data: Vec<f64> = (0..1000).map(|i| (i as f64 * 0.37) % 100.0).collect();
+            let data: Vec<f64> = (0..1000).map(|i| (f64::from(i) * 0.37) % 100.0).collect();
             let hist = Histogram::new(data);
             // Should cap at 100 bins
             assert!(hist.computed_bins.len() <= 100);
@@ -724,7 +724,7 @@ mod tests {
 
         #[test]
         fn test_iqr_normal() {
-            let data: Vec<f64> = (0..100).map(|i| i as f64).collect();
+            let data: Vec<f64> = (0..100).map(f64::from).collect();
             let hist = Histogram::new(data);
             let iqr = hist.iqr();
             // IQR of 0-99 is approximately 50
@@ -761,7 +761,7 @@ mod tests {
         #[test]
         fn test_bin_debug() {
             let bin = Bin { start: 0.0, end: 1.0, count: 5 };
-            let debug = format!("{:?}", bin);
+            let debug = format!("{bin:?}");
             assert!(debug.contains("Bin"));
         }
     }
@@ -836,7 +836,7 @@ mod tests {
         #[test]
         fn test_render_large_data() {
             let (area, mut buf) = create_test_buffer(80, 30);
-            let data: Vec<f64> = (0..500).map(|i| (i as f64).sin() * 100.0).collect();
+            let data: Vec<f64> = (0..500).map(|i| f64::from(i).sin() * 100.0).collect();
             let hist = Histogram::new(data);
             hist.render(area, &mut buf);
         }
@@ -853,7 +853,7 @@ mod tests {
         #[test]
         fn test_render_all_strategies() {
             let (area, mut buf) = create_test_buffer(60, 20);
-            let data: Vec<f64> = (0..50).map(|i| i as f64).collect();
+            let data: Vec<f64> = (0..50).map(f64::from).collect();
 
             for strategy in [
                 BinStrategy::Sturges,

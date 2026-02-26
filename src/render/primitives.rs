@@ -146,7 +146,7 @@ pub fn draw_line_aa(fb: &mut Framebuffer, x0: f32, y0: f32, x1: f32, y1: f32, co
 #[inline]
 fn plot(fb: &mut Framebuffer, x: i32, y: i32, color: Rgba, intensity: f32) {
     if x >= 0 && y >= 0 && x < fb.width() as i32 && y < fb.height() as i32 {
-        let alpha = (color.a as f32 * intensity) as u8;
+        let alpha = (f32::from(color.a) * intensity) as u8;
         let blended = color.with_alpha(alpha);
         fb.blend_pixel(x as u32, y as u32, blended);
     }
@@ -356,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_draw_line_horizontal() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_line(&mut fb, 10, 50, 90, 50, Rgba::BLACK);
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_draw_line_vertical() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_line(&mut fb, 50, 10, 50, 90, Rgba::BLACK);
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_draw_line_diagonal() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_line(&mut fb, 10, 10, 90, 90, Rgba::BLACK);
@@ -393,7 +393,7 @@ mod tests {
 
     #[test]
     fn test_draw_line_aa() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_line_aa(&mut fb, 10.0, 10.0, 90.0, 50.0, Rgba::BLACK);
@@ -406,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_draw_rect() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_rect(&mut fb, 20, 20, 30, 30, Rgba::RED);
@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn test_draw_rect_outline() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_rect_outline(&mut fb, 20, 20, 30, 30, Rgba::RED, 2);
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_draw_circle() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_circle(&mut fb, 50, 50, 20, Rgba::BLUE);
@@ -443,7 +443,7 @@ mod tests {
 
     #[test]
     fn test_draw_circle_outline() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_circle_outline(&mut fb, 50, 50, 20, Rgba::GREEN);
@@ -456,7 +456,7 @@ mod tests {
 
     #[test]
     fn test_draw_point() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_point(&mut fb, 50.0, 50.0, 10.0, Rgba::RED);
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn test_drawable_trait_line() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         let line = Line::from_coords(10.0, 10.0, 90.0, 90.0);
@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn test_drawable_trait_rect() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         let rect = Rect::new(20.0, 20.0, 30.0, 30.0);
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn test_drawable_trait_point() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         let point = Point::new(50.0, 50.0);
@@ -502,7 +502,7 @@ mod tests {
 
     #[test]
     fn test_line_out_of_bounds() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         // Line that goes out of bounds should not panic
@@ -514,7 +514,7 @@ mod tests {
 
     #[test]
     fn test_circle_zero_radius() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         draw_circle(&mut fb, 50, 50, 0, Rgba::RED);

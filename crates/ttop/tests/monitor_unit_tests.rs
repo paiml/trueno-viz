@@ -163,7 +163,7 @@ mod memory_collector_tests {
         if let Ok(metrics) = collector.collect() {
             let total = metrics.get_counter("memory.total");
             assert!(total.is_some(), "Should have memory.total metric");
-            assert!(total.unwrap() > 0, "Total memory should be positive");
+            assert!(total.expect("value should be present") > 0, "Total memory should be positive");
         }
     }
 
@@ -678,7 +678,7 @@ mod subprocess_timeout_tests {
     fn test_fast_command_succeeds() {
         let result = run_with_timeout("echo", &["hello"], Duration::from_secs(1));
         assert!(result.is_success());
-        assert_eq!(result.stdout_string().unwrap().trim(), "hello");
+        assert_eq!(result.stdout_string().expect("value should be present").trim(), "hello");
     }
 
     #[test]

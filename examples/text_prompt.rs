@@ -21,7 +21,11 @@ fn main() {
     println!("  Prompt: {prompt}");
 
     let spec = parse_prompt(prompt).expect("Failed to parse");
-    println!("  Parsed: {} plot, {} points", spec.plot_type, spec.x_data.as_ref().unwrap().len());
+    println!(
+        "  Parsed: {} plot, {} points",
+        spec.plot_type,
+        spec.x_data.as_ref().expect("parsing should succeed").len()
+    );
 
     let fb = spec.render().expect("Failed to render");
     PngEncoder::write_to_file(&fb, "prompt_scatter.png").expect("Failed to write");

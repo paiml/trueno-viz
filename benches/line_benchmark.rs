@@ -15,10 +15,13 @@ fn line_chart_benchmark(c: &mut Criterion) {
             b.iter(|| {
                 let series = LineSeries::new("data").data(black_box(&x_data), black_box(&y_data));
 
-                let chart =
-                    LineChart::new().add_series(series).dimensions(800, 600).build().unwrap();
+                let chart = LineChart::new()
+                    .add_series(series)
+                    .dimensions(800, 600)
+                    .build()
+                    .expect("builder should produce valid result");
 
-                chart.to_framebuffer().unwrap()
+                chart.to_framebuffer().expect("framebuffer conversion should succeed")
             });
         });
     }
@@ -41,7 +44,7 @@ fn line_chart_simplification_benchmark(c: &mut Criterion) {
 
     for epsilon in [0.1, 1.0, 5.0, 10.0] {
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!("eps_{}", epsilon)),
+            BenchmarkId::from_parameter(format!("eps_{epsilon}")),
             &epsilon,
             |b, &epsilon| {
                 b.iter(|| {
@@ -53,9 +56,9 @@ fn line_chart_simplification_benchmark(c: &mut Criterion) {
                         .simplify(epsilon)
                         .dimensions(800, 600)
                         .build()
-                        .unwrap();
+                        .expect("operation should succeed");
 
-                    chart.to_framebuffer().unwrap()
+                    chart.to_framebuffer().expect("framebuffer conversion should succeed")
                 });
             },
         );
@@ -81,13 +84,13 @@ fn multi_series_benchmark(c: &mut Criterion) {
                     for s in 0..num_series {
                         let y_data: Vec<f32> =
                             (0..size).map(|i| (i as f32 * 0.01 + s as f32).sin() * 100.0).collect();
-                        let series = LineSeries::new(format!("series_{}", s))
+                        let series = LineSeries::new(format!("series_{s}"))
                             .data(black_box(&x_data), black_box(&y_data));
                         chart = chart.add_series(series);
                     }
 
-                    let chart = chart.build().unwrap();
-                    chart.to_framebuffer().unwrap()
+                    let chart = chart.build().expect("builder should produce valid result");
+                    chart.to_framebuffer().expect("framebuffer conversion should succeed")
                 });
             },
         );
