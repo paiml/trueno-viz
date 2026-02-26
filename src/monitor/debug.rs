@@ -169,7 +169,7 @@ impl TimingGuard {
     pub fn new(component: &'static str, operation: impl Into<String>) -> Self {
         let operation = operation.into();
         if is_enabled() {
-            log(Level::Trace, component, &format!("-> {}", operation));
+            log(Level::Trace, component, &format!("-> {operation}"));
         }
         Self { component, operation, start: Instant::now() }
     }
@@ -270,7 +270,7 @@ mod tests {
         let t1 = elapsed_ms();
         std::thread::sleep(std::time::Duration::from_millis(5));
         let t2 = elapsed_ms();
-        assert!(t2 >= t1, "elapsed should increase: {} >= {}", t2, t1);
+        assert!(t2 >= t1, "elapsed should increase: {t2} >= {t1}");
         disable();
     }
 

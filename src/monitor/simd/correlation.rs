@@ -417,7 +417,7 @@ mod tests {
 
     #[test]
     fn test_cross_correlation_no_lag() {
-        let x: Vec<f64> = (0..50).map(|i| (i as f64 * 0.1).sin()).collect();
+        let x: Vec<f64> = (0..50).map(|i| (f64::from(i) * 0.1).sin()).collect();
         let y = x.clone();
 
         let (lag, corr) = simd_cross_correlation(&x, &y, 10);
@@ -427,9 +427,9 @@ mod tests {
 
     #[test]
     fn test_cross_correlation_with_lag() {
-        let x: Vec<f64> = (0..100).map(|i| (i as f64 * 0.1).sin()).collect();
+        let x: Vec<f64> = (0..100).map(|i| (f64::from(i) * 0.1).sin()).collect();
         // y is x shifted by 5 samples
-        let y: Vec<f64> = (5..105).map(|i| (i as f64 * 0.1).sin()).collect();
+        let y: Vec<f64> = (5..105).map(|i| (f64::from(i) * 0.1).sin()).collect();
 
         let (lag, corr) = simd_cross_correlation(&x, &y, 20);
         // Should find a lag close to 5
@@ -482,22 +482,23 @@ mod tests {
             tracker.update(0, corr);
         }
 
-        assert!((tracker.current(0).unwrap() - 0.7).abs() < 0.001);
-        assert!((tracker.trend(0).unwrap() - 0.2).abs() < 0.001);
+        assert!((tracker.current(0).expect("value should be present") - 0.7).abs() < 0.001);
+        assert!((tracker.trend(0).expect("value should be present") - 0.2).abs() < 0.001);
     }
 
     #[test]
     fn test_large_correlation_performance() {
         // Generate two large correlated series
         let n = 10000;
-        let x: Vec<f64> = (0..n).map(|i| i as f64 + (i as f64 * 0.01).sin()).collect();
-        let y: Vec<f64> = (0..n).map(|i| i as f64 * 1.1 + (i as f64 * 0.01).cos()).collect();
+        let x: Vec<f64> = (0..n).map(|i| f64::from(i) + (f64::from(i) * 0.01).sin()).collect();
+        let y: Vec<f64> =
+            (0..n).map(|i| f64::from(i) * 1.1 + (f64::from(i) * 0.01).cos()).collect();
 
         let start = std::time::Instant::now();
         let result = simd_pearson_correlation(&x, &y);
         let elapsed = start.elapsed();
 
-        println!("10K element correlation: {:?}", elapsed);
+        println!("10K element correlation: {elapsed:?}");
         assert!(elapsed.as_millis() < 10); // Should be < 10ms
         assert!(result.coefficient > 0.99); // Should be highly correlated
     }
@@ -506,14 +507,14 @@ mod tests {
     fn test_correlation_matrix_performance() {
         // 20 metrics, each with 1000 samples
         let metrics: Vec<Vec<f64>> =
-            (0..20).map(|m| (0..1000).map(|i| (i + m * 10) as f64).collect()).collect();
-        let metric_refs: Vec<&[f64]> = metrics.iter().map(|m| m.as_slice()).collect();
+            (0..20).map(|m| (0..1000).map(|i| f64::from(i + m * 10)).collect()).collect();
+        let metric_refs: Vec<&[f64]> = metrics.iter().map(std::vec::Vec::as_slice).collect();
 
         let start = std::time::Instant::now();
         let matrix = simd_correlation_matrix(&metric_refs);
         let elapsed = start.elapsed();
 
-        println!("20x20 correlation matrix: {:?}", elapsed);
+        println!("20x20 correlation matrix: {elapsed:?}");
         assert!(elapsed.as_millis() < 100); // Should be < 100ms
         assert_eq!(matrix.len(), 20);
     }

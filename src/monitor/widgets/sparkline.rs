@@ -80,8 +80,8 @@ impl Widget for MonitorSparkline<'_> {
         let blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
 
         // Find min/max for scaling
-        let min = self.data.iter().cloned().fold(f64::INFINITY, f64::min);
-        let max = self.data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+        let min = self.data.iter().copied().fold(f64::INFINITY, f64::min);
+        let max = self.data.iter().copied().fold(f64::NEG_INFINITY, f64::max);
         let range = max - min;
 
         // Reserve space for trend indicator
@@ -200,7 +200,7 @@ mod tests {
     #[test]
     fn test_sparkline_renders() {
         let backend = TestBackend::new(15, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         let data = vec![0.1, 0.3, 0.5, 0.7, 0.9];
 
@@ -209,7 +209,7 @@ mod tests {
                 let sparkline = MonitorSparkline::new(&data);
                 frame.render_widget(sparkline, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         let buffer = terminal.backend().buffer();
         let content: String =
@@ -222,7 +222,7 @@ mod tests {
     #[test]
     fn test_sparkline_render_empty_data() {
         let backend = TestBackend::new(10, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         let data: Vec<f64> = vec![];
 
@@ -231,7 +231,7 @@ mod tests {
                 let sparkline = MonitorSparkline::new(&data);
                 frame.render_widget(sparkline, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should render without panic
         let buffer = terminal.backend().buffer();
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn test_sparkline_render_zero_width() {
         let backend = TestBackend::new(10, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         let data = vec![0.5, 0.6, 0.7];
 
@@ -256,7 +256,7 @@ mod tests {
                 let area = Rect::new(0, 0, 0, 1);
                 frame.render_widget(sparkline, area);
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should render without panic
     }
@@ -264,7 +264,7 @@ mod tests {
     #[test]
     fn test_sparkline_render_no_trend() {
         let backend = TestBackend::new(10, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         let data = vec![0.1, 0.3, 0.5, 0.7, 0.9];
 
@@ -273,7 +273,7 @@ mod tests {
                 let sparkline = MonitorSparkline::new(&data).show_trend(false);
                 frame.render_widget(sparkline, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         let buffer = terminal.backend().buffer();
         let content: String =
@@ -288,7 +288,7 @@ mod tests {
     #[test]
     fn test_sparkline_render_constant_values() {
         let backend = TestBackend::new(10, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         // All same values -> range = 0
         let data = vec![0.5, 0.5, 0.5, 0.5, 0.5];
@@ -298,7 +298,7 @@ mod tests {
                 let sparkline = MonitorSparkline::new(&data);
                 frame.render_widget(sparkline, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         let buffer = terminal.backend().buffer();
         let content: String =
@@ -311,17 +311,17 @@ mod tests {
     #[test]
     fn test_sparkline_render_data_longer_than_width() {
         let backend = TestBackend::new(5, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         // 20 data points but only 5 chars width (minus trend = 4)
-        let data: Vec<f64> = (0..20).map(|i| i as f64 / 20.0).collect();
+        let data: Vec<f64> = (0..20).map(|i| f64::from(i) / 20.0).collect();
 
         terminal
             .draw(|frame| {
                 let sparkline = MonitorSparkline::new(&data);
                 frame.render_widget(sparkline, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         // Should render without panic, sampling the data
         let buffer = terminal.backend().buffer();
@@ -334,7 +334,7 @@ mod tests {
     #[test]
     fn test_sparkline_render_width_larger_than_data() {
         let backend = TestBackend::new(20, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         // Only 3 data points but 20 chars width
         let data = vec![0.0, 0.5, 1.0];
@@ -344,7 +344,7 @@ mod tests {
                 let sparkline = MonitorSparkline::new(&data);
                 frame.render_widget(sparkline, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         let buffer = terminal.backend().buffer();
         let content: String =
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn test_sparkline_render_with_color() {
         let backend = TestBackend::new(10, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         let data = vec![0.1, 0.5, 0.9];
 
@@ -367,11 +367,11 @@ mod tests {
                 let sparkline = MonitorSparkline::new(&data).color(Color::Green);
                 frame.render_widget(sparkline, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         // Check that cells have the correct color
         let buffer = terminal.backend().buffer();
-        let cell = buffer.cell((0, 0)).unwrap();
+        let cell = buffer.cell((0, 0)).expect("operation should succeed");
         assert_eq!(cell.fg, Color::Green);
     }
 

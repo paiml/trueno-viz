@@ -104,13 +104,13 @@ impl DataFrame {
     /// Get a column as f32 values.
     #[must_use]
     pub fn get_f32(&self, name: &str) -> Option<Vec<f32>> {
-        self.columns.get(name).map(|col| col.iter().filter_map(|v| v.as_f32()).collect())
+        self.columns.get(name).map(|col| col.iter().filter_map(DataValue::as_f32).collect())
     }
 
     /// Get a column.
     #[must_use]
     pub fn get(&self, name: &str) -> Option<&[DataValue]> {
-        self.columns.get(name).map(|v| v.as_slice())
+        self.columns.get(name).map(std::vec::Vec::as_slice)
     }
 
     /// Get number of rows.
@@ -134,7 +134,7 @@ impl DataFrame {
     /// Get column names.
     #[must_use]
     pub fn columns(&self) -> Vec<&str> {
-        self.columns.keys().map(|s| s.as_str()).collect()
+        self.columns.keys().map(std::string::String::as_str).collect()
     }
 }
 
@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn test_dataframe_get_f32() {
         let df = DataFrame::from_xy(&[1.0, 2.0], &[3.0, 4.0]);
-        let x = df.get_f32("x").unwrap();
+        let x = df.get_f32("x").expect("operation should succeed");
         assert_eq!(x, vec![1.0, 2.0]);
     }
 
@@ -172,7 +172,7 @@ mod tests {
         let df = DataFrame::from_data(&[1.0, 2.0, 3.0, 4.0]);
         assert_eq!(df.nrow(), 4);
         assert!(df.has_column("data"));
-        let data = df.get_f32("data").unwrap();
+        let data = df.get_f32("data").expect("operation should succeed");
         assert_eq!(data, vec![1.0, 2.0, 3.0, 4.0]);
     }
 
@@ -187,7 +187,7 @@ mod tests {
     #[test]
     fn test_dataframe_get() {
         let df = DataFrame::from_xy(&[1.0, 2.0], &[3.0, 4.0]);
-        let col = df.get("x").unwrap();
+        let col = df.get("x").expect("key should exist");
         assert_eq!(col.len(), 2);
         assert_eq!(col[0].as_f32(), Some(1.0));
     }
@@ -220,8 +220,8 @@ mod tests {
     fn test_dataframe_from_xy_unequal() {
         // Different length arrays - should take minimum
         let df = DataFrame::from_xy(&[1.0, 2.0, 3.0], &[4.0, 5.0]);
-        let x = df.get_f32("x").unwrap();
-        let y = df.get_f32("y").unwrap();
+        let x = df.get_f32("x").expect("operation should succeed");
+        let y = df.get_f32("y").expect("operation should succeed");
         assert_eq!(x.len(), 2);
         assert_eq!(y.len(), 2);
     }
@@ -256,7 +256,7 @@ mod tests {
         let v1 = DataValue::Number(42.0);
         let v2 = v1.clone();
         assert_eq!(v1, v2);
-        let _ = format!("{:?}", v1);
+        let _ = format!("{v1:?}");
     }
 
     #[test]
@@ -264,7 +264,7 @@ mod tests {
         let df = DataFrame::from_xy(&[1.0], &[2.0]);
         let df2 = df.clone();
         assert_eq!(df2.nrow(), 1);
-        let _ = format!("{:?}", df2);
+        let _ = format!("{df2:?}");
     }
 
     #[test]

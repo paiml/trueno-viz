@@ -188,7 +188,7 @@ mod tests {
             .color(Rgba::RED)
             .size(5.0)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert_eq!(plot.point_count(), 3);
     }
@@ -212,7 +212,7 @@ mod tests {
             .y(&[4.0, 5.0, 6.0])
             .dimensions(100, 100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = plot.to_framebuffer();
         assert!(fb.is_ok());
@@ -226,8 +226,12 @@ mod tests {
 
     #[test]
     fn test_scatter_plot_alpha() {
-        let plot =
-            ScatterPlot::new().x(&[1.0, 2.0, 3.0]).y(&[4.0, 5.0, 6.0]).alpha(0.5).build().unwrap();
+        let plot = ScatterPlot::new()
+            .x(&[1.0, 2.0, 3.0])
+            .y(&[4.0, 5.0, 6.0])
+            .alpha(0.5)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = plot.to_framebuffer();
         assert!(fb.is_ok());
@@ -241,7 +245,7 @@ mod tests {
             .y(&[3.0, 4.0])
             .alpha(1.5) // Should clamp to 1.0
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         assert!(plot.to_framebuffer().is_ok());
     }
@@ -250,7 +254,7 @@ mod tests {
     fn test_scatter_plot_clone_debug() {
         let plot = ScatterPlot::new().x(&[1.0]).y(&[2.0]);
         let cloned = plot.clone();
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("ScatterPlot"));
     }
 
@@ -262,7 +266,7 @@ mod tests {
             .size(10.0)
             .dimensions(200, 200)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = plot.to_framebuffer();
         assert!(fb.is_ok());

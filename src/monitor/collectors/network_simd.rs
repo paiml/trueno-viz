@@ -83,13 +83,13 @@ impl SimdNetworkCollector {
 
         let mut file = File::open("/proc/net/dev").map_err(|e| MonitorError::CollectionFailed {
             collector: "network_simd",
-            message: format!("Failed to open /proc/net/dev: {}", e),
+            message: format!("Failed to open /proc/net/dev: {e}"),
         })?;
 
         let bytes_read =
             file.read(&mut self.read_buffer).map_err(|e| MonitorError::CollectionFailed {
                 collector: "network_simd",
-                message: format!("Failed to read /proc/net/dev: {}", e),
+                message: format!("Failed to read /proc/net/dev: {e}"),
             })?;
 
         // Reset current metrics for fresh parse
@@ -280,13 +280,13 @@ impl SimdNetworkCollector {
     /// Returns RX rate statistics for the current interface.
     #[must_use]
     pub fn rx_stats(&self) -> Option<&SimdStats> {
-        self.rx_history().map(|h| h.statistics())
+        self.rx_history().map(super::super::simd::ring_buffer::SimdRingBuffer::statistics)
     }
 
     /// Returns TX rate statistics for the current interface.
     #[must_use]
     pub fn tx_stats(&self) -> Option<&SimdStats> {
-        self.tx_history().map(|h| h.statistics())
+        self.tx_history().map(super::super::simd::ring_buffer::SimdRingBuffer::statistics)
     }
 
     /// Returns total RX bytes using SIMD sum.

@@ -23,55 +23,25 @@ impl CountryInfo {
     }
 }
 
-// Common countries (some reserved for future IP range expansion)
-#[allow(dead_code)]
+// Countries used in IP range mappings
 const US: CountryInfo = CountryInfo::new("US", "🇺🇸", "United States");
-#[allow(dead_code)]
 const DE: CountryInfo = CountryInfo::new("DE", "🇩🇪", "Germany");
-#[allow(dead_code)]
 const GB: CountryInfo = CountryInfo::new("GB", "🇬🇧", "United Kingdom");
-#[allow(dead_code)]
 const FR: CountryInfo = CountryInfo::new("FR", "🇫🇷", "France");
-#[allow(dead_code)]
 const NL: CountryInfo = CountryInfo::new("NL", "🇳🇱", "Netherlands");
-#[allow(dead_code)]
 const JP: CountryInfo = CountryInfo::new("JP", "🇯🇵", "Japan");
-#[allow(dead_code)]
 const SG: CountryInfo = CountryInfo::new("SG", "🇸🇬", "Singapore");
-#[allow(dead_code)]
 const AU: CountryInfo = CountryInfo::new("AU", "🇦🇺", "Australia");
-#[allow(dead_code)]
-const CA: CountryInfo = CountryInfo::new("CA", "🇨🇦", "Canada");
-#[allow(dead_code)]
 const BR: CountryInfo = CountryInfo::new("BR", "🇧🇷", "Brazil");
-#[allow(dead_code)]
 const IN: CountryInfo = CountryInfo::new("IN", "🇮🇳", "India");
-#[allow(dead_code)]
 const CN: CountryInfo = CountryInfo::new("CN", "🇨🇳", "China");
-#[allow(dead_code)]
 const RU: CountryInfo = CountryInfo::new("RU", "🇷🇺", "Russia");
-#[allow(dead_code)]
 const KR: CountryInfo = CountryInfo::new("KR", "🇰🇷", "South Korea");
-#[allow(dead_code)]
 const IE: CountryInfo = CountryInfo::new("IE", "🇮🇪", "Ireland");
-#[allow(dead_code)]
-const SE: CountryInfo = CountryInfo::new("SE", "🇸🇪", "Sweden");
-#[allow(dead_code)]
-const CH: CountryInfo = CountryInfo::new("CH", "🇨🇭", "Switzerland");
-#[allow(dead_code)]
-const IT: CountryInfo = CountryInfo::new("IT", "🇮🇹", "Italy");
-#[allow(dead_code)]
-const ES: CountryInfo = CountryInfo::new("ES", "🇪🇸", "Spain");
-#[allow(dead_code)]
-const PL: CountryInfo = CountryInfo::new("PL", "🇵🇱", "Poland");
 
 // Special designations
-#[allow(dead_code)]
 const LOCAL: CountryInfo = CountryInfo::new("LO", "🏠", "Local");
-#[allow(dead_code)]
 const PRIVATE: CountryInfo = CountryInfo::new("PR", "🔒", "Private");
-#[allow(dead_code)]
-const CLOUD: CountryInfo = CountryInfo::new("☁️", "☁️", "Cloud");
 
 /// IP range with associated country
 struct IpRange {

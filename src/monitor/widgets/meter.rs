@@ -75,7 +75,7 @@ impl Widget for Meter {
         }
 
         // Render bar
-        let filled = ((self.value * bar_width as f64) as u16).min(bar_width);
+        let filled = ((self.value * f64::from(bar_width)) as u16).min(bar_width);
         for i in 0..bar_width {
             let char = if i < filled { '█' } else { '░' };
             let style = if i < filled {
@@ -127,14 +127,14 @@ mod tests {
     #[test]
     fn test_meter_renders() {
         let backend = TestBackend::new(40, 1);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {
                 let meter = Meter::new(0.5).label("Test");
                 frame.render_widget(meter, frame.area());
             })
-            .unwrap();
+            .expect("operation should succeed");
 
         let buffer = terminal.backend().buffer();
         let content: String =

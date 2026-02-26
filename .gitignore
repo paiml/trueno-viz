@@ -17,6 +17,21 @@ target
 .idea/
 .vscode/
 
+# macOS
+.DS_Store
+
+# Temporary/backup files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Coverage artifacts
+*.profraw
+*.profdata
+lcov.info
+coverage/
+
 # WASM build artifacts
 wasm-pkg/pkg/
 wasm-pkg/target/

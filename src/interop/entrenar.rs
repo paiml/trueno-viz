@@ -386,7 +386,7 @@ impl<P: DecisionPath + Serialize> HashChainViz<P> for HashChainCollector<P> {
 
             // Draw hash prefix indicator
             let hash_byte = entry.hash[0];
-            let indicator_height = (hash_byte as f32 / 255.0 * 40.0) as i32;
+            let indicator_height = (f32::from(hash_byte) / 255.0 * 40.0) as i32;
             draw_line(
                 &mut fb,
                 x as i32,
@@ -767,7 +767,9 @@ mod tests {
     #[test]
     fn test_linear_path_contribution_chart() {
         let path = LinearPath::new(vec![0.3, -0.2, 0.5, -0.1], 0.1, 0.6, 0.75);
-        let fb = path.to_contribution_chart(&["age", "income", "score", "tenure"]).unwrap();
+        let fb = path
+            .to_contribution_chart(&["age", "income", "score", "tenure"])
+            .expect("operation should succeed");
         assert_eq!(fb.width(), 600);
         assert_eq!(fb.height(), 400);
     }
@@ -775,7 +777,7 @@ mod tests {
     #[test]
     fn test_linear_path_confidence_gauge() {
         let path = LinearPath::new(vec![0.3], 0.0, 0.5, 0.7).with_probability(0.85);
-        let fb = path.to_confidence_gauge().unwrap();
+        let fb = path.to_confidence_gauge().expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 200);
     }
@@ -783,28 +785,28 @@ mod tests {
     #[test]
     fn test_neural_path_contribution_chart() {
         let path = NeuralPath::new(vec![0.1, -0.3, 0.2], 0.8, 0.9);
-        let fb = path.to_contribution_chart(&["x1", "x2", "x3"]).unwrap();
+        let fb = path.to_contribution_chart(&["x1", "x2", "x3"]).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_forest_path_prediction_histogram() {
         let path = ForestPath::new(vec![], vec![0.5, 0.6, 0.55, 0.7, 0.45, 0.65]);
-        let fb = path.to_prediction_histogram().unwrap();
+        let fb = path.to_prediction_histogram().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_forest_path_tree_scatter() {
         let path = ForestPath::new(vec![], vec![0.5, 0.6, 0.55, 0.7]);
-        let fb = path.to_tree_scatter().unwrap();
+        let fb = path.to_tree_scatter().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_forest_path_agreement_chart() {
         let path = ForestPath::new(vec![], vec![0.5, 0.5, 0.5]);
-        let fb = path.to_agreement_chart().unwrap();
+        let fb = path.to_agreement_chart().expect("operation should succeed");
         assert_eq!(fb.width(), 300);
     }
 
@@ -817,7 +819,7 @@ mod tests {
         let leaf = LeafInfo { prediction: 0.8, n_samples: 30, class_distribution: None };
 
         let path = TreePath::new(splits, leaf);
-        let fb = path.to_tree_graph().unwrap();
+        let fb = path.to_tree_graph().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -825,7 +827,7 @@ mod tests {
     fn test_tree_path_empty_splits() {
         let leaf = LeafInfo { prediction: 0.5, n_samples: 100, class_distribution: None };
         let path = TreePath::new(vec![], leaf);
-        let fb = path.to_tree_graph().unwrap();
+        let fb = path.to_tree_graph().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -837,7 +839,7 @@ mod tests {
             vec![0, 1, 0, 1, 1],
             1.0,
         );
-        let fb = path.to_neighbor_scatter().unwrap();
+        let fb = path.to_neighbor_scatter().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -849,7 +851,7 @@ mod tests {
             vec![0, 0, 1, 1, 1],
             1.0,
         );
-        let fb = path.to_vote_chart().unwrap();
+        let fb = path.to_vote_chart().expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
@@ -883,21 +885,21 @@ mod tests {
     #[test]
     fn test_waterfall_chart() {
         let contributions = vec![0.2, -0.1, 0.3, -0.05];
-        let fb = waterfall_chart(&contributions, 600, 400).unwrap();
+        let fb = waterfall_chart(&contributions, 600, 400).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_feature_contributions_convenience() {
         let path = LinearPath::new(vec![0.1, 0.2, 0.3], 0.0, 0.6, 0.6);
-        let fb = feature_contributions(&path, &["a", "b", "c"]).unwrap();
+        let fb = feature_contributions(&path, &["a", "b", "c"]).expect("operation should succeed");
         assert!(fb.width() > 0);
     }
 
     #[test]
     fn test_confidence_indicator_convenience() {
         let path = LinearPath::new(vec![0.1], 0.0, 0.5, 0.5).with_probability(0.9);
-        let fb = confidence_indicator(&path).unwrap();
+        let fb = confidence_indicator(&path).expect("operation should succeed");
         assert_eq!(fb.width(), 200);
     }
 }

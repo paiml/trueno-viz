@@ -20,7 +20,10 @@ fn main() {
 
     println!("  Epochs: {}", train_losses.len());
     println!("  Initial train loss: {:.4}", train_losses[0]);
-    println!("  Final train loss: {:.4}", train_losses.last().unwrap());
+    println!(
+        "  Final train loss: {:.4}",
+        train_losses.last().expect("collection should not be empty")
+    );
 
     // Step 2: Create loss curve visualization
     println!("\nStep 2: Creating loss curve visualization...");
@@ -50,7 +53,7 @@ fn main() {
 
         // Print progress every 10 epochs
         if epoch % 10 == 0 || epoch == train_losses.len() - 1 {
-            println!("  Epoch {:>3}: train={:.4}, val={:.4}", epoch, train_loss, val_loss);
+            println!("  Epoch {epoch:>3}: train={train_loss:.4}, val={val_loss:.4}");
         }
     }
 
@@ -75,7 +78,7 @@ fn main() {
     let output_path = "loss_training.png";
     PngEncoder::write_to_file(&fb, output_path).expect("Failed to write PNG");
 
-    println!("  Saved to: {}", output_path);
+    println!("  Saved to: {output_path}");
 
     // Final summary
     println!("\n--- Training Summary ---");
@@ -104,7 +107,7 @@ fn main() {
 
 /// Simulate a typical neural network training run.
 ///
-/// Returns (train_losses, val_losses) for each epoch.
+/// Returns (`train_losses`, `val_losses`) for each epoch.
 fn simulate_training(epochs: usize) -> (Vec<f32>, Vec<f32>) {
     let mut train_losses = Vec::with_capacity(epochs);
     let mut val_losses = Vec::with_capacity(epochs);

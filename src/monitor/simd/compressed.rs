@@ -230,7 +230,7 @@ impl CompressedMetricStore {
             return 1.0;
         }
 
-        let total: f64 = self.blocks.values().map(|b| b.compression_ratio()).sum();
+        let total: f64 = self.blocks.values().map(CompressedBlock::compression_ratio).sum();
         total / self.blocks.len() as f64
     }
 
@@ -287,9 +287,9 @@ mod tests {
     #[test]
     fn test_compressed_block_roundtrip() {
         let samples: Vec<(Timestamp, f64)> =
-            (0..100).map(|i| (i as u64 * 1000, 50.0 + (i as f64 * 0.1))).collect();
+            (0..100).map(|i| (i as u64 * 1000, 50.0 + (f64::from(i) * 0.1))).collect();
 
-        let block = CompressedBlock::from_samples(&samples).unwrap();
+        let block = CompressedBlock::from_samples(&samples).expect("operation should succeed");
         let decompressed = block.decompress();
 
         assert_eq!(samples.len(), decompressed.len());
@@ -305,7 +305,7 @@ mod tests {
         // Constant values should compress extremely well
         let samples: Vec<(Timestamp, f64)> = (0..100).map(|i| (i as u64 * 1000, 50.0)).collect();
 
-        let block = CompressedBlock::from_samples(&samples).unwrap();
+        let block = CompressedBlock::from_samples(&samples).expect("operation should succeed");
         // Delta encoding of constant values produces zeros, which could compress further
         // but even without LZ4, we maintain the same count
         assert!(block.compression_ratio() >= 1.0);
@@ -317,7 +317,7 @@ mod tests {
 
         // Push 100 samples
         for i in 0..100 {
-            store.push(i as u64 * 1000, 45.0 + (i as f64 * 0.5));
+            store.push(i as u64 * 1000, 45.0 + (f64::from(i) * 0.5));
         }
         store.flush();
 
@@ -331,7 +331,7 @@ mod tests {
 
         // Push samples with known timestamps
         for i in 0..50 {
-            store.push(i as u64 * 1000, i as f64);
+            store.push(i as u64 * 1000, f64::from(i));
         }
         store.flush();
 
@@ -357,12 +357,12 @@ mod tests {
         // Slowly trending data (like CPU temperature)
         let samples: Vec<(Timestamp, f64)> = (0..1000)
             .map(|i| {
-                let temp = 45.0 + (i as f64 * 0.01) + (i as f64 * 0.1).sin();
+                let temp = 45.0 + (f64::from(i) * 0.01) + (f64::from(i) * 0.1).sin();
                 (i as u64 * 1000, temp)
             })
             .collect();
 
-        let block = CompressedBlock::from_samples(&samples).unwrap();
+        let block = CompressedBlock::from_samples(&samples).expect("operation should succeed");
 
         // Should still achieve decent compression with delta encoding
         println!("Compression ratio for trending data: {:.2}", block.compression_ratio());

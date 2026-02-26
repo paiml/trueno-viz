@@ -26,30 +26,30 @@ use std::time::Duration;
 /// ROCm SMI status codes
 #[allow(dead_code)]
 mod rsmi_status {
-    pub const RSMI_STATUS_SUCCESS: i32 = 0;
+    pub(super) const RSMI_STATUS_SUCCESS: i32 = 0;
 }
 
 /// ROCm SMI memory types
 #[allow(dead_code)]
 mod rsmi_memory_type {
-    pub const RSMI_MEM_TYPE_VRAM: u32 = 0;
-    pub const RSMI_MEM_TYPE_VIS_VRAM: u32 = 1;
-    pub const RSMI_MEM_TYPE_GTT: u32 = 2;
+    pub(super) const RSMI_MEM_TYPE_VRAM: u32 = 0;
+    pub(super) const RSMI_MEM_TYPE_VIS_VRAM: u32 = 1;
+    pub(super) const RSMI_MEM_TYPE_GTT: u32 = 2;
 }
 
 /// ROCm SMI clock types
 #[allow(dead_code)]
 mod rsmi_clk_type {
-    pub const RSMI_CLK_TYPE_SYS: u32 = 0; // GPU clock
-    pub const RSMI_CLK_TYPE_MEM: u32 = 4; // Memory clock
+    pub(super) const RSMI_CLK_TYPE_SYS: u32 = 0; // GPU clock
+    pub(super) const RSMI_CLK_TYPE_MEM: u32 = 4; // Memory clock
 }
 
 /// ROCm SMI temperature types
 #[allow(dead_code)]
 mod rsmi_temp {
-    pub const RSMI_TEMP_TYPE_EDGE: u32 = 0;
-    pub const RSMI_TEMP_CURRENT: u32 = 0;
-    pub const RSMI_TEMP_MAX: u32 = 1;
+    pub(super) const RSMI_TEMP_TYPE_EDGE: u32 = 0;
+    pub(super) const RSMI_TEMP_CURRENT: u32 = 0;
+    pub(super) const RSMI_TEMP_MAX: u32 = 1;
 }
 
 /// Information about a single AMD GPU.
@@ -206,7 +206,7 @@ impl RocmSmi {
             {
                 CStr::from_ptr(name_buf.as_ptr()).to_string_lossy().into_owned()
             } else {
-                format!("AMD GPU {}", index)
+                format!("AMD GPU {index}")
             }
         }
     }
@@ -370,7 +370,7 @@ impl AmdGpuCollector {
     #[must_use]
     pub fn new() -> Self {
         let rsmi = RocmSmi::load();
-        let gpu_count = rsmi.as_ref().map(|r| r.device_count()).unwrap_or(0);
+        let gpu_count = rsmi.as_ref().map_or(0, RocmSmi::device_count);
 
         let mut gpu_history = Vec::with_capacity(gpu_count as usize);
         let mut mem_history = Vec::with_capacity(gpu_count as usize);
@@ -429,8 +429,8 @@ impl AmdGpuCollector {
 
         for i in 0..self.gpu_count {
             let name = rsmi.device_name(i);
-            let gpu_util = rsmi.gpu_utilization(i) as f64;
-            let mem_util = rsmi.mem_utilization(i) as f64;
+            let gpu_util = f64::from(rsmi.gpu_utilization(i));
+            let mem_util = f64::from(rsmi.mem_utilization(i));
             let vram_total = rsmi.vram_total(i);
             let vram_used = rsmi.vram_used(i);
             let (temperature, temp_max) = rsmi.temperature(i);
@@ -474,21 +474,21 @@ impl Collector for AmdGpuCollector {
         let gpus = self.collect_all()?;
         let mut metrics = Metrics::new();
 
-        metrics.insert("gpu.count", MetricValue::Counter(self.gpu_count as u64));
+        metrics.insert("gpu.count", MetricValue::Counter(u64::from(self.gpu_count)));
 
         for (i, gpu) in gpus.iter().enumerate() {
-            let prefix = format!("gpu.{}", i);
+            let prefix = format!("gpu.{i}");
 
-            metrics.insert(format!("{}.util", prefix), gpu.gpu_util);
-            metrics.insert(format!("{}.mem_util", prefix), gpu.mem_util);
-            metrics.insert(format!("{}.vram_used", prefix), MetricValue::Counter(gpu.vram_used));
-            metrics.insert(format!("{}.vram_total", prefix), MetricValue::Counter(gpu.vram_total));
-            metrics.insert(format!("{}.temp", prefix), gpu.temperature);
-            metrics.insert(format!("{}.power_watts", prefix), gpu.power_watts);
+            metrics.insert(format!("{prefix}.util"), gpu.gpu_util);
+            metrics.insert(format!("{prefix}.mem_util"), gpu.mem_util);
+            metrics.insert(format!("{prefix}.vram_used"), MetricValue::Counter(gpu.vram_used));
+            metrics.insert(format!("{prefix}.vram_total"), MetricValue::Counter(gpu.vram_total));
+            metrics.insert(format!("{prefix}.temp"), gpu.temperature);
+            metrics.insert(format!("{prefix}.power_watts"), gpu.power_watts);
             metrics
-                .insert(format!("{}.pcie_tx_kbps", prefix), MetricValue::Counter(gpu.pcie_tx_kbps));
+                .insert(format!("{prefix}.pcie_tx_kbps"), MetricValue::Counter(gpu.pcie_tx_kbps));
             metrics
-                .insert(format!("{}.pcie_rx_kbps", prefix), MetricValue::Counter(gpu.pcie_rx_kbps));
+                .insert(format!("{prefix}.pcie_rx_kbps"), MetricValue::Counter(gpu.pcie_rx_kbps));
 
             // Update history
             if let Some(history) = self.gpu_history.get_mut(i) {

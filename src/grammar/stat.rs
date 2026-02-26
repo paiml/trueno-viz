@@ -164,7 +164,7 @@ mod tests {
             Stat::mean(),
         ];
         for v in variants {
-            let _ = format!("{:?}", v);
+            let _ = format!("{v:?}");
         }
     }
 

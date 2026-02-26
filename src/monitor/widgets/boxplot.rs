@@ -309,7 +309,7 @@ impl BoxPlot {
             return size / 2;
         }
         let normalized = (value - min) / (max - min);
-        (normalized * (size - 1) as f64).round() as u16
+        (normalized * f64::from(size - 1)).round() as u16
     }
 
     /// Render a horizontal box plot.
@@ -547,7 +547,7 @@ mod tests {
 
         #[test]
         fn test_stats_from_normal_data() {
-            let data: Vec<f64> = (1..=10).map(|x| x as f64).collect();
+            let data: Vec<f64> = (1..=10).map(f64::from).collect();
             let stats = BoxStats::from_data(&data);
 
             // Check quartiles
@@ -560,7 +560,7 @@ mod tests {
 
         #[test]
         fn test_stats_with_outliers() {
-            let mut data: Vec<f64> = (1..=10).map(|x| x as f64).collect();
+            let mut data: Vec<f64> = (1..=10).map(f64::from).collect();
             data.push(100.0); // High outlier
             data.push(-50.0); // Low outlier
 
@@ -867,7 +867,7 @@ mod tests {
             plot.render(area, &mut buf);
 
             // Background should be set - verify at least one cell has black background
-            let cell = buf.cell((area.x, area.y)).unwrap();
+            let cell = buf.cell((area.x, area.y)).expect("operation should succeed");
             // Cell exists (test doesn't panic) confirms rendering worked
             assert!(!cell.symbol().is_empty() || area.width > 0);
         }
@@ -978,11 +978,11 @@ mod tests {
             let boxes: Vec<BoxStats> = (0..20)
                 .map(|i| {
                     BoxStats::new(
-                        i as f64,
-                        i as f64 + 1.0,
-                        i as f64 + 2.0,
-                        i as f64 + 3.0,
-                        i as f64 + 4.0,
+                        f64::from(i),
+                        f64::from(i) + 1.0,
+                        f64::from(i) + 2.0,
+                        f64::from(i) + 3.0,
+                        f64::from(i) + 4.0,
                     )
                 })
                 .collect();
@@ -998,11 +998,11 @@ mod tests {
             let boxes: Vec<BoxStats> = (0..20)
                 .map(|i| {
                     BoxStats::new(
-                        i as f64,
-                        i as f64 + 1.0,
-                        i as f64 + 2.0,
-                        i as f64 + 3.0,
-                        i as f64 + 4.0,
+                        f64::from(i),
+                        f64::from(i) + 1.0,
+                        f64::from(i) + 2.0,
+                        f64::from(i) + 3.0,
+                        f64::from(i) + 4.0,
                     )
                 })
                 .collect();

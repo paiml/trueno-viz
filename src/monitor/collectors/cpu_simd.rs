@@ -116,13 +116,13 @@ impl SimdCpuCollector {
 
         let mut file = File::open("/proc/stat").map_err(|e| MonitorError::CollectionFailed {
             collector: "cpu_simd",
-            message: format!("Failed to open /proc/stat: {}", e),
+            message: format!("Failed to open /proc/stat: {e}"),
         })?;
 
         let bytes_read =
             file.read(&mut self.read_buffer).map_err(|e| MonitorError::CollectionFailed {
                 collector: "cpu_simd",
-                message: format!("Failed to read /proc/stat: {}", e),
+                message: format!("Failed to read /proc/stat: {e}"),
             })?;
 
         // Copy to local buffer to avoid borrow conflict (self.read_buffer vs &mut self)
@@ -300,7 +300,7 @@ impl Collector for SimdCpuCollector {
 
         // Per-core usage
         for i in 0..self.core_count {
-            metrics.insert(format!("cpu.core.{}", i), self.current.usage(i));
+            metrics.insert(format!("cpu.core.{i}"), self.current.usage(i));
         }
 
         // Core count

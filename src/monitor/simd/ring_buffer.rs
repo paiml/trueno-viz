@@ -331,7 +331,7 @@ struct SimdRingBufferIter<'a> {
     remaining: usize,
 }
 
-impl<'a> Iterator for SimdRingBufferIter<'a> {
+impl Iterator for SimdRingBufferIter<'_> {
     type Item = f64;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -354,7 +354,7 @@ impl<'a> Iterator for SimdRingBufferIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for SimdRingBufferIter<'a> {}
+impl ExactSizeIterator for SimdRingBufferIter<'_> {}
 
 #[cfg(test)]
 mod tests {
@@ -392,7 +392,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(8); // Will be exactly 8
 
         for i in 1..=16 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         assert_eq!(buf.len(), 8);
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn test_push_batch() {
         let mut buf = SimdRingBuffer::new(16);
-        let values: Vec<f64> = (1..=10).map(|i| i as f64).collect();
+        let values: Vec<f64> = (1..=10).map(f64::from).collect();
 
         buf.push_batch(&values);
 
@@ -418,7 +418,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(16);
 
         for i in 1..=10 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         let stats = buf.statistics();
@@ -432,7 +432,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(16);
 
         for i in 1..=10 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         let last_3 = buf.last_n(3);
@@ -447,7 +447,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(8);
 
         for i in 1..=5 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         let collected: Vec<f64> = buf.iter().collect();
@@ -459,7 +459,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(16);
 
         for i in 1..=10 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         let sum = buf.reduce(ReductionOp::Sum);
@@ -480,7 +480,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(16);
 
         for i in 1..=10 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         buf.clear();
@@ -494,7 +494,7 @@ mod tests {
     fn test_alignment() {
         let buf = SimdRingBuffer::new(64);
         // The struct itself should be 64-byte aligned
-        let ptr = &buf as *const SimdRingBuffer;
+        let ptr = std::ptr::addr_of!(buf);
         assert_eq!(ptr as usize % super::super::SIMD_ALIGNMENT, 0);
     }
 
@@ -516,7 +516,7 @@ mod tests {
         assert!(!buf.is_full());
 
         for i in 1..=8 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
         assert!(buf.is_full());
     }
@@ -526,7 +526,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(16);
 
         for i in 1..=10 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         assert!((buf.min() - 1.0).abs() < 0.001);
@@ -540,7 +540,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(8);
 
         for i in 1..=5 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         let vec = buf.to_vec();
@@ -567,7 +567,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(8);
         buf.push(5.0);
 
-        let debug_str = format!("{:?}", buf);
+        let debug_str = format!("{buf:?}");
         assert!(debug_str.contains("SimdRingBuffer"));
         assert!(debug_str.contains("capacity"));
     }
@@ -629,7 +629,7 @@ mod tests {
     #[test]
     fn test_reduction_op_debug() {
         let op = ReductionOp::Sum;
-        let debug_str = format!("{:?}", op);
+        let debug_str = format!("{op:?}");
         assert!(debug_str.contains("Sum"));
 
         assert_eq!(op, op.clone());
@@ -641,7 +641,7 @@ mod tests {
 
         // Fill buffer and overflow
         for i in 1..=12 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         let collected: Vec<f64> = buf.iter().collect();

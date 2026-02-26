@@ -18,9 +18,9 @@ fn scatter_benchmark(c: &mut Criterion) {
                     .y(black_box(&y_data))
                     .dimensions(800, 600)
                     .build()
-                    .unwrap();
+                    .expect("operation should succeed");
 
-                plot.to_framebuffer().unwrap()
+                plot.to_framebuffer().expect("framebuffer conversion should succeed")
             });
         });
     }

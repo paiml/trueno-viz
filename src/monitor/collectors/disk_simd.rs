@@ -149,10 +149,9 @@ impl SimdDiskCollector {
                     }
 
                     // Check if partition (ends with digit, except nvme with 'p')
-                    let is_partition =
-                        name.chars().last().map(|c| c.is_ascii_digit()).unwrap_or(false)
-                            && !name.contains("nvme")
-                            || (name.contains("nvme") && name.contains('p'));
+                    let is_partition = name.chars().last().is_some_and(|c| c.is_ascii_digit())
+                        && !name.contains("nvme")
+                        || (name.contains("nvme") && name.contains('p'));
 
                     // Skip partitions unless they have activity
                     if is_partition && values[0] == 0 && values[4] == 0 {

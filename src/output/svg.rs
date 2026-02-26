@@ -342,7 +342,7 @@ fn rgba_to_css(color: &Rgba) -> String {
     if color.a == 255 {
         format!("rgb({},{},{})", color.r, color.g, color.b)
     } else {
-        format!("rgba({},{},{},{:.3})", color.r, color.g, color.b, color.a as f32 / 255.0)
+        format!("rgba({},{},{},{:.3})", color.r, color.g, color.b, f32::from(color.a) / 255.0)
     }
 }
 
@@ -536,10 +536,10 @@ mod tests {
 
     #[test]
     fn test_svg_from_framebuffer() {
-        let mut fb = Framebuffer::new(100, 100).unwrap();
+        let mut fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
         fb.clear(Rgba::RED);
 
-        let encoder = SvgEncoder::from_framebuffer(&fb).unwrap();
+        let encoder = SvgEncoder::from_framebuffer(&fb).expect("encoding should succeed");
         let svg = encoder.render();
 
         assert!(svg.contains("<image"));
@@ -618,9 +618,9 @@ mod tests {
         let encoder = SvgEncoder::new(100, 100).rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
 
         let temp_path = std::env::temp_dir().join("test_svg_write.svg");
-        encoder.write_to_file(&temp_path).unwrap();
+        encoder.write_to_file(&temp_path).expect("file write should succeed");
 
-        let content = std::fs::read_to_string(&temp_path).unwrap();
+        let content = std::fs::read_to_string(&temp_path).expect("file read should succeed");
         assert!(content.contains("<svg"));
         assert!(content.contains("</svg>"));
 
@@ -675,7 +675,7 @@ mod tests {
     fn test_svg_debug_clone() {
         let encoder = SvgEncoder::new(100, 100).rect(10.0, 10.0, 80.0, 80.0, Rgba::BLUE);
         let encoder2 = encoder.clone();
-        let _ = format!("{:?}", encoder2);
+        let _ = format!("{encoder2:?}");
     }
 
     #[test]
@@ -689,14 +689,14 @@ mod tests {
             stroke_width: 2.0,
         };
         let element2 = element.clone();
-        let _ = format!("{:?}", element2);
+        let _ = format!("{element2:?}");
     }
 
     #[test]
     fn test_text_anchor_debug_clone() {
         let anchor = TextAnchor::Middle;
         let anchor2 = anchor;
-        let _ = format!("{:?}", anchor2);
+        let _ = format!("{anchor2:?}");
     }
 
     #[test]

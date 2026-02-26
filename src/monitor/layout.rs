@@ -198,7 +198,7 @@ mod tests {
     fn test_preset_debug_clone() {
         let preset = Preset::default();
         let cloned = preset.clone();
-        let _ = format!("{:?}", cloned);
+        let _ = format!("{cloned:?}");
     }
 
     #[test]
@@ -206,13 +206,13 @@ mod tests {
         let row =
             LayoutRow { panels: vec!["test".to_string()], height: Constraint::Percentage(50) };
         let cloned = row.clone();
-        let _ = format!("{:?}", cloned);
+        let _ = format!("{cloned:?}");
     }
 
     #[test]
     fn test_layout_manager_debug_clone() {
         let manager = LayoutManager::new();
         let cloned = manager.clone();
-        let _ = format!("{:?}", cloned);
+        let _ = format!("{cloned:?}");
     }
 }

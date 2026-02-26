@@ -123,7 +123,7 @@ impl<'a> Graph<'a> {
                 }
 
                 // Convert pattern to braille character (U+2800 base)
-                let braille = char::from_u32(0x2800 + pattern as u32).unwrap_or(' ');
+                let braille = char::from_u32(0x2800 + u32::from(pattern)).unwrap_or(' ');
 
                 let cell_x = area.x + x as u16;
                 let cell_y = area.y + char_y as u16;
@@ -321,8 +321,7 @@ mod tests {
         for c in content.chars() {
             assert!(
                 c == ' ' || c == '░' || c == '▒' || c == '█',
-                "TTY mode should only use basic shade characters, found: {:?}",
-                c
+                "TTY mode should only use basic shade characters, found: {c:?}"
             );
         }
     }

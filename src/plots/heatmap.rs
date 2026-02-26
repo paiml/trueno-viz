@@ -176,8 +176,8 @@ impl Heatmap {
 
     /// Get the data extent (min, max).
     fn data_extent(&self) -> (f32, f32) {
-        let min = self.data.iter().cloned().fold(f32::INFINITY, f32::min);
-        let max = self.data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let min = self.data.iter().copied().fold(f32::INFINITY, f32::min);
+        let max = self.data.iter().copied().fold(f32::NEG_INFINITY, f32::max);
         (min, max)
     }
 
@@ -303,8 +303,11 @@ mod tests {
     #[test]
     fn test_heatmap_builder() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
-        let heatmap =
-            Heatmap::new().data(&data, 2, 3).palette(HeatmapPalette::Viridis).build().unwrap();
+        let heatmap = Heatmap::new()
+            .data(&data, 2, 3)
+            .palette(HeatmapPalette::Viridis)
+            .build()
+            .expect("builder should produce valid result");
 
         assert_eq!(heatmap.row_count(), 2);
         assert_eq!(heatmap.col_count(), 3);
@@ -327,7 +330,11 @@ mod tests {
     #[test]
     fn test_heatmap_render() {
         let data = vec![0.0, 0.5, 1.0, 0.25, 0.75, 0.5];
-        let heatmap = Heatmap::new().data(&data, 2, 3).dimensions(100, 100).build().unwrap();
+        let heatmap = Heatmap::new()
+            .data(&data, 2, 3)
+            .dimensions(100, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -336,7 +343,8 @@ mod tests {
     #[test]
     fn test_heatmap_data_2d() {
         let data = vec![vec![1.0, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
-        let heatmap = Heatmap::new().data_2d(&data).build().unwrap();
+        let heatmap =
+            Heatmap::new().data_2d(&data).build().expect("builder should produce valid result");
 
         assert_eq!(heatmap.row_count(), 3);
         assert_eq!(heatmap.col_count(), 2);
@@ -359,18 +367,22 @@ mod tests {
                 .palette(palette)
                 .dimensions(100, 100)
                 .build()
-                .unwrap();
+                .expect("operation should succeed");
 
             let result = heatmap.to_framebuffer();
-            assert!(result.is_ok(), "Failed for palette {:?}", palette);
+            assert!(result.is_ok(), "Failed for palette {palette:?}");
         }
     }
 
     #[test]
     fn test_heatmap_no_borders() {
         let data = vec![0.0, 1.0, 2.0, 3.0];
-        let heatmap =
-            Heatmap::new().data(&data, 2, 2).borders(false).dimensions(100, 100).build().unwrap();
+        let heatmap = Heatmap::new()
+            .data(&data, 2, 2)
+            .borders(false)
+            .dimensions(100, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -379,14 +391,15 @@ mod tests {
     #[test]
     fn test_heatmap_custom_color_scale() {
         let data = vec![0.0, 1.0, 2.0, 3.0];
-        let scale = ColorScale::new(vec![Rgba::RED, Rgba::GREEN, Rgba::BLUE], (0.0, 3.0)).unwrap();
+        let scale = ColorScale::new(vec![Rgba::RED, Rgba::GREEN, Rgba::BLUE], (0.0, 3.0))
+            .expect("color scale creation should succeed");
 
         let heatmap = Heatmap::new()
             .data(&data, 2, 2)
             .color_scale(scale)
             .dimensions(100, 100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -396,7 +409,11 @@ mod tests {
     fn test_heatmap_constant_values() {
         // All same values should not cause division by zero
         let data = vec![5.0, 5.0, 5.0, 5.0];
-        let heatmap = Heatmap::new().data(&data, 2, 2).dimensions(100, 100).build().unwrap();
+        let heatmap = Heatmap::new()
+            .data(&data, 2, 2)
+            .dimensions(100, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -414,7 +431,7 @@ mod tests {
         let data = vec![1.0, 2.0, 3.0, 4.0];
         let heatmap = Heatmap::new().data(&data, 2, 2);
         let cloned = heatmap.clone();
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("Heatmap"));
     }
 
@@ -434,7 +451,7 @@ mod tests {
             HeatmapPalette::Greyscale,
         ];
         for p in palettes {
-            let debug = format!("{:?}", p);
+            let debug = format!("{p:?}");
             assert!(!debug.is_empty());
             let cloned = p;
             assert_eq!(p, cloned);
@@ -444,8 +461,12 @@ mod tests {
     #[test]
     fn test_heatmap_margin() {
         let data = vec![1.0, 2.0, 3.0, 4.0];
-        let heatmap =
-            Heatmap::new().data(&data, 2, 2).margin(20).dimensions(100, 100).build().unwrap();
+        let heatmap = Heatmap::new()
+            .data(&data, 2, 2)
+            .margin(20)
+            .dimensions(100, 100)
+            .build()
+            .expect("builder should produce valid result");
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());
@@ -460,7 +481,7 @@ mod tests {
             .border_width(2)
             .dimensions(100, 100)
             .build()
-            .unwrap();
+            .expect("operation should succeed");
 
         let fb = heatmap.to_framebuffer();
         assert!(fb.is_ok());

@@ -141,7 +141,7 @@ impl<'a> Gauge<'a> {
             area.width.saturating_sub(2) // Just brackets
         };
 
-        let filled = ((self.value * bar_width as f64).round() as u16).min(bar_width);
+        let filled = ((self.value * f64::from(bar_width)).round() as u16).min(bar_width);
 
         // Opening bracket
         buf.set_string(area.x, area.y, "[", Style::default().fg(Color::White));
@@ -193,7 +193,7 @@ impl<'a> Gauge<'a> {
 
         // Fill bar
         let bar_width = arc_width.saturating_sub(2);
-        let filled = ((self.value * bar_width as f64).round() as u16).min(bar_width);
+        let filled = ((self.value * f64::from(bar_width)).round() as u16).min(bar_width);
 
         for i in 0..bar_width {
             let char = if i < filled { "█" } else { "░" };
@@ -286,7 +286,7 @@ impl<'a> Gauge<'a> {
         // Fill bar
         if box_height >= 4 {
             let bar_width = box_width.saturating_sub(4);
-            let filled = ((self.value * bar_width as f64).round() as u16).min(bar_width);
+            let filled = ((self.value * f64::from(bar_width)).round() as u16).min(bar_width);
             let bar_x = box_x + 2;
             let bar_y = box_y + 2;
 
@@ -509,7 +509,7 @@ mod tests {
     #[test]
     fn test_gauge_half_no_percent_no_label() {
         let backend = TestBackend::new(20, 5);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {
@@ -522,7 +522,7 @@ mod tests {
     #[test]
     fn test_gauge_half_no_percent_with_label() {
         let backend = TestBackend::new(20, 5);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {
@@ -535,7 +535,7 @@ mod tests {
     #[test]
     fn test_gauge_half_with_percent_no_label() {
         let backend = TestBackend::new(20, 5);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {
@@ -548,7 +548,7 @@ mod tests {
     #[test]
     fn test_gauge_full_with_bar_and_label() {
         let backend = TestBackend::new(20, 8);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {
@@ -562,7 +562,7 @@ mod tests {
     #[test]
     fn test_gauge_full_with_bg_color_used() {
         let backend = TestBackend::new(15, 6);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {
@@ -575,7 +575,7 @@ mod tests {
     #[test]
     fn test_gauge_quarter_mode() {
         let backend = TestBackend::new(15, 5);
-        let mut terminal = Terminal::new(backend).unwrap();
+        let mut terminal = Terminal::new(backend).expect("operation should succeed");
 
         terminal
             .draw(|frame| {

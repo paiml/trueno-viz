@@ -70,13 +70,13 @@ impl TempReading {
     /// Returns true if the temperature is above the high threshold.
     #[must_use]
     pub fn is_high(&self) -> bool {
-        self.high.map(|h| self.current >= h).unwrap_or(false)
+        self.high.is_some_and(|h| self.current >= h)
     }
 
     /// Returns true if the temperature is at or above the critical threshold.
     #[must_use]
     pub fn is_critical(&self) -> bool {
-        self.critical.map(|c| self.current >= c).unwrap_or(false)
+        self.critical.is_some_and(|c| self.current >= c)
     }
 }
 
@@ -147,7 +147,11 @@ impl SensorCollector {
         std::fs::read_dir(&hwmon_dir)
             .ok()
             .map(|entries| {
-                entries.filter_map(|e| e.ok()).map(|e| e.path()).filter(|p| p.is_dir()).collect()
+                entries
+                    .filter_map(std::result::Result::ok)
+                    .map(|e| e.path())
+                    .filter(|p| p.is_dir())
+                    .collect()
             })
             .unwrap_or_default()
     }
@@ -170,7 +174,7 @@ impl SensorCollector {
 
         // Find all temp*_input files
         for i in 1..=32 {
-            let input_path = path.join(format!("temp{}_input", i));
+            let input_path = path.join(format!("temp{i}_input"));
             if !input_path.exists() {
                 continue;
             }
@@ -186,20 +190,19 @@ impl SensorCollector {
             };
 
             // Read label
-            let label_path = path.join(format!("temp{}_label", i));
+            let label_path = path.join(format!("temp{i}_label"));
             let label = std::fs::read_to_string(&label_path)
                 .ok()
-                .map(|s| s.trim().to_string())
-                .unwrap_or_else(|| format!("temp{}", i));
+                .map_or_else(|| format!("temp{i}"), |s| s.trim().to_string());
 
             // Read thresholds
-            let high_path = path.join(format!("temp{}_max", i));
+            let high_path = path.join(format!("temp{i}_max"));
             let high = std::fs::read_to_string(&high_path)
                 .ok()
                 .and_then(|s| s.trim().parse::<i64>().ok())
                 .map(|t| t as f64 / 1000.0);
 
-            let crit_path = path.join(format!("temp{}_crit", i));
+            let crit_path = path.join(format!("temp{i}_crit"));
             let critical = std::fs::read_to_string(&crit_path)
                 .ok()
                 .and_then(|s| s.trim().parse::<i64>().ok())

@@ -112,7 +112,7 @@ mod tests {
         let mut buf = SimdRingBuffer::new(100);
 
         for i in 1..=10 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         assert_eq!(buf.len(), 10);
@@ -128,7 +128,7 @@ mod tests {
     #[test]
     fn test_simd_ring_buffer_batch_push() {
         let mut buf = SimdRingBuffer::new(100);
-        let values: Vec<f64> = (1..=20).map(|i| i as f64).collect();
+        let values: Vec<f64> = (1..=20).map(f64::from).collect();
 
         buf.push_batch(&values);
 
@@ -239,20 +239,26 @@ mod tests {
         let handles: Vec<_> = vec![
             {
                 let cpu = Arc::clone(&cpu);
-                thread::spawn(move || cpu.lock().unwrap().collect().is_ok())
+                thread::spawn(move || {
+                    cpu.lock().expect("lock acquisition should succeed").collect().is_ok()
+                })
             },
             {
                 let mem = Arc::clone(&mem);
-                thread::spawn(move || mem.lock().unwrap().collect().is_ok())
+                thread::spawn(move || {
+                    mem.lock().expect("lock acquisition should succeed").collect().is_ok()
+                })
             },
             {
                 let net = Arc::clone(&net);
-                thread::spawn(move || net.lock().unwrap().collect().is_ok())
+                thread::spawn(move || {
+                    net.lock().expect("lock acquisition should succeed").collect().is_ok()
+                })
             },
         ];
 
         for handle in handles {
-            assert!(handle.join().unwrap());
+            assert!(handle.join().expect("value should be present"));
         }
     }
 
@@ -286,8 +292,8 @@ mod tests {
         // The spec targets are:
         // - CPU: < 200μs
         // - Memory: < 100μs
-        println!("CPU collection average: {:?}", cpu_time);
-        println!("Memory collection average: {:?}", mem_time);
+        println!("CPU collection average: {cpu_time:?}");
+        println!("Memory collection average: {mem_time:?}");
 
         // Relaxed assertion: should complete in reasonable time
         assert!(cpu_time < Duration::from_millis(50), "CPU collection too slow");
@@ -298,7 +304,7 @@ mod tests {
     #[test]
     fn test_ring_buffer_alignment() {
         let buf = SimdRingBuffer::new(64);
-        let ptr = &buf as *const SimdRingBuffer;
+        let ptr = std::ptr::addr_of!(buf);
         // Should be 64-byte aligned
         assert_eq!(ptr as usize % 64, 0, "SimdRingBuffer not 64-byte aligned");
     }
@@ -310,7 +316,7 @@ mod tests {
 
         // Push many values
         for i in 0..500 {
-            buf.push(i as f64);
+            buf.push(f64::from(i));
         }
 
         // Statistics should be instant
@@ -321,7 +327,7 @@ mod tests {
         let elapsed = start.elapsed();
 
         // 1000 stats calls should be < 1ms
-        assert!(elapsed < Duration::from_millis(1), "Statistics not O(1): {:?}", elapsed);
+        assert!(elapsed < Duration::from_millis(1), "Statistics not O(1): {elapsed:?}");
     }
 
     /// Test collector trait implementation for all SIMD collectors.
@@ -357,7 +363,7 @@ mod tests {
         ];
 
         let mut sorted = ids.clone();
-        sorted.sort();
+        sorted.sort_unstable();
         sorted.dedup();
 
         assert_eq!(ids.len(), sorted.len(), "Collector IDs must be unique");
@@ -408,8 +414,8 @@ mod tests {
 
         // SimdRingBuffer should be at least comparable (we're measuring push performance)
         // The real advantage is in batch operations and statistics
-        println!("SimdRingBuffer: {:?}", simd_time);
-        println!("VecDeque: {:?}", vec_time);
+        println!("SimdRingBuffer: {simd_time:?}");
+        println!("VecDeque: {vec_time:?}");
 
         // Both should complete in reasonable time
         assert!(simd_time < Duration::from_millis(100), "SimdRingBuffer too slow");
@@ -420,7 +426,7 @@ mod tests {
     #[test]
     fn test_h9_batch_push_performance() {
         let mut buf = SimdRingBuffer::new(10000);
-        let batch: Vec<f64> = (0..1000).map(|i| i as f64).collect();
+        let batch: Vec<f64> = (0..1000).map(f64::from).collect();
 
         let start = Instant::now();
         for _ in 0..100 {
@@ -429,8 +435,8 @@ mod tests {
         let elapsed = start.elapsed();
 
         // 100,000 pushes should complete in < 10ms (H₉ requirement)
-        println!("Batch push 100K values: {:?}", elapsed);
-        assert!(elapsed < Duration::from_millis(50), "Batch push too slow: {:?}", elapsed);
+        println!("Batch push 100K values: {elapsed:?}");
+        assert!(elapsed < Duration::from_millis(50), "Batch push too slow: {elapsed:?}");
     }
 
     /// H₁ Validation: SIMD integer parsing throughput.
@@ -453,15 +459,15 @@ mod tests {
         let simd_time = start.elapsed();
 
         // Benchmark scalar parsing
-        let input_str = std::str::from_utf8(input).unwrap();
+        let input_str = std::str::from_utf8(input).expect("operation should succeed");
         let start = Instant::now();
         for _ in 0..10000 {
             let _: Vec<u64> = input_str.split_whitespace().filter_map(|s| s.parse().ok()).collect();
         }
         let scalar_time = start.elapsed();
 
-        println!("SIMD parsing: {:?}", simd_time);
-        println!("Scalar parsing: {:?}", scalar_time);
+        println!("SIMD parsing: {simd_time:?}");
+        println!("Scalar parsing: {scalar_time:?}");
 
         // SIMD should be faster (relaxed assertion for CI stability)
         assert!(simd_time < Duration::from_millis(100), "SIMD parsing too slow");
@@ -501,17 +507,17 @@ mod tests {
         let p50 = latencies[50];
         let p99 = latencies[99];
 
-        println!("End-to-end p50: {:?}", p50);
-        println!("End-to-end p99: {:?}", p99);
+        println!("End-to-end p50: {p50:?}");
+        println!("End-to-end p99: {p99:?}");
 
         // Relaxed assertion: p99 should be reasonable (15ms for CI environments with coverage)
-        assert!(p99 < Duration::from_millis(15), "End-to-end p99 too slow: {:?}", p99);
+        assert!(p99 < Duration::from_millis(15), "End-to-end p99 too slow: {p99:?}");
     }
 
     /// Test SIMD reduction operations performance.
     #[test]
     fn test_simd_reduction_performance() {
-        let data: Vec<f64> = (0..1000).map(|i| i as f64).collect();
+        let data: Vec<f64> = (0..1000).map(f64::from).collect();
 
         // Warm up
         for _ in 0..100 {
@@ -530,10 +536,10 @@ mod tests {
         }
         let elapsed = start.elapsed();
 
-        println!("10K reductions on 1K elements: {:?}", elapsed);
+        println!("10K reductions on 1K elements: {elapsed:?}");
 
         // 40K operations should be < 50ms
-        assert!(elapsed < Duration::from_millis(100), "SIMD reductions too slow: {:?}", elapsed);
+        assert!(elapsed < Duration::from_millis(100), "SIMD reductions too slow: {elapsed:?}");
     }
 
     /// Test memory layout efficiency (no unnecessary allocations).
@@ -619,7 +625,7 @@ mod tests {
 
         // Insert samples (limited to hot tier capacity)
         for i in 0..1000 {
-            table.insert(base_time + i as u64 * 1000, (i % 100) as f64 + 25.0);
+            table.insert(base_time + i as u64 * 1000, f64::from(i % 100) + 25.0);
         }
 
         // Verify we have samples
@@ -641,7 +647,7 @@ mod tests {
 
         // Baseline: naive Vec scan + manual aggregation
         let samples: Vec<(u64, f64)> =
-            (0..1000).map(|i| (base_time + i as u64 * 1000, (i % 100) as f64 + 25.0)).collect();
+            (0..1000).map(|i| (base_time + i as u64 * 1000, f64::from(i % 100) + 25.0)).collect();
 
         let start = Instant::now();
         for _ in 0..1000 {
@@ -649,28 +655,27 @@ mod tests {
             let filtered: Vec<_> = samples
                 .iter()
                 .filter(|(ts, _)| *ts >= base_time && *ts <= base_time + 1_000_000)
-                .cloned()
+                .copied()
                 .collect();
 
             // Naive aggregations
             let sum: f64 = filtered.iter().map(|(_, v)| v).sum();
             let min = filtered.iter().map(|(_, v)| *v).fold(f64::MAX, f64::min);
             let max = filtered.iter().map(|(_, v)| *v).fold(f64::MIN, f64::max);
-            let mean = if !filtered.is_empty() { sum / filtered.len() as f64 } else { 0.0 };
+            let mean = if filtered.is_empty() { 0.0 } else { sum / filtered.len() as f64 };
             std::hint::black_box((sum, min, max, mean));
         }
         let naive_time = start.elapsed();
 
         println!("H₁₁ Performance Test (1000 samples, 1000 queries):");
-        println!("  TimeSeriesTable query: {:?}", simd_time);
-        println!("  Naive Vec query: {:?}", naive_time);
+        println!("  TimeSeriesTable query: {simd_time:?}");
+        println!("  Naive Vec query: {naive_time:?}");
 
         // TimeSeriesTable provides O(1) hot tier stats + tiered storage
         // For small hot datasets, it should be competitive
         assert!(
             simd_time < Duration::from_millis(100),
-            "TimeSeriesTable query too slow: {:?}",
-            simd_time
+            "TimeSeriesTable query too slow: {simd_time:?}"
         );
     }
 
@@ -691,9 +696,10 @@ mod tests {
         }
 
         // Query each table
-        let cpu = db.query("cpu.usage", base, base + 1_000_000).unwrap();
-        let mem = db.query("memory.used", base, base + 1_000_000).unwrap();
-        let disk = db.query("disk.read", base, base + 1_000_000).unwrap();
+        let cpu = db.query("cpu.usage", base, base + 1_000_000).expect("operation should succeed");
+        let mem =
+            db.query("memory.used", base, base + 1_000_000).expect("operation should succeed");
+        let disk = db.query("disk.read", base, base + 1_000_000).expect("operation should succeed");
 
         assert!(!cpu.samples.is_empty());
         assert!(!mem.samples.is_empty());

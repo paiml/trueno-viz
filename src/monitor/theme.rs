@@ -151,9 +151,9 @@ fn interpolate_color(start: Color, end: Color, t: f64) -> Color {
     let (r1, g1, b1) = color_to_rgb(start);
     let (r2, g2, b2) = color_to_rgb(end);
 
-    let r = ((1.0 - t) * r1 as f64 + t * r2 as f64) as u8;
-    let g = ((1.0 - t) * g1 as f64 + t * g2 as f64) as u8;
-    let b = ((1.0 - t) * b1 as f64 + t * b2 as f64) as u8;
+    let r = ((1.0 - t) * f64::from(r1) + t * f64::from(r2)) as u8;
+    let g = ((1.0 - t) * f64::from(g1) + t * f64::from(g2)) as u8;
+    let b = ((1.0 - t) * f64::from(b1) + t * f64::from(b2)) as u8;
 
     Color::Rgb(r, g, b)
 }
@@ -194,7 +194,7 @@ mod tests {
 
         let mid = gradient.sample(0.5);
         if let Color::Rgb(r, _, _) = mid {
-            assert!((r as i32 - 127).abs() <= 1);
+            assert!((i32::from(r) - 127).abs() <= 1);
         }
     }
 

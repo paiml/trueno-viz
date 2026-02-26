@@ -779,7 +779,7 @@ mod tests {
         #[test]
         fn test_scroll_to() {
             let mut df = DataFrame::new()
-                .column(Column::from_f64("A", &(0..100).map(|i| i as f64).collect::<Vec<_>>()))
+                .column(Column::from_f64("A", &(0..100).map(f64::from).collect::<Vec<_>>()))
                 .visible_rows(10);
             df.scroll_to(50);
             assert_eq!(df.scroll_offset, 50);
@@ -897,7 +897,7 @@ mod tests {
         #[test]
         fn test_render_with_scrolling() {
             let (area, mut buf) = create_test_buffer(60, 10);
-            let values: Vec<f64> = (0..50).map(|i| i as f64).collect();
+            let values: Vec<f64> = (0..50).map(f64::from).collect();
             let mut df = DataFrame::new().column(Column::from_f64("A", &values)).visible_rows(5);
             df.scroll_to(20);
             df.render(area, &mut buf);
@@ -937,7 +937,7 @@ mod tests {
         fn test_render_short_height() {
             // Short height - tests height boundary (y >= area.y + area.height break)
             let (area, mut buf) = create_test_buffer(60, 5);
-            let values: Vec<f64> = (0..20).map(|i| i as f64).collect();
+            let values: Vec<f64> = (0..20).map(f64::from).collect();
             let df = DataFrame::new()
                 .column(Column::from_f64("A", &values))
                 .title("Title")

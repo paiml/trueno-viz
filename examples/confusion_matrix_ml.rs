@@ -19,7 +19,7 @@ fn main() {
     let (y_true, y_pred, class_names) = simulate_classification();
 
     println!("  Total samples: {}", y_true.len());
-    println!("  Classes: {:?}", class_names);
+    println!("  Classes: {class_names:?}");
 
     // Step 2: Build confusion matrix from predictions
     println!("\nStep 2: Building confusion matrix...");
@@ -90,14 +90,14 @@ fn main() {
 
     print!("{:>12}", "");
     for name in &class_names {
-        print!("{:>10}", name);
+        print!("{name:>10}");
     }
     println!();
 
     for (i, row) in matrix.iter().enumerate() {
         print!("{:>12}", class_names[i]);
         for &count in row {
-            print!("{:>10}", count);
+            print!("{count:>10}");
         }
         println!();
     }
@@ -107,7 +107,7 @@ fn main() {
 
 /// Simulate a 3-class classification scenario.
 ///
-/// Returns (true_labels, predicted_labels, class_names).
+/// Returns (`true_labels`, `predicted_labels`, `class_names`).
 fn simulate_classification() -> (Vec<usize>, Vec<usize>, Vec<&'static str>) {
     let class_names = vec!["Setosa", "Versicolor", "Virginica"];
 

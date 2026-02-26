@@ -2,7 +2,7 @@
 //! trueno-graph Integration Example
 //!
 //! Demonstrates using trueno-viz visualization extensions with trueno-graph
-//! for graph visualization, PageRank analysis, and community detection.
+//! for graph visualization, `PageRank` analysis, and community detection.
 //!
 //! Run with: `cargo run --example trueno_graph_integration --features graph`
 
@@ -100,34 +100,34 @@ fn create_sample_graph() -> CsrGraph {
     let mut graph = CsrGraph::new();
 
     // Community 1: Triangle cluster (nodes 0, 1, 2)
-    graph.add_edge(NodeId(0), NodeId(1), 1.0).unwrap();
-    graph.add_edge(NodeId(1), NodeId(0), 1.0).unwrap();
-    graph.add_edge(NodeId(1), NodeId(2), 1.0).unwrap();
-    graph.add_edge(NodeId(2), NodeId(1), 1.0).unwrap();
-    graph.add_edge(NodeId(2), NodeId(0), 1.0).unwrap();
-    graph.add_edge(NodeId(0), NodeId(2), 1.0).unwrap();
+    graph.add_edge(NodeId(0), NodeId(1), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(1), NodeId(0), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(1), NodeId(2), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(2), NodeId(1), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(2), NodeId(0), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(0), NodeId(2), 1.0).expect("operation should succeed");
 
     // Community 2: Triangle cluster (nodes 3, 4, 5)
-    graph.add_edge(NodeId(3), NodeId(4), 1.0).unwrap();
-    graph.add_edge(NodeId(4), NodeId(3), 1.0).unwrap();
-    graph.add_edge(NodeId(4), NodeId(5), 1.0).unwrap();
-    graph.add_edge(NodeId(5), NodeId(4), 1.0).unwrap();
-    graph.add_edge(NodeId(5), NodeId(3), 1.0).unwrap();
-    graph.add_edge(NodeId(3), NodeId(5), 1.0).unwrap();
+    graph.add_edge(NodeId(3), NodeId(4), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(4), NodeId(3), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(4), NodeId(5), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(5), NodeId(4), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(5), NodeId(3), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(3), NodeId(5), 1.0).expect("operation should succeed");
 
     // Community 3: Star around node 6 (nodes 6, 7, 8, 9)
-    graph.add_edge(NodeId(7), NodeId(6), 1.0).unwrap();
-    graph.add_edge(NodeId(8), NodeId(6), 1.0).unwrap();
-    graph.add_edge(NodeId(9), NodeId(6), 1.0).unwrap();
-    graph.add_edge(NodeId(6), NodeId(7), 1.0).unwrap();
-    graph.add_edge(NodeId(6), NodeId(8), 1.0).unwrap();
-    graph.add_edge(NodeId(6), NodeId(9), 1.0).unwrap();
+    graph.add_edge(NodeId(7), NodeId(6), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(8), NodeId(6), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(9), NodeId(6), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(6), NodeId(7), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(6), NodeId(8), 1.0).expect("operation should succeed");
+    graph.add_edge(NodeId(6), NodeId(9), 1.0).expect("operation should succeed");
 
     // Bridge edges between communities
-    graph.add_edge(NodeId(2), NodeId(3), 0.5).unwrap();
-    graph.add_edge(NodeId(3), NodeId(2), 0.5).unwrap();
-    graph.add_edge(NodeId(5), NodeId(6), 0.5).unwrap();
-    graph.add_edge(NodeId(6), NodeId(5), 0.5).unwrap();
+    graph.add_edge(NodeId(2), NodeId(3), 0.5).expect("operation should succeed");
+    graph.add_edge(NodeId(3), NodeId(2), 0.5).expect("operation should succeed");
+    graph.add_edge(NodeId(5), NodeId(6), 0.5).expect("operation should succeed");
+    graph.add_edge(NodeId(6), NodeId(5), 0.5).expect("operation should succeed");
 
     // Set node names
     graph.set_node_name(NodeId(0), "A".to_string());

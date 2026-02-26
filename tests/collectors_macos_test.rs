@@ -175,8 +175,8 @@ fn test_collector_determinism() {
     let mut mem1 = MemoryCollector::new();
     let mut mem2 = MemoryCollector::new();
 
-    let m1 = mem1.collect().unwrap();
-    let m2 = mem2.collect().unwrap();
+    let m1 = mem1.collect().expect("operation should succeed");
+    let m2 = mem2.collect().expect("operation should succeed");
 
     let total1 = m1.get_counter("memory.total").unwrap_or(0);
     let total2 = m2.get_counter("memory.total").unwrap_or(0);

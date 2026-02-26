@@ -19,7 +19,7 @@ fn main() {
     let (matrix, labels) = create_correlation_matrix();
 
     println!("  Matrix size: {}x{}", labels.len(), labels.len());
-    println!("  Variables: {:?}", labels);
+    println!("  Variables: {labels:?}");
 
     // Step 2: Build the heatmap visualization
     println!("\nStep 2: Building heatmap...");
@@ -46,20 +46,20 @@ fn main() {
     let output_path = "heatmap_correlation.png";
     PngEncoder::write_to_file(&fb, output_path).expect("Failed to write PNG");
 
-    println!("  Saved to: {}", output_path);
+    println!("  Saved to: {output_path}");
 
     // Display the correlation matrix values
     println!("\n--- Correlation Matrix ---");
     print!("        ");
     for label in &labels {
-        print!("{:>8}", label);
+        print!("{label:>8}");
     }
     println!();
 
     for (i, row) in matrix.iter().enumerate() {
         print!("{:>8}", labels[i]);
         for &val in row {
-            print!("{:>8.2}", val);
+            print!("{val:>8.2}");
         }
         println!();
     }

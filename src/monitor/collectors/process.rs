@@ -144,7 +144,7 @@ impl ProcessCollector {
     fn scan_processes(&mut self) -> Result<()> {
         let proc_dir = std::fs::read_dir("/proc").map_err(|e| MonitorError::CollectionFailed {
             collector: "process",
-            message: format!("Failed to read /proc: {}", e),
+            message: format!("Failed to read /proc: {e}"),
         })?;
 
         let mut new_processes = BTreeMap::new();
@@ -270,7 +270,7 @@ impl ProcessCollector {
     /// Reads information about a single process.
     #[cfg(target_os = "linux")]
     fn read_process_info(&self, pid: u32, curr_total_cpu: u64) -> Result<(ProcessInfo, u64)> {
-        let stat_path = format!("/proc/{}/stat", pid);
+        let stat_path = format!("/proc/{pid}/stat");
         let stat =
             std::fs::read_to_string(&stat_path).map_err(|_| MonitorError::ProcessNotFound(pid))?;
 
@@ -285,8 +285,7 @@ impl ProcessCollector {
         let state = fields
             .first()
             .and_then(|s| s.chars().next())
-            .map(ProcessState::from_char)
-            .unwrap_or(ProcessState::Unknown);
+            .map_or(ProcessState::Unknown, ProcessState::from_char);
         let ppid: u32 = fields.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
         let utime: u64 = fields.get(11).and_then(|s| s.parse().ok()).unwrap_or(0);
         let stime: u64 = fields.get(12).and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -308,12 +307,11 @@ impl ProcessCollector {
         };
 
         // Read memory from statm
-        let statm_path = format!("/proc/{}/statm", pid);
+        let statm_path = format!("/proc/{pid}/statm");
         let mem_bytes = std::fs::read_to_string(&statm_path)
             .ok()
             .and_then(|s| s.split_whitespace().nth(1).and_then(|s| s.parse::<u64>().ok()))
-            .map(|pages| pages * 4096)
-            .unwrap_or(0);
+            .map_or(0, |pages| pages * 4096);
 
         let mem_percent = if self.total_memory > 0 {
             (mem_bytes as f64 / self.total_memory as f64) * 100.0
@@ -322,7 +320,7 @@ impl ProcessCollector {
         };
 
         // Read cmdline
-        let cmdline_path = format!("/proc/{}/cmdline", pid);
+        let cmdline_path = format!("/proc/{pid}/cmdline");
         let cmdline = std::fs::read_to_string(&cmdline_path)
             .ok()
             .map(|s| s.replace('\0', " ").trim().to_string())

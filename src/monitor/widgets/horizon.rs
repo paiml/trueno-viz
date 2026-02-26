@@ -60,7 +60,7 @@ impl HorizonScheme {
         (0..bands)
             .map(|i| {
                 // Lighter colors for lower bands, darker for higher
-                let factor = 0.4 + 0.6 * (i as f32 / bands as f32);
+                let factor = 0.4 + 0.6 * (f32::from(i) / f32::from(bands));
                 let r = ((base.0 as f32 * factor).min(255.0)) as u8;
                 let g = ((base.1 as f32 * factor).min(255.0)) as u8;
                 let b = ((base.2 as f32 * factor).min(255.0)) as u8;
@@ -104,7 +104,7 @@ pub struct HorizonGraph<'a> {
     mirror_negative: bool,
 }
 
-impl<'a> Default for HorizonGraph<'a> {
+impl Default for HorizonGraph<'_> {
     fn default() -> Self {
         Self::new(&[])
     }
@@ -174,7 +174,7 @@ impl<'a> HorizonGraph<'a> {
 
     /// Get the band index (0-based) and intensity within the band for a normalized value.
     fn get_band_and_intensity(&self, normalized: f64) -> (usize, f64) {
-        let scaled = normalized * self.bands as f64;
+        let scaled = normalized * f64::from(self.bands);
         let band = (scaled.floor() as usize).min(self.bands as usize - 1);
         let intensity = scaled - band as f64;
         (band, intensity)
@@ -210,7 +210,7 @@ impl Widget for HorizonGraph<'_> {
 
         // Calculate how many data points per column
         let data_per_col = if self.data.len() > area.width as usize {
-            self.data.len() as f64 / area.width as f64
+            self.data.len() as f64 / f64::from(area.width)
         } else {
             1.0
         };
@@ -218,8 +218,8 @@ impl Widget for HorizonGraph<'_> {
         // Render each column
         for col in 0..area.width {
             // Average data points for this column
-            let start_idx = (col as f64 * data_per_col) as usize;
-            let end_idx = ((col as f64 + 1.0) * data_per_col) as usize;
+            let start_idx = (f64::from(col) * data_per_col) as usize;
+            let end_idx = ((f64::from(col) + 1.0) * data_per_col) as usize;
             let end_idx = end_idx.min(self.data.len());
 
             let avg = if start_idx < end_idx {
@@ -315,7 +315,7 @@ mod tests {
                             // Band 0 should be lightest, band n-1 darkest
                             if i > 0 {
                                 // Colors should generally have increasing intensity
-                                assert!((*r as u16 + *g as u16 + *b as u16) > 0);
+                                assert!((u16::from(*r) + u16::from(*g) + u16::from(*b)) > 0);
                             }
                         }
                         _ => panic!("Expected RGB color"),
@@ -540,7 +540,7 @@ mod tests {
         fn test_braille_char_levels() {
             // Test discrete levels
             let chars: Vec<char> =
-                (0..=4).map(|i| HorizonGraph::braille_char(i as f64 / 4.0)).collect();
+                (0..=4).map(|i| HorizonGraph::braille_char(f64::from(i) / 4.0)).collect();
             assert_eq!(chars, vec![' ', '⣀', '⣤', '⣶', '⣿']);
         }
 
@@ -557,7 +557,7 @@ mod tests {
         #[test]
         fn test_block_char_levels() {
             let chars: Vec<char> =
-                (0..=4).map(|i| HorizonGraph::block_char(i as f64 / 4.0)).collect();
+                (0..=4).map(|i| HorizonGraph::block_char(f64::from(i) / 4.0)).collect();
             assert_eq!(chars, vec![' ', '░', '▒', '▓', '█']);
         }
     }
@@ -644,7 +644,7 @@ mod tests {
         #[test]
         fn test_render_data_longer_than_width() {
             let (area, mut buf) = create_test_buffer(5, 3);
-            let data: Vec<f64> = (0..20).map(|i| i as f64 / 19.0).collect();
+            let data: Vec<f64> = (0..20).map(|i| f64::from(i) / 19.0).collect();
             let graph = HorizonGraph::new(&data);
             graph.render(area, &mut buf);
             // Should downsample and render without panic
@@ -703,7 +703,7 @@ mod tests {
         #[test]
         fn test_render_gradient_values() {
             let (area, mut buf) = create_test_buffer(10, 4);
-            let data: Vec<f64> = (0..10).map(|i| i as f64 / 9.0).collect();
+            let data: Vec<f64> = (0..10).map(|i| f64::from(i) / 9.0).collect();
             let graph = HorizonGraph::new(&data).with_bands(4);
             graph.render(area, &mut buf);
             // Should show gradient from left (low) to right (high)

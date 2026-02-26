@@ -135,7 +135,7 @@ mod tests {
         ];
         for f in facets {
             let f2 = f.clone();
-            let _ = format!("{:?}", f2);
+            let _ = format!("{f2:?}");
         }
     }
 }

@@ -185,7 +185,7 @@ mod tests {
     fn test_point_debug_clone() {
         let p = Point::new(1.0, 2.0);
         let p2 = p;
-        let _ = format!("{:?}", p2);
+        let _ = format!("{p2:?}");
     }
 
     #[test]
@@ -217,7 +217,7 @@ mod tests {
     fn test_line_debug_clone() {
         let line = Line::from_coords(0.0, 0.0, 1.0, 1.0);
         let line2 = line;
-        let _ = format!("{:?}", line2);
+        let _ = format!("{line2:?}");
     }
 
     #[test]
@@ -259,7 +259,7 @@ mod tests {
     fn test_rect_debug_clone() {
         let rect = Rect::new(1.0, 2.0, 3.0, 4.0);
         let rect2 = rect;
-        let _ = format!("{:?}", rect2);
+        let _ = format!("{rect2:?}");
     }
 
     #[test]

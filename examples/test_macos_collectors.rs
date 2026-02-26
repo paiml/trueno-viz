@@ -17,7 +17,7 @@ fn main() {
     println!("  Cores: {}", cpu.core_count());
     if let Ok(m) = cpu.collect() {
         if let Some(load1) = m.get_gauge("cpu.load.1") {
-            println!("  Load avg: {:.2}", load1);
+            println!("  Load avg: {load1:.2}");
         }
     }
 
@@ -30,7 +30,7 @@ fn main() {
             println!("  Total: {:.1} GB", total as f64 / 1024.0 / 1024.0 / 1024.0);
         }
         if let Some(pct) = m.get_gauge("memory.used.percent") {
-            println!("  Used: {:.1}%", pct);
+            println!("  Used: {pct:.1}%");
         }
     }
 

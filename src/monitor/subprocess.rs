@@ -61,7 +61,7 @@ pub fn run_with_timeout(cmd: &str, args: &[&str], timeout: Duration) -> Subproce
     use std::thread;
 
     let cmd = cmd.to_string();
-    let args: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+    let args: Vec<String> = args.iter().map(|s| (*s).to_string()).collect();
 
     // Channel to receive result from worker thread
     let (tx, rx) = mpsc::channel();
@@ -112,14 +112,14 @@ mod tests {
     fn test_successful_command() {
         let result = run_with_timeout("echo", &["hello"], Duration::from_secs(1));
         assert!(result.is_success());
-        assert_eq!(result.stdout_string().unwrap().trim(), "hello");
+        assert_eq!(result.stdout_string().expect("value should be present").trim(), "hello");
     }
 
     #[test]
     fn test_command_with_args() {
         let result = run_with_timeout("printf", &["%s %s", "foo", "bar"], Duration::from_secs(1));
         assert!(result.is_success());
-        assert_eq!(result.stdout_string().unwrap(), "foo bar");
+        assert_eq!(result.stdout_string().expect("value should be present"), "foo bar");
     }
 
     #[test]
@@ -130,7 +130,7 @@ mod tests {
         let elapsed = start.elapsed();
 
         assert!(result.is_timeout());
-        assert!(elapsed < Duration::from_secs(1), "Should timeout quickly, took {:?}", elapsed);
+        assert!(elapsed < Duration::from_secs(1), "Should timeout quickly, took {elapsed:?}");
     }
 
     #[test]
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn test_stdout_string_convenience() {
         let output = run_with_timeout_stdout("echo", &["test"], Duration::from_secs(1));
-        assert_eq!(output.unwrap().trim(), "test");
+        assert_eq!(output.expect("value should be present").trim(), "test");
     }
 
     #[test]
@@ -172,8 +172,8 @@ mod tests {
         // seq produces numbered output
         let result = run_with_timeout("seq", &["1", "100"], Duration::from_secs(1));
         assert!(result.is_success());
-        let output = result.stdout_string().unwrap();
-        assert!(output.contains("1"));
+        let output = result.stdout_string().expect("operation should succeed");
+        assert!(output.contains('1'));
         assert!(output.contains("100"));
     }
 
@@ -182,7 +182,12 @@ mod tests {
     fn test_macos_sysctl() {
         let result = run_with_timeout("sysctl", &["-n", "hw.ncpu"], Duration::from_secs(1));
         assert!(result.is_success());
-        let ncpu: u32 = result.stdout_string().unwrap().trim().parse().unwrap();
+        let ncpu: u32 = result
+            .stdout_string()
+            .expect("parsing should succeed")
+            .trim()
+            .parse()
+            .expect("parsing should succeed");
         assert!(ncpu > 0);
     }
 

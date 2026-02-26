@@ -261,7 +261,9 @@ impl SimdGpuHistory {
     /// Returns GPU utilization statistics for a specific GPU.
     #[must_use]
     pub fn gpu_util_stats(&self, gpu_idx: usize) -> Option<&SimdStats> {
-        self.gpu_util_history.get(gpu_idx).map(|h| h.statistics())
+        self.gpu_util_history
+            .get(gpu_idx)
+            .map(super::super::simd::ring_buffer::SimdRingBuffer::statistics)
     }
 
     /// Returns aggregate GPU utilization statistics.
@@ -385,12 +387,12 @@ mod tests {
         history.update(&metrics);
 
         // Check that history was updated
-        assert_eq!(history.gpu_util_history(0).unwrap().len(), 1);
-        assert_eq!(history.gpu_util_history(1).unwrap().len(), 1);
+        assert_eq!(history.gpu_util_history(0).expect("value should be present").len(), 1);
+        assert_eq!(history.gpu_util_history(1).expect("value should be present").len(), 1);
 
         // Check normalized values
-        let gpu0_latest = history.gpu_util_history(0).unwrap().latest();
-        assert!((gpu0_latest.unwrap() - 0.75).abs() < 0.01);
+        let gpu0_latest = history.gpu_util_history(0).expect("operation should succeed").latest();
+        assert!((gpu0_latest.expect("value should be present") - 0.75).abs() < 0.01);
     }
 
     #[test]
@@ -404,7 +406,7 @@ mod tests {
         history.update(&metrics);
 
         // Aggregate should be average: (50+70)/2 = 60%
-        let agg = history.aggregate_gpu_history().latest().unwrap();
+        let agg = history.aggregate_gpu_history().latest().expect("operation should succeed");
         assert!((agg - 0.60).abs() < 0.01);
     }
 
@@ -430,12 +432,12 @@ mod tests {
 
         // Push multiple samples
         for i in 0..10 {
-            metrics.gpu_util[0] = 50.0 + (i as f64 * 5.0);
+            metrics.gpu_util[0] = 50.0 + (f64::from(i) * 5.0);
             metrics.gpu_count = 1;
             history.update(&metrics);
         }
 
-        let stats = history.gpu_util_stats(0).unwrap();
+        let stats = history.gpu_util_stats(0).expect("operation should succeed");
         assert!(stats.count >= 10);
     }
 

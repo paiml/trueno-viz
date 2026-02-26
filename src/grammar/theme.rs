@@ -278,7 +278,7 @@ mod tests {
         let t1 = Theme::dark();
         let t2 = t1.clone();
         assert_eq!(t1.background.r, t2.background.r);
-        let _ = format!("{:?}", t2);
+        let _ = format!("{t2:?}");
     }
 
     #[test]

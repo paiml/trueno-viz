@@ -272,7 +272,7 @@ mod tests {
         let fb = bar.to_framebuffer();
         assert!(fb.is_ok());
 
-        let fb = fb.unwrap();
+        let fb = fb.expect("operation should succeed");
         assert_eq!(fb.width(), 200);
         assert_eq!(fb.height(), 20);
     }
@@ -314,7 +314,7 @@ mod tests {
     fn test_resource_bar_clone_debug() {
         let bar = ResourceBar::new("Test", 10.0, 5.0, "units");
         let cloned = bar.clone();
-        let debug = format!("{:?}", cloned);
+        let debug = format!("{cloned:?}");
         assert!(debug.contains("ResourceBar"));
     }
 

@@ -289,7 +289,7 @@ mod tests {
         // Create a tree with 1000 nodes
         tree.add_node("root", "Root", None);
         for i in 0..999 {
-            tree.add_node(format!("node_{}", i), format!("Node {}", i), Some("root"));
+            tree.add_node(format!("node_{i}"), format!("Node {i}"), Some("root"));
         }
 
         // Toggle should be O(1)
@@ -297,7 +297,7 @@ mod tests {
         tree.toggle("root");
         let elapsed = start.elapsed();
 
-        assert!(elapsed.as_millis() < 10, "Toggle took {:?}, should be under 10ms", elapsed);
+        assert!(elapsed.as_millis() < 10, "Toggle took {elapsed:?}, should be under 10ms");
     }
 
     #[test]
@@ -351,7 +351,7 @@ mod tests {
         tree.render(Rect::new(0, 0, 40, 10), &mut buf);
 
         // Check root is rendered (no children = no indicator, just label)
-        let content = buf.cell((0, 0)).map(|c| c.symbol()).unwrap_or("");
+        let content = buf.cell((0, 0)).map_or("", ratatui::buffer::Cell::symbol);
         assert!(!content.is_empty());
     }
 
@@ -394,7 +394,7 @@ mod tests {
         tree.render(Rect::new(0, 0, 40, 10), &mut buf);
 
         // Selected node should have different background
-        let cell = buf.cell((0, 0)).unwrap();
+        let cell = buf.cell((0, 0)).expect("operation should succeed");
         assert_eq!(cell.bg, Color::DarkGray);
     }
 
@@ -428,7 +428,7 @@ mod tests {
         let mut tree = Tree::new();
         // Add more nodes than visible height
         for i in 0..100 {
-            tree.add_node(format!("node{}", i), format!("Node {}", i), None);
+            tree.add_node(format!("node{i}"), format!("Node {i}"), None);
         }
 
         let mut buf = Buffer::empty(Rect::new(0, 0, 40, 5));

@@ -327,19 +327,19 @@ impl WgpuMonitor {
     /// Get queue submission count for a GPU
     #[must_use]
     pub fn queue_submissions(&self, gpu_index: usize) -> u64 {
-        self.gpu_metrics.get(gpu_index).map(|m| m.submissions.load(Ordering::Relaxed)).unwrap_or(0)
+        self.gpu_metrics.get(gpu_index).map_or(0, |m| m.submissions.load(Ordering::Relaxed))
     }
 
     /// Get compute dispatch count for a GPU
     #[must_use]
     pub fn compute_dispatches(&self, gpu_index: usize) -> u64 {
-        self.gpu_metrics.get(gpu_index).map(|m| m.dispatches.load(Ordering::Relaxed)).unwrap_or(0)
+        self.gpu_metrics.get(gpu_index).map_or(0, |m| m.dispatches.load(Ordering::Relaxed))
     }
 
     /// Get buffer allocated bytes for a GPU
     #[must_use]
     pub fn buffer_allocated_bytes(&self, gpu_index: usize) -> u64 {
-        self.gpu_metrics.get(gpu_index).map(|m| m.buffer_bytes.load(Ordering::Relaxed)).unwrap_or(0)
+        self.gpu_metrics.get(gpu_index).map_or(0, |m| m.buffer_bytes.load(Ordering::Relaxed))
     }
 
     /// Get next GPU index using round-robin selection
@@ -488,12 +488,12 @@ mod tests {
     #[test]
     fn test_backend_type_debug() {
         let backend = WgpuBackendType::Metal;
-        assert_eq!(format!("{:?}", backend), "Metal");
+        assert_eq!(format!("{backend:?}"), "Metal");
     }
 
     #[test]
     fn test_device_type_debug() {
         let device_type = GpuDeviceType::DiscreteGpu;
-        assert_eq!(format!("{:?}", device_type), "DiscreteGpu");
+        assert_eq!(format!("{device_type:?}"), "DiscreteGpu");
     }
 }

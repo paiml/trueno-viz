@@ -30,9 +30,9 @@ fn heatmap_benchmark(c: &mut Criterion) {
                         .data_2d(black_box(&data))
                         .dimensions(800, 600)
                         .build()
-                        .unwrap();
+                        .expect("operation should succeed");
 
-                    heatmap.to_framebuffer().unwrap()
+                    heatmap.to_framebuffer().expect("framebuffer conversion should succeed")
                 });
             },
         );
@@ -56,7 +56,7 @@ fn heatmap_palette_benchmark(c: &mut Criterion) {
         HeatmapPalette::Magma,
     ] {
         group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{:?}", palette)),
+            BenchmarkId::from_parameter(format!("{palette:?}")),
             &palette,
             |b, &palette| {
                 b.iter(|| {
@@ -65,9 +65,9 @@ fn heatmap_palette_benchmark(c: &mut Criterion) {
                         .palette(palette)
                         .dimensions(800, 600)
                         .build()
-                        .unwrap();
+                        .expect("operation should succeed");
 
-                    heatmap.to_framebuffer().unwrap()
+                    heatmap.to_framebuffer().expect("framebuffer conversion should succeed")
                 });
             },
         );

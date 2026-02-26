@@ -189,9 +189,9 @@ impl TerminalEncoder {
 
         if let Some(pixel) = fb.get_pixel(fx as u32, fy as u32) {
             // Rec. 709 luminance coefficients
-            let luma = 0.2126 * (pixel.r as f32 / 255.0)
-                + 0.7152 * (pixel.g as f32 / 255.0)
-                + 0.0722 * (pixel.b as f32 / 255.0);
+            let luma = 0.2126 * (f32::from(pixel.r) / 255.0)
+                + 0.7152 * (f32::from(pixel.g) / 255.0)
+                + 0.0722 * (f32::from(pixel.b) / 255.0);
 
             if self.invert {
                 1.0 - luma
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_ascii_render_basic() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(5);
@@ -259,7 +259,7 @@ mod tests {
 
     #[test]
     fn test_ascii_render_black() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::BLACK);
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(5);
@@ -276,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_unicode_half_block_contains_ansi() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::RED);
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::UnicodeHalfBlock).width(5);
@@ -293,7 +293,7 @@ mod tests {
 
     #[test]
     fn test_ansi_true_color_contains_escapes() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::BLUE);
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::AnsiTrueColor).width(5);
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn test_invert_mode() {
-        let mut fb = Framebuffer::new(10, 10).unwrap();
+        let mut fb = Framebuffer::new(10, 10).expect("framebuffer creation should succeed");
         fb.clear(Rgba::WHITE);
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(5).invert(true);
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_aspect_ratio_preservation() {
-        let fb = Framebuffer::new(200, 100).unwrap();
+        let fb = Framebuffer::new(200, 100).expect("framebuffer creation should succeed");
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(40);
 
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_gradient_produces_varied_output() {
-        let mut fb = Framebuffer::new(100, 10).unwrap();
+        let mut fb = Framebuffer::new(100, 10).expect("framebuffer creation should succeed");
 
         // Create horizontal gradient
         for x in 0..100 {
@@ -354,7 +354,8 @@ mod tests {
         let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(50);
 
         let output = encoder.render(&fb);
-        let first_line: String = output.lines().next().unwrap().chars().collect();
+        let first_line: String =
+            output.lines().next().expect("iterator should have next element").chars().collect();
 
         // Should have varied characters
         let unique_chars: std::collections::HashSet<char> = first_line.chars().collect();
@@ -363,7 +364,7 @@ mod tests {
 
     #[test]
     fn test_custom_dimensions() {
-        let fb = Framebuffer::new(100, 100).unwrap();
+        let fb = Framebuffer::new(100, 100).expect("framebuffer creation should succeed");
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii).width(20).height(10);
 
@@ -376,11 +377,11 @@ mod tests {
 
     #[test]
     fn test_default_width_capped_at_80() {
-        let fb = Framebuffer::new(1000, 100).unwrap();
+        let fb = Framebuffer::new(1000, 100).expect("framebuffer creation should succeed");
 
         let encoder = TerminalEncoder::new().mode(TerminalMode::Ascii);
         let output = encoder.render(&fb);
-        let first_line = output.lines().next().unwrap();
+        let first_line = output.lines().next().expect("iterator should have next element");
 
         assert!(first_line.len() <= 80);
     }

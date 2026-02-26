@@ -2,7 +2,7 @@
 //! Aprender ML Library Integration Example
 //!
 //! Demonstrates using trueno-viz visualization extensions with aprender
-//! data types (Vector, Matrix, DataFrame).
+//! data types (Vector, Matrix, `DataFrame`).
 //!
 //! Run with: `cargo run --example aprender_integration --features ml`
 
