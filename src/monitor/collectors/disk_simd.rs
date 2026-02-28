@@ -136,14 +136,12 @@ impl SimdDiskCollector {
                 if fields.len() >= 3 {
                     let name = fields[2];
 
-                    // Skip loopback devices
-                    if name.starts_with("loop") {
-                        line_start = newline_pos + 1;
-                        continue;
-                    }
-
-                    // Skip ram disks
-                    if name.starts_with("ram") {
+                    // Skip virtual/pseudo block devices
+                    if name.starts_with("loop")
+                        || name.starts_with("ram")
+                        || name.starts_with("zram")
+                        || name.starts_with("dm-")
+                    {
                         line_start = newline_pos + 1;
                         continue;
                     }

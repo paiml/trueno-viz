@@ -226,10 +226,11 @@ impl DiskIoAnalyzer {
 
             let device = parts[2].to_string();
 
-            // Skip partition devices (we want whole disks)
-            // Partitions have numbers at the end (sda1, nvme0n1p1)
-            // But skip loop/dm devices too
-            if device.starts_with("loop") || device.starts_with("dm-") {
+            // Skip virtual/pseudo block devices
+            if device.starts_with("loop")
+                || device.starts_with("dm-")
+                || device.starts_with("zram")
+            {
                 continue;
             }
 

@@ -2,7 +2,7 @@
 
 [package]
 name = "ttop"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
@@ -22,7 +22,7 @@ path = "src/main.rs"
 
 [dependencies]
 # Core monitoring library (re-exports ratatui for trait compatibility)
-trueno-viz = { version = "0.1.18", features = ["monitor"] }
+trueno-viz = { version = "0.2.2", features = ["monitor"] }
 
 # TUI framework - use crossterm directly, ratatui comes from trueno-viz
 crossterm = "0.28"
