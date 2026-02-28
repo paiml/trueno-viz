@@ -164,6 +164,15 @@ impl DiskCollector {
 
             let name = fields[2].to_string();
 
+            // Skip virtual/pseudo block devices
+            if name.starts_with("loop")
+                || name.starts_with("ram")
+                || name.starts_with("zram")
+                || name.starts_with("dm-")
+            {
+                continue;
+            }
+
             // Skip partitions (only collect whole disks and nvme namespaces)
             // Disks: sda, nvme0n1, vda, etc.
             // Partitions: sda1, nvme0n1p1, vda1, etc.
