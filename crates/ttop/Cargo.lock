@@ -149,7 +149,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "trueno",
+ "trueno 0.11.0",
 ]
 
 [[package]]
@@ -168,7 +168,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "trueno",
+ "trueno 0.11.0",
 ]
 
 [[package]]
@@ -435,6 +435,8 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 [[package]]
 name = "batuta-common"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97eb4c76189d694d880ab9affaf6087fb88bc7afe2de7c7e9c9452745788f478"
 dependencies = [
  "lz4_flex",
  "zstd",
@@ -1235,6 +1237,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hostname"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "617aaa3557aef3810a6369d0a99fac8a080891b68bd9f9812a1eeda0c0730cbd"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "windows-link",
+]
+
+[[package]]
 name = "http"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1570,7 +1583,7 @@ dependencies = [
 
 [[package]]
 name = "jugar-probar"
-version = "1.0.2"
+version = "1.0.4"
 dependencies = [
  "base64",
  "bincode",
@@ -1581,7 +1594,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "serde_yaml",
+ "serde_yaml_ng",
  "sha2",
  "syn",
  "thiserror 2.0.17",
@@ -2481,10 +2494,10 @@ dependencies = [
  "toml",
  "tracing",
  "tracing-subscriber",
- "trueno",
+ "trueno 0.11.0",
  "trueno-db",
  "trueno-graph",
- "trueno-viz",
+ "trueno-viz 0.1.18",
 ]
 
 [[package]]
@@ -2724,6 +2737,19 @@ name = "serde_yaml"
 version = "0.9.34+deprecated"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
+name = "serde_yaml_ng"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f"
 dependencies = [
  "indexmap",
  "itoa",
@@ -3266,6 +3292,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "trueno"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9715d8cfb8858f90018316f8b9201c98de5e3beea4dedb2e35c4c140504f656f"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "hostname",
+ "num_cpus",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "toml",
+ "trueno-quant",
+]
+
+[[package]]
 name = "trueno-db"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3288,7 +3331,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "trueno",
+ "trueno 0.11.0",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -3306,8 +3349,17 @@ dependencies = [
  "parquet",
  "thiserror 2.0.17",
  "tokio",
- "trueno",
+ "trueno 0.11.0",
  "trueno-db",
+]
+
+[[package]]
+name = "trueno-quant"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5da5ac788b596e45d1d3fa0991c04b0e1bac63ffe4ae2faf6ae7c0d9fdfc00eb"
+dependencies = [
+ "half",
 ]
 
 [[package]]
@@ -3320,14 +3372,33 @@ dependencies = [
  "crossterm",
  "dirs",
  "libc",
- "manzana",
- "nvml-wrapper",
  "png",
  "ratatui",
  "serde",
  "serde_yaml",
  "thiserror 2.0.17",
- "trueno",
+ "trueno 0.11.0",
+]
+
+[[package]]
+name = "trueno-viz"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6a8517b57060a70bcda986e3560fb9369af165fccf0c05dd593bd2db231d7e8f"
+dependencies = [
+ "base64",
+ "batuta-common",
+ "crossterm",
+ "dirs",
+ "libc",
+ "manzana",
+ "nvml-wrapper",
+ "png",
+ "ratatui",
+ "serde",
+ "serde_yaml_ng",
+ "thiserror 2.0.17",
+ "trueno 0.16.1",
 ]
 
 [[package]]
@@ -3338,7 +3409,7 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 
 [[package]]
 name = "ttop"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "anyhow",
  "batuta-common",
@@ -3351,10 +3422,10 @@ dependencies = [
  "ratatui",
  "renacer",
  "serde",
- "serde_yaml",
+ "serde_yaml_ng",
  "tempfile",
  "thiserror 2.0.17",
- "trueno-viz",
+ "trueno-viz 0.2.2",
 ]
 
 [[package]]
