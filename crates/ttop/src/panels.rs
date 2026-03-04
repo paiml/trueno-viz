@@ -3374,7 +3374,7 @@ pub fn draw_treemap(f: &mut Frame, app: &App, area: Rect) {
 /// Returns (char, color, short_label) for legend
 fn mount_marker(path: &str) -> (char, (u8, u8, u8), &'static str) {
     // Single letters: N=nvme, D=hdd, h=home, /=root, M=mount
-    if path.starts_with("/mnt/nvme-raid0") || path.starts_with("/mnt/nvme") {
+    if path.starts_with("/mnt/nvme") {
         ('N', (100, 220, 140), "nvme")   // N - fast NVMe (bright green)
     } else if path.starts_with("/mnt/storage") || path.starts_with("/mnt/hdd") {
         ('D', (220, 100, 100), "hdd")    // D - bulk disk/HDD (red)
@@ -3395,7 +3395,7 @@ pub fn mount_legend_str() -> String {
 }
 
 /// Format directory path: prioritize showing the meaningful end
-/// /mnt/nvme-raid0/targets/trueno-viz -> nvme-raid0/.../trueno-viz
+/// /mnt/nvme/targets/trueno-viz -> nvme/.../trueno-viz
 #[allow(dead_code)]
 fn format_dir_path(path: &str, max_width: usize) -> String {
     if path.len() <= max_width {
@@ -3420,7 +3420,7 @@ fn format_dir_path(path: &str, max_width: usize) -> String {
     }
 
     // Strategy: show mount-name/.../<last meaningful component>
-    // For /mnt/nvme-raid0/targets/trueno-viz/debug -> nvme-raid0/.../debug
+    // For /mnt/nvme/targets/trueno-viz/debug -> nvme/.../debug
     let mount_part = if parts.len() > 1 && (parts[0] == "mnt" || parts[0] == "home" || parts[0] == "media") {
         parts.get(1).unwrap_or(&parts[0])
     } else {
@@ -3790,7 +3790,7 @@ mod tests {
 
     #[test]
     fn test_mount_marker_nvme() {
-        let (mark, color, label) = mount_marker("/mnt/nvme-raid0/foo/bar");
+        let (mark, color, label) = mount_marker("/mnt/nvme/foo/bar");
         assert_eq!(mark, 'N');
         assert_eq!(color, (100, 220, 140));
         assert_eq!(label, "nvme");
@@ -3858,14 +3858,14 @@ mod tests {
 
     #[test]
     fn test_format_dir_path_truncate() {
-        let result = format_dir_path("/mnt/nvme-raid0/very/long/path/here", 25);
+        let result = format_dir_path("/mnt/nvme/very/long/path/here", 25);
         assert!(result.len() <= 25);
         assert!(result.contains("..."));
     }
 
     #[test]
     fn test_format_dir_path_very_small_width() {
-        let result = format_dir_path("/mnt/nvme-raid0/foo", 8);
+        let result = format_dir_path("/mnt/nvme/foo", 8);
         assert!(result.len() <= 8);
     }
 
@@ -4046,7 +4046,7 @@ mod tui_tests {
         let mut terminal = Terminal::new(backend).expect("terminal");
 
         terminal.draw(|f| {
-            let path = format_dir_path("/mnt/nvme-raid0/very/long/path", 25);
+            let path = format_dir_path("/mnt/nvme/very/long/path", 25);
             let para = Paragraph::new(path);
             f.render_widget(para, f.area());
         }).expect("draw");
@@ -4988,7 +4988,7 @@ mod panel_render_tests {
 
     #[test]
     fn test_mount_marker_nvme() {
-        let (c, color, label) = mount_marker("/mnt/nvme-raid0/data");
+        let (c, color, label) = mount_marker("/mnt/nvme/data");
         assert_eq!(c, 'N');
         assert_eq!(label, "nvme");
         assert_eq!(color, (100, 220, 140));
@@ -5072,7 +5072,7 @@ mod panel_render_tests {
 
     #[test]
     fn test_format_dir_path_truncation() {
-        let result = format_dir_path("/mnt/nvme-raid0/targets/trueno-viz/debug", 25);
+        let result = format_dir_path("/mnt/nvme/targets/trueno-viz/debug", 25);
         assert!(result.len() <= 25);
         assert!(result.contains("..."));
     }
@@ -5916,7 +5916,7 @@ mod panel_render_tests {
         let start = Instant::now();
         for _ in 0..iterations {
             let _ = mount_marker("/home/user/documents");
-            let _ = mount_marker("/mnt/nvme-raid0/data");
+            let _ = mount_marker("/mnt/nvme/data");
             let _ = mount_marker("/var/log");
         }
         let elapsed = start.elapsed();
@@ -6341,7 +6341,7 @@ mod panel_render_tests {
     fn test_mount_marker_all_variants() {
         // Test all path patterns
         let paths = [
-            "/mnt/nvme-raid0/data",
+            "/mnt/nvme/data",
             "/mnt/nvme/fast",
             "/mnt/storage/bulk",
             "/mnt/hdd/archive",
