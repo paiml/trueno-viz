@@ -21,6 +21,7 @@ use crate::monitor::error::{MonitorError, Result};
 use crate::monitor::ring_buffer::RingBuffer;
 use crate::monitor::types::{Collector, MetricValue, Metrics};
 use std::ffi::{c_void, CStr};
+use std::os::raw::c_char;
 use std::time::Duration;
 
 /// ROCm SMI status codes
@@ -93,7 +94,7 @@ struct RocmSmi {
     rsmi_init: unsafe extern "C" fn(u64) -> i32,
     rsmi_shut_down: unsafe extern "C" fn() -> i32,
     rsmi_num_monitor_devices: unsafe extern "C" fn(*mut u32) -> i32,
-    rsmi_dev_name_get: unsafe extern "C" fn(u32, *mut i8, usize) -> i32,
+    rsmi_dev_name_get: unsafe extern "C" fn(u32, *mut c_char, usize) -> i32,
     rsmi_dev_busy_percent_get: unsafe extern "C" fn(u32, *mut u32) -> i32,
     rsmi_dev_memory_busy_percent_get: unsafe extern "C" fn(u32, *mut u32) -> i32,
     rsmi_dev_memory_total_get: unsafe extern "C" fn(u32, u32, *mut u64) -> i32,
@@ -197,7 +198,7 @@ impl RocmSmi {
     }
 
     fn device_name(&self, index: u32) -> String {
-        let mut name_buf = [0i8; 256];
+        let mut name_buf = [0 as c_char; 256];
         // SAFETY: rsmi_dev_name_get writes at most 256 bytes into name_buf.
         // CStr::from_ptr is safe because the buffer is null-terminated by ROCm SMI.
         unsafe {
