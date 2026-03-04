@@ -243,7 +243,7 @@ impl TreemapAnalyzer {
                 continue;
             }
 
-            // Get meaningful parent (try 2 levels for things like /mnt/nvme-raid0/models)
+            // Get meaningful parent (try 2 levels for things like /mnt/nvme/models)
             let dir = if let Some(parent) = f.path.parent() {
                 let parent_str = parent.to_string_lossy();
                 // If parent is a mount point, use full path

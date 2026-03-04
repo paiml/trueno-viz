@@ -1584,6 +1584,8 @@ dependencies = [
 [[package]]
 name = "jugar-probar"
 version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5a299150747f498a5970f057f1da1f56fbc99a80dca81ef797a9cb014eecce9"
 dependencies = [
  "base64",
  "bincode",
