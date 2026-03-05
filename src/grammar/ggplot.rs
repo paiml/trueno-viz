@@ -5,7 +5,7 @@
 use crate::color::Rgba;
 use crate::error::{Error, Result};
 use crate::framebuffer::Framebuffer;
-use crate::render::{draw_circle, draw_line_aa, draw_rect, draw_rect_outline};
+use crate::render::{draw_circle, draw_line_aa, draw_rect, draw_rect_outline, i32_px};
 use crate::scale::{LinearScale, Scale};
 
 use super::aes::Aes;
@@ -245,15 +245,15 @@ impl BuiltGGPlot {
         // Draw panel background
         draw_rect(
             &mut fb,
-            plot_x as i32,
-            plot_y as i32,
+            i32_px(plot_x),
+            i32_px(plot_y),
             plot_w,
             plot_h,
             self.theme.panel_background,
         );
 
         // Compute data ranges for scales
-        let (x_min, x_max, y_min, y_max) = self.compute_data_ranges()?;
+        let (x_min, x_max, y_min, y_max) = self.compute_data_ranges();
 
         // Apply coordinate limits if set
         let (x_min, x_max, y_min, y_max) = match &self.coord {
@@ -276,7 +276,7 @@ impl BuiltGGPlot {
 
         // Draw each layer
         for layer in &self.layers {
-            self.render_layer(&mut fb, layer, &x_scale, &y_scale)?;
+            self.render_layer(&mut fb, layer, &x_scale, &y_scale);
         }
 
         // Draw axes
@@ -288,8 +288,8 @@ impl BuiltGGPlot {
         if self.theme.show_panel_border {
             draw_rect_outline(
                 &mut fb,
-                plot_x as i32,
-                plot_y as i32,
+                i32_px(plot_x),
+                i32_px(plot_y),
                 plot_w,
                 plot_h,
                 self.theme.axis_color,
@@ -301,7 +301,7 @@ impl BuiltGGPlot {
     }
 
     /// Compute data ranges across all layers.
-    fn compute_data_ranges(&self) -> Result<(f32, f32, f32, f32)> {
+    fn compute_data_ranges(&self) -> (f32, f32, f32, f32) {
         let mut x_min = f32::MAX;
         let mut x_max = f32::MIN;
         let mut y_min = f32::MAX;
@@ -350,7 +350,7 @@ impl BuiltGGPlot {
         let x_pad = (x_max - x_min) * 0.05;
         let y_pad = (y_max - y_min) * 0.05;
 
-        Ok((x_min - x_pad, x_max + x_pad, y_min - y_pad, y_max + y_pad))
+        (x_min - x_pad, x_max + x_pad, y_min - y_pad, y_max + y_pad)
     }
 
     /// Draw grid lines.
@@ -418,7 +418,7 @@ impl BuiltGGPlot {
         layer: &Layer,
         x_scale: &LinearScale,
         y_scale: &LinearScale,
-    ) -> Result<()> {
+    ) {
         let data = layer.data.as_ref().unwrap_or(&self.data);
         let aes = self.aes.merge(&layer.aes);
 
@@ -431,7 +431,7 @@ impl BuiltGGPlot {
 
         let n = x_data.len().min(y_data.len());
         if n == 0 {
-            return Ok(());
+            return;
         }
 
         // Get style from aesthetics
@@ -440,17 +440,17 @@ impl BuiltGGPlot {
 
         match &layer.geom.geom_type {
             GeomType::Point { shape } => {
-                self.render_points(fb, &x_data, &y_data, x_scale, y_scale, color, size, *shape);
+                Self::render_points(fb, &x_data, &y_data, x_scale, y_scale, color, size, *shape);
             }
             GeomType::Line { width } => {
-                self.render_line(fb, &x_data, &y_data, x_scale, y_scale, color, *width);
+                Self::render_line(fb, &x_data, &y_data, x_scale, y_scale, color, *width);
             }
             GeomType::Bar { width: bar_width } => {
-                self.render_bars(fb, &x_data, &y_data, x_scale, y_scale, color, *bar_width);
+                Self::render_bars(fb, &x_data, &y_data, x_scale, y_scale, color, *bar_width);
             }
             GeomType::Area { alpha } => {
                 let area_color = Rgba::new(color.r, color.g, color.b, (255.0 * alpha) as u8);
-                self.render_area(fb, &x_data, &y_data, x_scale, y_scale, area_color);
+                Self::render_area(fb, &x_data, &y_data, x_scale, y_scale, area_color);
             }
             GeomType::Hline { yintercept } => {
                 let y_px = y_scale.scale(*yintercept);
@@ -462,14 +462,11 @@ impl BuiltGGPlot {
             }
             _ => {} // Other geoms not fully implemented yet
         }
-
-        Ok(())
     }
 
     /// Render point geometry.
     #[allow(clippy::too_many_arguments)]
     fn render_points(
-        &self,
         fb: &mut Framebuffer,
         x_data: &[f32],
         y_data: &[f32],
@@ -509,7 +506,6 @@ impl BuiltGGPlot {
     /// Render line geometry.
     #[allow(clippy::too_many_arguments)]
     fn render_line(
-        &self,
         fb: &mut Framebuffer,
         x_data: &[f32],
         y_data: &[f32],
@@ -536,7 +532,6 @@ impl BuiltGGPlot {
     /// Render bar geometry.
     #[allow(clippy::too_many_arguments)]
     fn render_bars(
-        &self,
         fb: &mut Framebuffer,
         x_data: &[f32],
         y_data: &[f32],
@@ -570,7 +565,6 @@ impl BuiltGGPlot {
     /// Render area geometry.
     #[allow(clippy::too_many_arguments)]
     fn render_area(
-        &self,
         fb: &mut Framebuffer,
         x_data: &[f32],
         y_data: &[f32],
@@ -600,7 +594,7 @@ impl BuiltGGPlot {
         }
 
         // Draw line on top
-        self.render_line(
+        Self::render_line(
             fb,
             x_data,
             y_data,
