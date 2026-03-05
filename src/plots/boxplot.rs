@@ -6,7 +6,7 @@
 use crate::color::Rgba;
 use crate::error::{Error, Result};
 use crate::framebuffer::Framebuffer;
-use crate::render::{draw_line, draw_rect};
+use crate::render::{draw_line, draw_rect, i32_px};
 
 /// Statistics computed for a box plot.
 #[derive(Debug, Clone)]
@@ -386,11 +386,11 @@ impl BuiltBoxPlot {
         color: Rgba,
     ) {
         let (y_min, y_q1, y_q3, y_max) = ys;
-        draw_line(fb, cx as i32, y_min as i32, cx as i32, y_q1 as i32, color);
-        draw_line(fb, cx as i32, y_q3 as i32, cx as i32, y_max as i32, color);
+        draw_line(fb, i32_px(cx), i32_px(y_min), i32_px(cx), i32_px(y_q1), color);
+        draw_line(fb, i32_px(cx), i32_px(y_q3), i32_px(cx), i32_px(y_max), color);
         let cap = half_box / 2;
-        draw_line(fb, (cx - cap) as i32, y_min as i32, (cx + cap) as i32, y_min as i32, color);
-        draw_line(fb, (cx - cap) as i32, y_max as i32, (cx + cap) as i32, y_max as i32, color);
+        draw_line(fb, i32_px(cx - cap), i32_px(y_min), i32_px(cx + cap), i32_px(y_min), color);
+        draw_line(fb, i32_px(cx - cap), i32_px(y_max), i32_px(cx + cap), i32_px(y_max), color);
     }
 
     /// Draw filled box, outline, and median line.
@@ -411,9 +411,9 @@ impl BuiltBoxPlot {
         let top = y_q3.min(y_q1);
         let bottom = y_q3.max(y_q1);
         let height = bottom.saturating_sub(top);
-        draw_rect(fb, left as i32, top as i32, box_w, height, fill);
+        draw_rect(fb, i32_px(left), i32_px(top), box_w, height, fill);
         Self::draw_box_outline(fb, left, top, bottom, box_w, outline);
-        draw_line(fb, left as i32, y_med as i32, (left + box_w) as i32, y_med as i32, median_color);
+        draw_line(fb, i32_px(left), i32_px(y_med), i32_px(left + box_w), i32_px(y_med), median_color);
     }
 
     /// Draw box outline (4 sides).
@@ -425,10 +425,10 @@ impl BuiltBoxPlot {
         w: u32,
         color: Rgba,
     ) {
-        draw_line(fb, left as i32, top as i32, (left + w) as i32, top as i32, color);
-        draw_line(fb, left as i32, bottom as i32, (left + w) as i32, bottom as i32, color);
-        draw_line(fb, left as i32, top as i32, left as i32, bottom as i32, color);
-        draw_line(fb, (left + w) as i32, top as i32, (left + w) as i32, bottom as i32, color);
+        draw_line(fb, i32_px(left), i32_px(top), i32_px(left + w), i32_px(top), color);
+        draw_line(fb, i32_px(left), i32_px(bottom), i32_px(left + w), i32_px(bottom), color);
+        draw_line(fb, i32_px(left), i32_px(top), i32_px(left), i32_px(bottom), color);
+        draw_line(fb, i32_px(left + w), i32_px(top), i32_px(left + w), i32_px(bottom), color);
     }
 
     /// Draw outlier markers as crosses.
@@ -445,8 +445,8 @@ impl BuiltBoxPlot {
         }
         for &outlier in &stats.outliers {
             let y = map_y(outlier);
-            draw_line(fb, (cx - 2) as i32, y as i32, (cx + 2) as i32, y as i32, color);
-            draw_line(fb, cx as i32, (y - 2) as i32, cx as i32, (y + 2) as i32, color);
+            draw_line(fb, i32_px(cx - 2), i32_px(y), i32_px(cx + 2), i32_px(y), color);
+            draw_line(fb, i32_px(cx), i32_px(y - 2), i32_px(cx), i32_px(y + 2), color);
         }
     }
 }
@@ -776,10 +776,10 @@ impl BuiltViolinPlot {
                 let w = (w1 as f32 * (1.0 - t) + w2 as f32 * t) as u32;
                 draw_line(
                     fb,
-                    cx.saturating_sub(w) as i32,
-                    py as i32,
-                    (cx + w) as i32,
-                    py as i32,
+                    i32_px(cx.saturating_sub(w)),
+                    i32_px(py),
+                    i32_px(cx + w),
+                    i32_px(py),
                     color,
                 );
             }
@@ -802,8 +802,8 @@ impl BuiltViolinPlot {
             let py2 = map_y(y2);
             let w1 = (d1 * max_hw as f32) as i32;
             let w2 = (d2 * max_hw as f32) as i32;
-            draw_line(fb, cx as i32 - w1, py1 as i32, cx as i32 - w2, py2 as i32, color);
-            draw_line(fb, cx as i32 + w1, py1 as i32, cx as i32 + w2, py2 as i32, color);
+            draw_line(fb, i32_px(cx) - w1, i32_px(py1), i32_px(cx) - w2, i32_px(py2), color);
+            draw_line(fb, i32_px(cx) + w1, i32_px(py1), i32_px(cx) + w2, i32_px(py2), color);
         }
     }
 
@@ -823,9 +823,9 @@ impl BuiltViolinPlot {
         let w = box_half * 2;
         let top = y_q3.min(y_q1);
         let bottom = y_q3.max(y_q1);
-        draw_rect(fb, left as i32, top as i32, w, bottom.saturating_sub(top), Rgba::WHITE);
+        draw_rect(fb, i32_px(left), i32_px(top), w, bottom.saturating_sub(top), Rgba::WHITE);
         BuiltBoxPlot::draw_box_outline(fb, left, top, bottom, w, Rgba::BLACK);
-        draw_line(fb, left as i32, y_med as i32, (left + w) as i32, y_med as i32, Rgba::BLACK);
+        draw_line(fb, i32_px(left), i32_px(y_med), i32_px(left + w), i32_px(y_med), Rgba::BLACK);
     }
 }
 

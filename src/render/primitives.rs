@@ -6,6 +6,12 @@ use crate::color::Rgba;
 use crate::framebuffer::Framebuffer;
 use crate::geometry::{Line, Point, Rect};
 
+/// Safely convert a `u32` pixel coordinate to `i32` without wrapping.
+#[inline]
+pub fn i32_px(val: u32) -> i32 {
+    i32::try_from(val).unwrap_or(i32::MAX)
+}
+
 /// Trait for drawable primitives.
 pub trait Drawable {
     /// Draw this primitive to a framebuffer.
@@ -145,7 +151,7 @@ pub fn draw_line_aa(fb: &mut Framebuffer, x0: f32, y0: f32, x1: f32, y1: f32, co
 /// Plot a pixel with intensity (for anti-aliased drawing).
 #[inline]
 fn plot(fb: &mut Framebuffer, x: i32, y: i32, color: Rgba, intensity: f32) {
-    if x >= 0 && y >= 0 && x < fb.width() as i32 && y < fb.height() as i32 {
+    if x >= 0 && y >= 0 && x < i32_px(fb.width()) && y < i32_px(fb.height()) {
         let alpha = (f32::from(color.a) * intensity) as u8;
         let blended = color.with_alpha(alpha);
         fb.blend_pixel(x as u32, y as u32, blended);
@@ -319,12 +325,12 @@ pub fn draw_point(fb: &mut Framebuffer, x: f32, y: f32, size: f32, color: Rgba) 
 /// Helper to draw a horizontal line (used by filled circle).
 #[inline]
 fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: Rgba) {
-    if y < 0 || y >= fb.height() as i32 {
+    if y < 0 || y >= i32_px(fb.height()) {
         return;
     }
 
     let x_start = x1.max(0) as u32;
-    let x_end = (x2 + 1).max(0).min(fb.width() as i32) as u32;
+    let x_end = (x2 + 1).max(0).min(i32_px(fb.width())) as u32;
 
     if x_start < x_end {
         let width = x_end - x_start;
@@ -335,7 +341,7 @@ fn draw_horizontal_line(fb: &mut Framebuffer, x1: i32, x2: i32, y: i32, color: R
 /// Helper to plot a single circle point with bounds checking.
 #[inline]
 fn plot_circle_point(fb: &mut Framebuffer, x: i32, y: i32, color: Rgba) {
-    if x >= 0 && y >= 0 && x < fb.width() as i32 && y < fb.height() as i32 {
+    if x >= 0 && y >= 0 && x < i32_px(fb.width()) && y < i32_px(fb.height()) {
         fb.set_pixel(x as u32, y as u32, color);
     }
 }
