@@ -117,7 +117,7 @@ fn simulate_training(epochs: usize) -> (Vec<f32>, Vec<f32>) {
 
         // Training loss: exponential decay with noise
         let base_train = 2.5 * (-3.0 * t).exp() + 0.1;
-        let noise = ((epoch * 7919 + 104729) % 1000) as f32 / 5000.0 - 0.1;
+        let noise = ((epoch * 7919 + 104_729) % 1000) as f32 / 5000.0 - 0.1;
         let train_loss = (base_train + noise).max(0.05);
 
         // Validation loss: similar but with slight overfitting at the end

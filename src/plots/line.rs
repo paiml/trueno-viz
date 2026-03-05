@@ -477,8 +477,11 @@ mod tests {
         // Should reduce the number of points
         assert!(simplified.len() < points.len());
         // First and last points should be preserved
-        assert_eq!(simplified.first().expect("collection should not be empty").x, 0.0);
-        assert_eq!(simplified.last().expect("collection should not be empty").x, 7.0);
+        assert!(simplified.first().expect("collection should not be empty").x.abs() < f32::EPSILON);
+        assert!(
+            (simplified.last().expect("collection should not be empty").x - 7.0).abs()
+                < f32::EPSILON
+        );
     }
 
     #[test]
