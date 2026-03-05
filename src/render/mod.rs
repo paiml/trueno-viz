@@ -17,5 +17,5 @@ mod primitives;
 
 pub use primitives::{
     draw_circle, draw_circle_outline, draw_line, draw_line_aa, draw_point, draw_rect,
-    draw_rect_outline, Drawable,
+    draw_rect_outline, i32_px, Drawable,
 };
