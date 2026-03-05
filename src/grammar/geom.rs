@@ -191,8 +191,7 @@ impl Geom {
     #[must_use]
     pub fn width(mut self, width: f32) -> Self {
         match &mut self.geom_type {
-            GeomType::Line { width: ref mut w } => *w = width,
-            GeomType::Bar { width: ref mut w } => *w = width,
+            GeomType::Line { width: ref mut w } | GeomType::Bar { width: ref mut w } => *w = width,
             _ => {}
         }
         self

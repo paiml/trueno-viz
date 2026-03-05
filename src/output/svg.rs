@@ -308,11 +308,8 @@ impl SvgEncoder {
 
         // Background
         if let Some(bg) = self.background {
-            let _ = writeln!(
-                svg,
-                r#"  <rect width="100%" height="100%" fill="{}"/>"#,
-                rgba_to_css(&bg)
-            );
+            let _ =
+                writeln!(svg, r#"  <rect width="100%" height="100%" fill="{}"/>"#, rgba_to_css(bg));
         }
 
         // Elements
@@ -338,7 +335,7 @@ impl SvgEncoder {
 }
 
 /// Convert RGBA to CSS color string.
-fn rgba_to_css(color: &Rgba) -> String {
+fn rgba_to_css(color: Rgba) -> String {
     if color.a == 255 {
         format!("rgb({},{},{})", color.r, color.g, color.b)
     } else {
@@ -351,48 +348,42 @@ fn element_to_svg(element: &SvgElement) -> String {
     match element {
         SvgElement::Rect { x, y, width, height, fill, stroke, stroke_width } => {
             let stroke_attr = stroke
-                .map(|s| {
-                    format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width)
-                })
+                .map(|s| format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(s), stroke_width))
                 .unwrap_or_default();
             format!(
                 r#"<rect x="{x}" y="{y}" width="{width}" height="{height}" fill="{}"{stroke_attr}/>"#,
-                rgba_to_css(fill)
+                rgba_to_css(*fill)
             )
         }
         SvgElement::Circle { cx, cy, r, fill, stroke, stroke_width } => {
             let stroke_attr = stroke
-                .map(|s| {
-                    format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width)
-                })
+                .map(|s| format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(s), stroke_width))
                 .unwrap_or_default();
             format!(
                 r#"<circle cx="{cx}" cy="{cy}" r="{r}" fill="{}"{stroke_attr}/>"#,
-                rgba_to_css(fill)
+                rgba_to_css(*fill)
             )
         }
         SvgElement::Line { x1, y1, x2, y2, stroke, stroke_width } => {
             format!(
                 r#"<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{}" stroke-width="{stroke_width}"/>"#,
-                rgba_to_css(stroke)
+                rgba_to_css(*stroke)
             )
         }
         SvgElement::Polyline { points, stroke, stroke_width, fill } => {
             let points_str: String =
                 points.iter().map(|(x, y)| format!("{x},{y}")).collect::<Vec<_>>().join(" ");
-            let fill_attr = fill.map(|f| rgba_to_css(&f)).unwrap_or_else(|| "none".to_string());
+            let fill_attr = fill.map(rgba_to_css).unwrap_or_else(|| "none".to_string());
             let tag = if fill.is_some() { "polygon" } else { "polyline" };
             format!(
                 r#"<{tag} points="{points_str}" fill="{fill_attr}" stroke="{}" stroke-width="{stroke_width}"/>"#,
-                rgba_to_css(stroke)
+                rgba_to_css(*stroke)
             )
         }
         SvgElement::Path { d, fill, stroke, stroke_width } => {
-            let fill_attr = fill.map(|f| rgba_to_css(&f)).unwrap_or_else(|| "none".to_string());
+            let fill_attr = fill.map(rgba_to_css).unwrap_or_else(|| "none".to_string());
             let stroke_attr = stroke
-                .map(|s| {
-                    format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(&s), stroke_width)
-                })
+                .map(|s| format!(r#" stroke="{}" stroke-width="{}""#, rgba_to_css(s), stroke_width))
                 .unwrap_or_default();
             format!(r#"<path d="{d}" fill="{fill_attr}"{stroke_attr}/>"#)
         }
@@ -410,7 +401,7 @@ fn element_to_svg(element: &SvgElement) -> String {
                 .replace('"', "&quot;");
             format!(
                 r#"<text x="{x}" y="{y}" font-size="{font_size}" fill="{}" text-anchor="{anchor_str}" font-family="sans-serif">{escaped_text}</text>"#,
-                rgba_to_css(fill)
+                rgba_to_css(*fill)
             )
         }
         SvgElement::Image { x, y, width, height, data } => {
@@ -529,7 +520,7 @@ mod tests {
     #[test]
     fn test_svg_rgba_alpha() {
         let color = Rgba::new(255, 0, 0, 128);
-        let css = rgba_to_css(&color);
+        let css = rgba_to_css(color);
         assert!(css.contains("rgba"));
         assert!(css.contains("0.502")); // 128/255 ≈ 0.502
     }

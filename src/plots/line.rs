@@ -350,7 +350,7 @@ impl LineChart {
 
         // Render each series
         for series in &self.series {
-            self.render_series(fb, series, &x_scale, &y_scale)?;
+            self.render_series(fb, series, &x_scale, &y_scale);
         }
 
         Ok(())
@@ -363,10 +363,10 @@ impl LineChart {
         series: &LineSeries,
         x_scale: &LinearScale,
         y_scale: &LinearScale,
-    ) -> Result<()> {
+    ) {
         let point_count = series.point_count();
         if point_count < 2 {
-            return Ok(());
+            return;
         }
 
         // Convert data to screen coordinates
@@ -397,8 +397,6 @@ impl LineChart {
                 self.draw_marker(fb, point.x, point.y, series.color);
             }
         }
-
-        Ok(())
     }
 
     /// Draw a circular marker at the given position.

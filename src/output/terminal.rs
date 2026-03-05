@@ -97,7 +97,7 @@ impl TerminalEncoder {
         for y in 0..target_h {
             for x in 0..target_w {
                 let luma = self.sample_luma(fb, x, y, scale_x, scale_y);
-                let idx = self.luma_to_index(luma);
+                let idx = Self::luma_to_index(luma);
                 output.push(Self::ASCII_RAMP[idx]);
             }
             output.push('\n');
@@ -227,7 +227,7 @@ impl TerminalEncoder {
     }
 
     /// Convert luminance (0.0-1.0) to ASCII ramp index.
-    fn luma_to_index(&self, luma: f32) -> usize {
+    fn luma_to_index(luma: f32) -> usize {
         let idx = (luma * (Self::ASCII_RAMP.len() - 1) as f32).round() as usize;
         idx.min(Self::ASCII_RAMP.len() - 1)
     }

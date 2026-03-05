@@ -250,7 +250,7 @@ impl ForceGraph {
 
         for (i, node) in self.nodes.iter_mut().enumerate() {
             // Deterministic pseudo-random initial positions
-            let seed = i.wrapping_mul(1103515245).wrapping_add(12345);
+            let seed = i.wrapping_mul(1_103_515_245).wrapping_add(12345);
             node.x = self.margin as f32 + (seed % 1000) as f32 / 1000.0 * area_width;
             node.y = self.margin as f32 + ((seed / 1000) % 1000) as f32 / 1000.0 * area_height;
         }

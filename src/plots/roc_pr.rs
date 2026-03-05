@@ -66,7 +66,7 @@ pub fn compute_roc(y_true: &[u8], y_scores: &[f32]) -> Result<RocData> {
     }
 
     // Count total positives and negatives
-    let total_positives = y_true.iter().filter(|&&y| y == 1).count() as f32;
+    let total_positives = y_true.iter().fold(0u32, |acc, &b| acc + u32::from(b == 1)) as f32;
     let total_negatives = y_true.len() as f32 - total_positives;
 
     if total_positives == 0.0 || total_negatives == 0.0 {
@@ -134,7 +134,7 @@ pub fn compute_pr(y_true: &[u8], y_scores: &[f32]) -> Result<PrData> {
     }
 
     // Count total positives
-    let total_positives = y_true.iter().filter(|&&y| y == 1).count() as f32;
+    let total_positives = y_true.iter().fold(0u32, |acc, &b| acc + u32::from(b == 1)) as f32;
 
     if total_positives == 0.0 {
         return Err(Error::ScaleDomain("Need at least one positive sample".to_string()));
@@ -400,7 +400,7 @@ impl PrCurve {
     /// Returns error if computation fails.
     pub fn from_predictions(mut self, y_true: &[u8], y_scores: &[f32]) -> Result<Self> {
         // Calculate positive rate for baseline
-        let total_positives = y_true.iter().filter(|&&y| y == 1).count() as f32;
+        let total_positives = y_true.iter().fold(0u32, |acc, &b| acc + u32::from(b == 1)) as f32;
         self.positive_rate = total_positives / y_true.len() as f32;
 
         self.data = Some(compute_pr(y_true, y_scores)?);

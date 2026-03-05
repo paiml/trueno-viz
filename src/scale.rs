@@ -112,7 +112,7 @@ impl LogScale {
             return Err(Error::ScaleDomain("Log scale domain must be positive".to_string()));
         }
 
-        if base <= 0.0 || base == 1.0 {
+        if base <= 0.0 || (base - 1.0).abs() < f64::EPSILON as f32 {
             return Err(Error::ScaleDomain(
                 "Log scale base must be positive and not 1".to_string(),
             ));

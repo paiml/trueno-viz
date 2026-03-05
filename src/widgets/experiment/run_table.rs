@@ -4,6 +4,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Write as _;
 
 /// Status of an experiment run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -255,7 +256,7 @@ impl RunTable {
         self.runs.sort_by(|a, b| {
             let cmp = match sort_column {
                 SortColumn::Id => a.id.cmp(&b.id),
-                SortColumn::Status => status_order(&a.status).cmp(&status_order(&b.status)),
+                SortColumn::Status => status_order(a.status).cmp(&status_order(b.status)),
                 SortColumn::Duration => {
                     let a_dur = a.duration.unwrap_or(f64::MAX);
                     let b_dur = b.duration.unwrap_or(f64::MAX);
@@ -313,7 +314,7 @@ impl RunTable {
         // Header
         output.push_str("| ID | Status | Duration |");
         for col in &self.metric_columns {
-            output.push_str(&format!(" {col} |"));
+            let _ = write!(output, " {col} |");
         }
         output.push('\n');
 
@@ -326,16 +327,17 @@ impl RunTable {
 
         // Rows
         for run in &self.runs {
-            output.push_str(&format!(
+            let _ = write!(
+                output,
                 "| {} | {} {} | {} |",
                 run.id,
                 run.status.indicator(),
                 run.status,
                 run.duration_display()
-            ));
+            );
             for col in &self.metric_columns {
                 let value = run.metrics.get(col).map_or("-".to_string(), |v| format!("{v:.4}"));
-                output.push_str(&format!(" {value} |"));
+                let _ = write!(output, " {value} |");
             }
             output.push('\n');
         }
@@ -345,7 +347,7 @@ impl RunTable {
 }
 
 /// Convert status to numeric order for sorting.
-fn status_order(status: &RunStatus) -> u8 {
+fn status_order(status: RunStatus) -> u8 {
     match status {
         RunStatus::Running => 0,
         RunStatus::Pending => 1,

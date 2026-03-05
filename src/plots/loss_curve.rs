@@ -351,12 +351,12 @@ impl LossCurve {
 
         // Draw each series
         for series in &self.series {
-            self.render_series(fb, series, &x_scale, &y_scale)?;
+            Self::render_series(fb, series, &x_scale, &y_scale);
         }
 
         // Draw best markers
         if self.show_best_markers {
-            self.render_best_markers(fb, &x_scale, &y_scale)?;
+            self.render_best_markers(fb, &x_scale, &y_scale);
         }
 
         Ok(())
@@ -364,17 +364,16 @@ impl LossCurve {
 
     /// Render a single series.
     fn render_series(
-        &self,
         fb: &mut Framebuffer,
         series: &MetricSeries,
         x_scale: &LinearScale,
         y_scale: &LinearScale,
-    ) -> Result<()> {
+    ) {
         let values = series.values();
         let smoothed = series.smoothed_values();
 
         if values.len() < 2 {
-            return Ok(());
+            return;
         }
 
         // Draw raw values (faded)
@@ -399,8 +398,6 @@ impl LossCurve {
                 draw_line_aa(fb, x0, y0, x1, y1, series.color);
             }
         }
-
-        Ok(())
     }
 
     /// Render best value markers.
@@ -409,7 +406,7 @@ impl LossCurve {
         fb: &mut Framebuffer,
         x_scale: &LinearScale,
         y_scale: &LinearScale,
-    ) -> Result<()> {
+    ) {
         let marker_radius = (self.marker_size / 2.0) as i32;
 
         for series in &self.series {
@@ -443,8 +440,6 @@ impl LossCurve {
                 }
             }
         }
-
-        Ok(())
     }
 
     /// Render to a new framebuffer.
