@@ -72,7 +72,7 @@ fn generate_sample_data() -> (Vec<f32>, Vec<f32>) {
     for i in 0..n {
         let x = (i as f32) / (n as f32) * 10.0;
         // Add some pseudo-random noise using a simple LCG
-        let noise = ((i * 1103515245 + 12345) % 100) as f32 / 50.0 - 1.0;
+        let noise = ((i * 1_103_515_245 + 12345) % 100) as f32 / 50.0 - 1.0;
         let y = 2.0 * x + noise * 2.0;
 
         x_data.push(x);

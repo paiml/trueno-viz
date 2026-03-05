@@ -679,7 +679,7 @@ mod tests {
         assert!(spec.groups.is_none());
         assert_eq!(spec.width, 600);
         assert_eq!(spec.height, 400);
-        assert_eq!(spec.size, 5.0);
+        assert!((spec.size - 5.0).abs() < f32::EPSILON);
         assert!(spec.title.is_none());
     }
 

@@ -413,7 +413,14 @@ impl BuiltBoxPlot {
         let height = bottom.saturating_sub(top);
         draw_rect(fb, i32_px(left), i32_px(top), box_w, height, fill);
         Self::draw_box_outline(fb, left, top, bottom, box_w, outline);
-        draw_line(fb, i32_px(left), i32_px(y_med), i32_px(left + box_w), i32_px(y_med), median_color);
+        draw_line(
+            fb,
+            i32_px(left),
+            i32_px(y_med),
+            i32_px(left + box_w),
+            i32_px(y_med),
+            median_color,
+        );
     }
 
     /// Draw box outline (4 sides).

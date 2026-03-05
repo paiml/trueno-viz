@@ -154,8 +154,8 @@ mod tests {
 
     #[test]
     fn test_point_origin() {
-        assert_eq!(Point::ORIGIN.x, 0.0);
-        assert_eq!(Point::ORIGIN.y, 0.0);
+        assert!(Point::ORIGIN.x.abs() < f32::EPSILON);
+        assert!(Point::ORIGIN.y.abs() < f32::EPSILON);
     }
 
     #[test]
@@ -168,8 +168,8 @@ mod tests {
     #[test]
     fn test_point_default() {
         let p = Point::default();
-        assert_eq!(p.x, 0.0);
-        assert_eq!(p.y, 0.0);
+        assert!(p.x.abs() < f32::EPSILON);
+        assert!(p.y.abs() < f32::EPSILON);
     }
 
     #[test]
@@ -240,10 +240,10 @@ mod tests {
     #[test]
     fn test_rect_default() {
         let rect = Rect::default();
-        assert_eq!(rect.x, 0.0);
-        assert_eq!(rect.y, 0.0);
-        assert_eq!(rect.width, 0.0);
-        assert_eq!(rect.height, 0.0);
+        assert!(rect.x.abs() < f32::EPSILON);
+        assert!(rect.y.abs() < f32::EPSILON);
+        assert!(rect.width.abs() < f32::EPSILON);
+        assert!(rect.height.abs() < f32::EPSILON);
     }
 
     #[test]

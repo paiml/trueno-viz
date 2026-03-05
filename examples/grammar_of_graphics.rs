@@ -14,7 +14,34 @@ fn main() {
     println!("Grammar of Graphics Example");
     println!("===========================\n");
 
-    // Example 1: Simple scatter plot
+    example_scatter();
+    example_line_points();
+    example_bar();
+    example_area();
+    example_dark_theme();
+    example_reference_lines();
+
+    // Print API summary
+    println!("--- Grammar of Graphics API ---");
+    println!();
+    println!("  GGPlot::new()           Create a new plot");
+    println!("    .data_xy(&x, &y)      Set x/y data directly");
+    println!("    .data(DataFrame)      Set data from DataFrame");
+    println!("    .aes(Aes::new()...)   Set global aesthetics");
+    println!("    .geom(Geom::...)      Add geometry layer");
+    println!("    .coord(Coord::...)    Set coordinate system");
+    println!("    .theme(Theme::...)    Set visual theme");
+    println!("    .dimensions(w, h)     Set output size");
+    println!("    .build()              Build the plot");
+    println!();
+    println!("  Geometries: point(), line(), area(), bar()");
+    println!("  Themes: grey(), minimal(), bw(), classic(), dark(), void()");
+    println!("  Coords: cartesian(), polar(), fixed()");
+    println!();
+    println!("Grammar of Graphics examples generated successfully!");
+}
+
+fn example_scatter() {
     println!("Example 1: Basic Scatter Plot");
     println!("-----------------------------");
 
@@ -33,8 +60,9 @@ fn main() {
     let fb = plot.to_framebuffer().expect("Failed to render");
     PngEncoder::write_to_file(&fb, "ggplot_scatter.png").expect("Failed to write");
     println!("  Saved: ggplot_scatter.png\n");
+}
 
-    // Example 2: Line chart with points overlay
+fn example_line_points() {
     println!("Example 2: Line + Points (Layered)");
     println!("----------------------------------");
 
@@ -53,8 +81,9 @@ fn main() {
     let fb = plot.to_framebuffer().expect("Failed to render");
     PngEncoder::write_to_file(&fb, "ggplot_line_points.png").expect("Failed to write");
     println!("  Saved: ggplot_line_points.png (quadratic curve)\n");
+}
 
-    // Example 3: Bar chart
+fn example_bar() {
     println!("Example 3: Bar Chart");
     println!("--------------------");
 
@@ -73,8 +102,9 @@ fn main() {
     let fb = plot.to_framebuffer().expect("Failed to render");
     PngEncoder::write_to_file(&fb, "ggplot_bar.png").expect("Failed to write");
     println!("  Saved: ggplot_bar.png\n");
+}
 
-    // Example 4: Area chart
+fn example_area() {
     println!("Example 4: Area Chart");
     println!("---------------------");
 
@@ -93,8 +123,9 @@ fn main() {
     let fb = plot.to_framebuffer().expect("Failed to render");
     PngEncoder::write_to_file(&fb, "ggplot_area.png").expect("Failed to write");
     println!("  Saved: ggplot_area.png (sine wave)\n");
+}
 
-    // Example 5: Dark theme
+fn example_dark_theme() {
     println!("Example 5: Dark Theme");
     println!("---------------------");
 
@@ -126,8 +157,9 @@ fn main() {
     let fb = plot.to_framebuffer().expect("Failed to render");
     PngEncoder::write_to_file(&fb, "ggplot_dark.png").expect("Failed to write");
     println!("  Saved: ggplot_dark.png (two series)\n");
+}
 
-    // Example 6: Reference lines
+fn example_reference_lines() {
     println!("Example 6: Reference Lines");
     println!("--------------------------");
 
@@ -147,23 +179,4 @@ fn main() {
     let fb = plot.to_framebuffer().expect("Failed to render");
     PngEncoder::write_to_file(&fb, "ggplot_reflines.png").expect("Failed to write");
     println!("  Saved: ggplot_reflines.png\n");
-
-    // Print API summary
-    println!("--- Grammar of Graphics API ---");
-    println!();
-    println!("  GGPlot::new()           Create a new plot");
-    println!("    .data_xy(&x, &y)      Set x/y data directly");
-    println!("    .data(DataFrame)      Set data from DataFrame");
-    println!("    .aes(Aes::new()...)   Set global aesthetics");
-    println!("    .geom(Geom::...)      Add geometry layer");
-    println!("    .coord(Coord::...)    Set coordinate system");
-    println!("    .theme(Theme::...)    Set visual theme");
-    println!("    .dimensions(w, h)     Set output size");
-    println!("    .build()              Build the plot");
-    println!();
-    println!("  Geometries: point(), line(), area(), bar()");
-    println!("  Themes: grey(), minimal(), bw(), classic(), dark(), void()");
-    println!("  Coords: cartesian(), polar(), fixed()");
-    println!();
-    println!("Grammar of Graphics examples generated successfully!");
 }

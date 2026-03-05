@@ -18,7 +18,7 @@ fn main() {
     println!("Step 1: Simulating binary classifier predictions...");
     let (y_true, y_scores) = simulate_binary_classifier();
 
-    let n_positive = y_true.iter().filter(|&&y| y == 1).count();
+    let n_positive = y_true.iter().fold(0usize, |acc, &y| acc + usize::from(y == 1));
     let n_negative = y_true.len() - n_positive;
 
     println!("  Total samples: {}", y_true.len());
@@ -129,18 +129,18 @@ fn simulate_binary_classifier() -> (Vec<u8>, Vec<f32>) {
 
     for i in 0..n_samples {
         // Deterministic "random" assignment
-        let is_positive = ((i * 7919 + 104729) % 100) < (positive_rate * 100.0) as usize;
+        let is_positive = ((i * 7919 + 104_729) % 100) < (positive_rate * 100.0) as usize;
 
         if is_positive {
             y_true.push(1);
             // Positive samples: scores skewed higher (mean ~0.7)
-            let noise = ((i * 1103515245 + 12345) % 100) as f32 / 100.0;
+            let noise = ((i * 1_103_515_245 + 12345) % 100) as f32 / 100.0;
             let score = 0.5 + noise * 0.45;
             y_scores.push(score.min(0.99));
         } else {
             y_true.push(0);
             // Negative samples: scores skewed lower (mean ~0.3)
-            let noise = ((i.wrapping_mul(6364136223) + 1) % 100) as f32 / 100.0;
+            let noise = ((i.wrapping_mul(6_364_136_223) + 1) % 100) as f32 / 100.0;
             let score = 0.1 + noise * 0.5;
             y_scores.push(score.max(0.01));
         }
