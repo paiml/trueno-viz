@@ -119,6 +119,7 @@ impl ContainerAnalyzer {
                 Ok(None) => {
                     if start.elapsed() > Duration::from_millis(200) {
                         let _ = child.kill();
+                        let _ = child.wait(); // reap zombie (fixes #14)
                         return;
                     }
                     std::thread::sleep(Duration::from_millis(10));
@@ -404,6 +405,31 @@ mod tests {
         let containers = parse_docker_stats(output);
         assert_eq!(containers.len(), 1);
         assert_eq!(containers[0].cpu_pct, 0.0);
+    }
+
+    #[test]
+    fn test_kill_reaps_child_no_zombie() {
+        // Regression test for #14: child.kill() without child.wait() caused zombie accumulation.
+        let mut child = Command::new("sleep")
+            .arg("60")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .expect("failed to spawn sleep");
+
+        let pid = child.id();
+        let _ = child.kill();
+        let _ = child.wait(); // must reap after kill to avoid zombie
+
+        // Verify process is fully gone (not a zombie)
+        let status = Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .output()
+            .expect("failed to run kill -0");
+        assert!(
+            !status.status.success(),
+            "child process {pid} should not exist after kill+wait"
+        );
     }
 
     #[test]
