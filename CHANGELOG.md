@@ -5,6 +5,11 @@ All notable changes to trueno-viz will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-03-10
+
+### Fixed
+- Use `c_char` instead of `i8` for AMD GPU FFI buffers — fixes aarch64 cross-compilation (Refs #21)
+
 ## [0.2.1] - 2026-02-26
 
 ### Fixed
