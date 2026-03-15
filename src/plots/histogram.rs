@@ -167,7 +167,8 @@ impl Histogram {
         let bin_count = self.bin_count();
         let min = self.data.iter().copied().fold(f32::INFINITY, f32::min);
         let max = self.data.iter().copied().fold(f32::NEG_INFINITY, f32::max);
-        let bin_width = (max - min) / bin_count as f32;
+        let range = max - min;
+        let bin_width = if range == 0.0 { 1.0 } else { range / bin_count as f32 };
 
         // Count values in each bin
         let mut counts = vec![0usize; bin_count];
