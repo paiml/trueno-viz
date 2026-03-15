@@ -216,6 +216,9 @@ impl Heatmap {
         let plot_height = self.height - 2 * self.margin;
 
         // Calculate cell dimensions
+        if self.cols == 0 || self.rows == 0 {
+            return Ok(());
+        }
         let cell_width = plot_width / self.cols as u32;
         let cell_height = plot_height / self.rows as u32;
 
