@@ -8,7 +8,12 @@ all-features = false
 no-default-features = false
 
 [advisories]
-ignore = []
+ignore = [
+    "RUSTSEC-2026-0002",  # lru IterMut unsound — transitive via ratatui, not used directly
+    "RUSTSEC-2024-0436",  # paste unmaintained — transitive via ratatui/metal
+    "RUSTSEC-2025-0141",  # bincode unmaintained — transitive
+    "RUSTSEC-2024-0384",  # instant unmaintained — transitive via notify
+]
 
 [licenses]
 allow = [
