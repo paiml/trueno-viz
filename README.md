@@ -258,7 +258,7 @@ Minimum Supported Rust Version: **1.75**
 
 ## See Also
 
-- [Cookbook](https://github.com/paiml/sovereign-ai-cookbook)
+- [Cookbook](examples/) — 18 runnable examples
 
 ## License
 
