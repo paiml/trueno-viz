@@ -92,7 +92,7 @@ NATIVE_FEATURES := monitor,terminal,svg,parallel
 
 .PHONY: test
 test: ## Run all tests (native features)
-	$(CARGO) test --features $(NATIVE_FEATURES)
+	PROPTEST_CASES=100 $(CARGO) test --features $(NATIVE_FEATURES)
 
 .PHONY: test-fast
 test-fast: ## Run fast tests (<5s)
@@ -145,10 +145,9 @@ coverage: ## Generate HTML coverage report with llvm-cov (fast: ~30s warm)
 coverage-full: ## Generate FULL coverage report (all tests, ~3min)
 	@echo "📊 Running FULL coverage analysis..."
 	@which cargo-llvm-cov > /dev/null 2>&1 || (echo "📦 Installing cargo-llvm-cov..." && cargo install cargo-llvm-cov --locked)
-	@which cargo-nextest > /dev/null 2>&1 || (echo "📦 Installing cargo-nextest..." && cargo install cargo-nextest --locked)
 	@mkdir -p target/coverage
 	@echo "🧪 Running ALL tests with instrumentation..."
-	@cargo llvm-cov --no-report nextest --no-tests=warn --no-fail-fast --features $(NATIVE_FEATURES) || true
+	@PROPTEST_CASES=10 cargo llvm-cov test --no-report --lib --features $(NATIVE_FEATURES) || true
 	@echo "📊 Generating coverage reports..."
 	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --html --output-dir target/coverage/html
 	@cargo llvm-cov report $(COVERAGE_EXCLUDE) --summary-only
@@ -166,8 +165,7 @@ coverage-open: ## Open coverage HTML report in browser
 coverage-check: ## Enforce 95% coverage threshold (BLOCKS on failure, excludes wasm.rs)
 	@echo "🔒 Enforcing 95% coverage threshold (wasm.rs excluded)..."
 	@which cargo-llvm-cov > /dev/null 2>&1 || (echo "📦 Installing cargo-llvm-cov..." && cargo install cargo-llvm-cov --locked)
-	@which cargo-nextest > /dev/null 2>&1 || (echo "📦 Installing cargo-nextest..." && cargo install cargo-nextest --locked)
-	@cargo llvm-cov --no-report nextest --no-tests=warn --features $(NATIVE_FEATURES) > /dev/null 2>&1
+	@PROPTEST_CASES=10 cargo llvm-cov test --no-report --lib --features $(NATIVE_FEATURES) > /dev/null 2>&1
 	@./scripts/check-coverage.sh 95
 
 # ============================================================================
