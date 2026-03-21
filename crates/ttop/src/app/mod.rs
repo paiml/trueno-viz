@@ -861,8 +861,6 @@ impl App {
 
     /// Collect metrics from all collectors
     pub fn collect_metrics(&mut self) {
-        use trueno_viz::monitor::debug::{self, Level};
-
         self.frame_id += 1;
 
         // Skip real collection in deterministic/mock mode - data is pre-populated
@@ -872,15 +870,24 @@ impl App {
 
         let is_first = self.frame_id <= 2;
 
-        // CPU
+        self.collect_cpu_metrics(is_first);
+        self.collect_memory_metrics(is_first);
+        self.collect_network_metrics(is_first);
+        self.collect_hw_collectors(is_first);
+        self.collect_analyzers(is_first);
+
+        self.last_collect = Instant::now();
+    }
+
+    /// Collect CPU metrics and update per-core history.
+    fn collect_cpu_metrics(&mut self, is_first: bool) {
+        use trueno_viz::monitor::debug::{self, Level};
         if is_first { debug::log(Level::Trace, "collect", "cpu..."); }
         if self.cpu.is_available() {
             if let Ok(metrics) = self.cpu.collect() {
                 if let Some(total) = metrics.get_gauge("cpu.total") {
                     Self::push_to_history(&mut self.cpu_history, total / 100.0);
                 }
-
-                // Per-core percentages
                 self.per_core_percent.clear();
                 for i in 0..self.cpu.core_count() {
                     if let Some(percent) = metrics.get_gauge(&format!("cpu.core.{i}")) {
@@ -889,12 +896,14 @@ impl App {
                 }
             }
         }
+    }
 
-        // Memory
+    /// Collect memory/swap metrics and update history buffers.
+    fn collect_memory_metrics(&mut self, is_first: bool) {
+        use trueno_viz::monitor::debug::{self, Level};
         if is_first { debug::log(Level::Trace, "collect", "memory..."); }
         if self.memory.is_available() {
             if let Ok(metrics) = self.memory.collect() {
-                // Cache raw values first
                 if let Some(total) = metrics.get_counter("memory.total") {
                     self.mem_total = total;
                 }
@@ -917,53 +926,39 @@ impl App {
                     self.swap_used = swap_used;
                 }
 
-                // Track history for all memory metrics (normalized 0-1 relative to total)
                 if self.mem_total > 0 {
                     let total = self.mem_total as f64;
-
-                    // Used percentage history
                     if let Some(percent) = metrics.get_gauge("memory.used.percent") {
                         Self::push_to_history(&mut self.mem_history, percent / 100.0);
                     }
-
-                    // Available percentage history
-                    let avail_pct = self.mem_available as f64 / total;
-                    Self::push_to_history(&mut self.mem_available_history, avail_pct);
-
-                    // Cached percentage history
-                    let cached_pct = self.mem_cached as f64 / total;
-                    Self::push_to_history(&mut self.mem_cached_history, cached_pct);
-
-                    // Free percentage history
-                    let free_pct = self.mem_free as f64 / total;
-                    Self::push_to_history(&mut self.mem_free_history, free_pct);
+                    Self::push_to_history(&mut self.mem_available_history, self.mem_available as f64 / total);
+                    Self::push_to_history(&mut self.mem_cached_history, self.mem_cached as f64 / total);
+                    Self::push_to_history(&mut self.mem_free_history, self.mem_free as f64 / total);
                 }
 
-                // Swap percentage history
                 if let Some(swap_percent) = metrics.get_gauge("memory.swap.percent") {
                     Self::push_to_history(&mut self.swap_history, swap_percent / 100.0);
                 }
             }
         }
+    }
 
-        // Network
+    /// Collect network rates, totals, and peak tracking.
+    fn collect_network_metrics(&mut self, is_first: bool) {
+        use trueno_viz::monitor::debug::{self, Level};
         if is_first { debug::log(Level::Trace, "collect", "network..."); }
         if self.network.is_available() {
             let _ = self.network.collect();
             if let Some(iface) = self.network.current_interface() {
                 if let Some(rates) = self.network.all_rates().get(iface) {
-                    // Normalize to 0-1 range (assume max 1 GB/s for scaling)
                     let rx_norm = (rates.rx_bytes_per_sec / 1_000_000_000.0).min(1.0);
                     let tx_norm = (rates.tx_bytes_per_sec / 1_000_000_000.0).min(1.0);
                     Self::push_to_history(&mut self.net_rx_history, rx_norm);
                     Self::push_to_history(&mut self.net_tx_history, tx_norm);
 
-                    // Accumulate total bytes (approximate from rates)
-                    // This is reset on app start, but gives session totals
                     self.net_rx_total += rates.rx_bytes_per_sec as u64;
                     self.net_tx_total += rates.tx_bytes_per_sec as u64;
 
-                    // Track peak rates
                     if rates.rx_bytes_per_sec > self.net_rx_peak {
                         self.net_rx_peak = rates.rx_bytes_per_sec;
                         self.net_rx_peak_time = Instant::now();
@@ -975,32 +970,32 @@ impl App {
                 }
             }
         }
+    }
 
-        // Disk
+    /// Collect hardware collectors: disk, process, sensors, battery, GPU.
+    fn collect_hw_collectors(&mut self, is_first: bool) {
+        use trueno_viz::monitor::debug::{self, Level};
+
         if is_first { debug::log(Level::Trace, "collect", "disk..."); }
         if self.disk.is_available() {
             let _ = self.disk.collect();
         }
 
-        // Process
         if is_first { debug::log(Level::Trace, "collect", "process..."); }
         if self.process.is_available() {
             let _ = self.process.collect();
         }
 
-        // Sensors
         if is_first { debug::log(Level::Trace, "collect", "sensors..."); }
         if self.sensors.is_available() {
             let _ = self.sensors.collect();
         }
 
-        // Battery
         if is_first { debug::log(Level::Trace, "collect", "battery..."); }
         if self.battery.is_available() {
             let _ = self.battery.collect();
         }
 
-        // GPU
         if is_first { debug::log(Level::Trace, "collect", "gpu..."); }
         #[cfg(feature = "nvidia")]
         if self.nvidia_gpu.is_available() {
@@ -1016,15 +1011,18 @@ impl App {
         if self.apple_gpu.is_available() {
             let _ = self.apple_gpu.collect();
         }
+    }
 
-        // Advanced analyzers (ttop-improve.md spec)
+    /// Collect advanced analyzers (swap, disk I/O, entropy, storage, connections, etc.).
+    fn collect_analyzers(&mut self, is_first: bool) {
+        use trueno_viz::monitor::debug::{self, Level};
+
         if is_first { debug::log(Level::Trace, "collect", "swap_analyzer..."); }
         self.swap_analyzer.collect();
 
         if is_first { debug::log(Level::Trace, "collect", "disk_io_analyzer..."); }
         self.disk_io_analyzer.collect();
 
-        // Disk entropy analysis (rate-limited internally)
         if is_first { debug::log(Level::Trace, "collect", "disk_entropy..."); }
         let mount_paths: Vec<String> = self.disk.mounts().iter().map(|m| m.mount_point.clone()).collect();
         self.disk_entropy.collect(&mount_paths);
@@ -1047,14 +1045,12 @@ impl App {
         if is_first { debug::log(Level::Trace, "collect", "container_analyzer..."); }
         self.container_analyzer.collect();
 
-        // Linux network stats (protocol counts, errors, latency)
         #[cfg(target_os = "linux")]
         {
             if is_first { debug::log(Level::Trace, "collect", "network_stats..."); }
             self.network_stats.collect();
         }
 
-        // Extended process info (cgroups, FDs, CPU history)
         if is_first { debug::log(Level::Trace, "collect", "process_extra..."); }
         let pids: Vec<u32> = self.process.processes().keys().copied().collect();
         let cpu_percents: std::collections::HashMap<u32, f64> = self.process.processes()
@@ -1063,15 +1059,11 @@ impl App {
             .collect();
         self.process_extra.collect(&pids, &cpu_percents);
 
-        // File analyzer for treemap enhancements (rate-limited internally)
         if is_first { debug::log(Level::Trace, "collect", "file_analyzer..."); }
         self.file_analyzer.collect("/");
 
-        // Sensor health analysis (outliers, drift, staleness)
         if is_first { debug::log(Level::Trace, "collect", "sensor_health..."); }
         let _ = self.sensor_health.collect();
-
-        self.last_collect = Instant::now();
     }
 
     fn push_to_history(history: &mut Vec<f64>, value: f64) {
@@ -1098,6 +1090,33 @@ impl App {
 
     /// Handle keyboard input. Returns true if app should quit.
     pub fn handle_key(&mut self, code: KeyCode, modifiers: KeyModifiers) -> bool {
+        // Modal interceptors (signal confirm, signal menu, filter input)
+        if let Some(handled) = self.handle_modal_key(code) {
+            return handled;
+        }
+
+        // ESC handling: exit explode -> clear focus -> quit
+        if code == KeyCode::Esc {
+            return self.handle_esc_key();
+        }
+
+        // Ctrl+C always quits
+        if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
+            return true;
+        }
+
+        // Panel focus/explode mode navigation
+        if let Some(handled) = self.handle_panel_key(code) {
+            return handled;
+        }
+
+        // Global command dispatch
+        self.handle_command_key(code)
+    }
+
+    /// Handle keys when a modal overlay is active (signal confirm, signal menu, filter).
+    /// Returns `Some(should_quit)` if the modal consumed the key, `None` to fall through.
+    fn handle_modal_key(&mut self, code: KeyCode) -> Option<bool> {
         // Signal confirmation mode (Y/n prompt)
         if self.pending_signal.is_some() {
             match code {
@@ -1109,7 +1128,7 @@ impl App {
                 }
                 _ => {}
             }
-            return false;
+            return Some(false);
         }
 
         // Signal menu mode (pick signal type)
@@ -1144,7 +1163,7 @@ impl App {
                 }
                 _ => {}
             }
-            return false;
+            return Some(false);
         }
 
         // Filter input mode
@@ -1165,90 +1184,86 @@ impl App {
                 }
                 _ => {}
             }
+            return Some(false);
+        }
+
+        None
+    }
+
+    /// Handle ESC: exit explode -> clear focus -> quit.
+    fn handle_esc_key(&mut self) -> bool {
+        if self.exploded_panel.is_some() {
+            self.exploded_panel = None;
             return false;
         }
-
-        // ESC handling: exit explode -> clear focus -> quit
-        if code == KeyCode::Esc {
-            if self.exploded_panel.is_some() {
-                self.exploded_panel = None;
-                return false;
-            }
-            if self.focused_panel.is_some() {
-                self.focused_panel = None;
-                return false;
-            }
-            return true; // Quit
+        if self.focused_panel.is_some() {
+            self.focused_panel = None;
+            return false;
         }
+        true // Quit
+    }
 
-        // Ctrl+C always quits
-        if code == KeyCode::Char('c') && modifiers.contains(KeyModifiers::CONTROL) {
-            return true;
-        }
-
+    /// Handle panel focus/explode navigation keys.
+    /// Returns `Some(should_quit)` if consumed, `None` to fall through.
+    fn handle_panel_key(&mut self, code: KeyCode) -> Option<bool> {
         // EXPLODED MODE: pass most keys through to panel controls
-        // Only handle exit keys (Enter/z/ESC already handled above for ESC)
         if self.exploded_panel.is_some() {
             match code {
-                // Exit explode with Enter or z
                 KeyCode::Enter | KeyCode::Char('z') => {
                     self.exploded_panel = None;
-                    return false;
+                    return Some(false);
                 }
-                // All other keys fall through to normal handling (process nav, sort, etc.)
                 _ => {}
             }
         }
         // FOCUSED MODE (not exploded): arrow/hjkl navigate between panels
         else if self.focused_panel.is_some() {
             match code {
-                // Explode with Enter or z
                 KeyCode::Enter | KeyCode::Char('z') => {
                     if let Some(panel) = self.focused_panel {
                         self.exploded_panel = Some(panel);
                     }
-                    return false;
+                    return Some(false);
                 }
-                // Arrow navigation between panels
                 KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down => {
                     self.navigate_panel_focus(code);
-                    return false;
+                    return Some(false);
                 }
-                // hjkl navigation between panels
                 KeyCode::Char('h') => {
                     self.navigate_panel_focus(KeyCode::Left);
-                    return false;
+                    return Some(false);
                 }
                 KeyCode::Char('l') => {
                     self.navigate_panel_focus(KeyCode::Right);
-                    return false;
+                    return Some(false);
                 }
                 KeyCode::Char('j') => {
                     self.navigate_panel_focus(KeyCode::Down);
-                    return false;
+                    return Some(false);
                 }
                 KeyCode::Char('k') => {
                     self.navigate_panel_focus(KeyCode::Up);
-                    return false;
+                    return Some(false);
                 }
                 _ => {}
             }
         }
-        // NOT FOCUSED: h/l start panel focus, j/k navigate process list
+        // NOT FOCUSED: h/l start panel focus
         else {
             match code {
-                KeyCode::Char('h') => {
+                KeyCode::Char('h') | KeyCode::Char('l') => {
                     self.focused_panel = Some(self.first_visible_panel());
-                    return false;
-                }
-                KeyCode::Char('l') => {
-                    self.focused_panel = Some(self.first_visible_panel());
-                    return false;
+                    return Some(false);
                 }
                 _ => {}
             }
         }
+        None
+    }
 
+    /// Handle global command keys (quit, help, toggles, navigation, sorting, signals).
+    /// Returns true if the app should quit.
+    fn handle_command_key(&mut self, code: KeyCode) -> bool {
         match code {
             // Quit
             KeyCode::Char('q') => return true,
@@ -1256,7 +1271,7 @@ impl App {
             // Help
             KeyCode::Char('?') | KeyCode::F(1) => self.show_help = !self.show_help,
 
-            // Panel toggles (1-8)
+            // Panel toggles (1-9)
             KeyCode::Char('1') => self.panels.cpu = !self.panels.cpu,
             KeyCode::Char('2') => self.panels.memory = !self.panels.memory,
             KeyCode::Char('3') => self.panels.disk = !self.panels.disk,
@@ -1267,7 +1282,7 @@ impl App {
             KeyCode::Char('8') => self.panels.sensors = !self.panels.sensors,
             KeyCode::Char('9') => self.panels.files = !self.panels.files,
 
-            // Files view mode cycle (v = view mode: SIZE -> ENTROPY -> I/O)
+            // Files view mode cycle
             KeyCode::Char('v') => self.files_view_mode = self.files_view_mode.next(),
 
             // Process navigation (when no panel focused, or when exploded)
@@ -1277,7 +1292,6 @@ impl App {
             KeyCode::Up if self.focused_panel.is_none() || self.exploded_panel.is_some() => {
                 self.navigate_process(-1)
             }
-            // j/k for process navigation when exploded
             KeyCode::Char('j') if self.exploded_panel.is_some() => self.navigate_process(1),
             KeyCode::Char('k') if self.exploded_panel.is_some() => self.navigate_process(-1),
             KeyCode::PageDown => self.navigate_process(10),
@@ -1299,14 +1313,11 @@ impl App {
             // Tree view
             KeyCode::Char('t') => self.show_tree = !self.show_tree,
 
-            // Signal menu (kill process) - 'k' key opens signal menu
-            // Quick kill shortcuts (no menu): x=TERM, X=KILL
+            // Quick kill shortcuts: x=TERM, X=KILL
             KeyCode::Char('X') if self.focused_panel.is_none() || self.exploded_panel == Some(PanelType::Process) => {
-                // Quick SIGKILL (uppercase X)
                 self.request_signal(SignalType::Kill);
             }
             KeyCode::Char('x') if self.focused_panel.is_none() => {
-                // Quick SIGTERM (lowercase x)
                 self.request_signal(SignalType::Term);
             }
 

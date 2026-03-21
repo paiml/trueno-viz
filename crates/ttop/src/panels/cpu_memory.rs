@@ -16,7 +16,7 @@ use crate::app::{App, DiskHealth};
 use crate::theme::{self, borders, graph, percent_color, process_state, temp_color};
 
 /// Helper to create a btop-style block with rounded corners
-fn btop_block(title: &str, color: trueno_viz::monitor::ratatui::style::Color) -> Block<'_> {
+pub(crate) fn btop_block(title: &str, color: trueno_viz::monitor::ratatui::style::Color) -> Block<'_> {
     Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -26,13 +26,13 @@ fn btop_block(title: &str, color: trueno_viz::monitor::ratatui::style::Color) ->
 
 /// Truncate a string to fit within max_len, adding "..." if truncated.
 /// Delegates to batuta-common.
-fn truncate_str(s: &str, max_len: usize) -> String {
+pub(crate) fn truncate_str(s: &str, max_len: usize) -> String {
     batuta_common::display::truncate_str(s, max_len)
 }
 
 /// Create a bounds-safe Rect that doesn't exceed parent boundaries
 /// Returns None if the rect would be entirely outside parent bounds
-fn clamp_rect(parent: Rect, x: u16, y: u16, width: u16, height: u16) -> Option<Rect> {
+pub(crate) fn clamp_rect(parent: Rect, x: u16, y: u16, width: u16, height: u16) -> Option<Rect> {
     let max_x = parent.x + parent.width;
     let max_y = parent.y + parent.height;
 

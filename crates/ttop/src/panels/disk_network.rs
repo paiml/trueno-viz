@@ -1,6 +1,16 @@
+use trueno_viz::monitor::ratatui::layout::Rect;
+use trueno_viz::monitor::ratatui::style::{Color, Modifier, Style};
+use trueno_viz::monitor::ratatui::text::{Line, Span};
+use trueno_viz::monitor::ratatui::widgets::Paragraph;
+use trueno_viz::monitor::ratatui::Frame;
+use trueno_viz::monitor::widgets::{Graph, MonitorSparkline};
+
+use crate::app::{App, DiskHealth};
+use crate::theme::{self, borders, graph, percent_color};
+
+use super::cpu_memory::{btop_block, clamp_rect, truncate_str};
+
 pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
-    use trueno_viz::monitor::ratatui::style::Color;
-    use trueno_viz::monitor::ratatui::text::{Line, Span};
     use crate::analyzers::PressureLevel;
 
     let mounts = app.disk.mounts();
@@ -386,9 +396,6 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
 
 /// Draw Network panel - btop style with dual graphs, peaks, and connection stats
 pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
-    use std::time::Instant;
-    use trueno_viz::monitor::ratatui::style::Color;
-
     let iface = app.network.current_interface().unwrap_or("none");
     let (rx_rate, tx_rate) = app
         .network
@@ -397,36 +404,10 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         .map(|r| (r.rx_bytes_per_sec, r.tx_bytes_per_sec))
         .unwrap_or((0.0, 0.0));
 
-    // Detect exploded mode early for title (account for borders)
     let is_exploded = area.width > 82 || area.height > 22;
-    let exploded_info = if is_exploded { " │ ▣ FULL" } else { "" };
-
-    // Connection counts for exploded mode
-    let conn_info = if is_exploded && (app.net_established > 0 || app.net_listening > 0) {
-        format!(" │ Est:{} Lis:{}", app.net_established, app.net_listening)
-    } else {
-        String::new()
-    };
-
-    // Error/drop info for exploded mode
-    let error_info = if is_exploded && (app.net_errors > 0 || app.net_drops > 0) {
-        format!(" │ Err:{} Drop:{}", app.net_errors, app.net_drops)
-    } else {
-        String::new()
-    };
-
-    let title = format!(
-        " Network ({}) │ ↓ {} │ ↑ {}{}{}{} ",
-        iface,
-        theme::format_bytes_rate(rx_rate),
-        theme::format_bytes_rate(tx_rate),
-        conn_info,
-        error_info,
-        exploded_info
-    );
+    let title = net_build_title(app, iface, rx_rate, tx_rate, is_exploded);
 
     let block = btop_block(&title, borders::NETWORK);
-
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -434,18 +415,9 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    // Calculate layout based on available height
-    // - Multi-interface row (1 line) if multiple interfaces
-    // - RX info with sparkline (1 line)
-    // - RX Graph (variable)
-    // - TX info with sparkline (1 line)
-    // - TX Graph (variable)
-    // - Bottom rows: totals/peaks, connection stats, top consumers (up to 3 lines)
-
     let all_rates = app.network.all_rates();
     let interfaces: Vec<_> = all_rates.keys().collect();
     let show_multi_iface = interfaces.len() > 1 && inner.height >= 10;
-    // More rows for expanded stats (protocol, errors, consumers) - lowered thresholds for visibility
     let bottom_row_count = if inner.height >= 10 { 4 } else if inner.height >= 8 { 3 } else if inner.height >= 6 { 2 } else if inner.height >= 4 { 1 } else { 0 };
 
     let info_lines = 2; // RX + TX info rows
@@ -455,171 +427,184 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
 
     let mut y = inner.y;
 
-    // === Multi-Interface Summary Row ===
+    // Multi-interface summary row
     if show_multi_iface {
-        let mut spans = vec![Span::styled("Ifaces ", Style::default().fg(Color::DarkGray))];
-
-        // Show more interfaces in exploded mode - scale with width
-        let max_ifaces = if is_exploded { (inner.width as usize / 15).max(6).min(12) } else { 4 };
-        let name_len = if is_exploded { (inner.width as usize / 12).max(10).min(20) } else { 8 };
-
-        for (i, iface_name) in interfaces.iter().take(max_ifaces).enumerate() {
-            if let Some(rates) = all_rates.get(*iface_name) {
-                let total_rate = rates.rx_bytes_per_sec + rates.tx_bytes_per_sec;
-                // Mini activity indicator (0-8 scale based on rate)
-                let activity = if total_rate > 100_000_000.0 {
-                    "▇"
-                } else if total_rate > 10_000_000.0 {
-                    "▅"
-                } else if total_rate > 1_000_000.0 {
-                    "▃"
-                } else if total_rate > 100_000.0 {
-                    "▂"
-                } else if total_rate > 1000.0 {
-                    "▁"
-                } else {
-                    "░"
-                };
-
-                let is_current = Some(iface_name.as_str()) == app.network.current_interface();
-                let name_color = if is_current { Color::Cyan } else { Color::White };
-
-                if i > 0 {
-                    spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
-                }
-
-                // Truncate interface name
-                let short_name: String = iface_name.chars().take(name_len).collect();
-                spans.push(Span::styled(short_name, Style::default().fg(name_color)));
-                // In exploded mode, show rate next to activity indicator
-                if is_exploded {
-                    spans.push(Span::styled(
-                        format!(" {}", theme::format_bytes_rate(total_rate)),
-                        Style::default().fg(Color::DarkGray)
-                    ));
-                }
-                spans.push(Span::styled(activity, Style::default().fg(graph::NETWORK_RX)));
-            }
-        }
-
-        f.render_widget(
-            Paragraph::new(Line::from(spans)),
-            Rect { x: inner.x, y, width: inner.width, height: 1 },
-        );
+        net_draw_multi_iface(f, app, &inner, is_exploded, &interfaces, &all_rates, y);
         y += 1;
     }
 
-    // === RX info line with rate and sparkline ===
-    {
-        let label_width = 16u16.min(inner.width);
-        let sparkline_width = inner.width.saturating_sub(label_width);
+    // RX info + sparkline
+    net_draw_rate_line(f, app, &inner, y, rx_rate, true);
+    y += 1;
 
-        let rx_label = Line::from(vec![
-            Span::styled("↓ Download ", Style::default().fg(graph::NETWORK_RX)),
-            Span::styled(
-                theme::format_bytes_rate(rx_rate),
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-            ),
-        ]);
-        if let Some(label_rect) = clamp_rect(inner, inner.x, y, label_width, 1) {
-            f.render_widget(Paragraph::new(rx_label), label_rect);
-        }
-
-        if sparkline_width > 2 && !app.net_rx_history.is_empty() {
-            if let Some(spark_rect) = clamp_rect(inner, inner.x + label_width, y, sparkline_width, 1) {
-                let sparkline = MonitorSparkline::new(&app.net_rx_history)
-                    .color(graph::NETWORK_RX)
-                    .show_trend(true);
-                f.render_widget(sparkline, spark_rect);
-            }
-        }
-        y += 1;
-    }
-
-    // === Download graph ===
+    // Download graph
     if half_height > 0 {
         let rx_area = Rect { x: inner.x, y, width: inner.width, height: half_height };
-        let rx_data: Vec<f64> = if app.net_rx_history.is_empty() {
-            vec![0.0]
-        } else {
-            app.net_rx_history.clone()
-        };
-        let rx_graph = Graph::new(&rx_data).color(graph::NETWORK_RX);
-        f.render_widget(rx_graph, rx_area);
+        let rx_data: Vec<f64> = if app.net_rx_history.is_empty() { vec![0.0] } else { app.net_rx_history.clone() };
+        f.render_widget(Graph::new(&rx_data).color(graph::NETWORK_RX), rx_area);
         y += half_height;
     }
 
-    // === TX info line with rate and sparkline ===
-    {
-        let label_width = 16u16.min(inner.width);
-        let sparkline_width = inner.width.saturating_sub(label_width);
+    // TX info + sparkline
+    net_draw_rate_line(f, app, &inner, y, tx_rate, false);
+    y += 1;
 
-        let tx_label = Line::from(vec![
-            Span::styled("↑ Upload   ", Style::default().fg(graph::NETWORK_TX)),
-            Span::styled(
-                theme::format_bytes_rate(tx_rate),
-                Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
-            ),
-        ]);
-        if let Some(label_rect) = clamp_rect(inner, inner.x, y, label_width, 1) {
-            f.render_widget(Paragraph::new(tx_label), label_rect);
-        }
-
-        if sparkline_width > 2 && !app.net_tx_history.is_empty() {
-            if let Some(spark_rect) = clamp_rect(inner, inner.x + label_width, y, sparkline_width, 1) {
-                let sparkline = MonitorSparkline::new(&app.net_tx_history)
-                    .color(graph::NETWORK_TX)
-                    .show_trend(true);
-                f.render_widget(sparkline, spark_rect);
-            }
-        }
-        y += 1;
-    }
-
-    // === Upload graph (inverted) ===
-    let remaining_for_graph = (inner.y + inner.height)
-        .saturating_sub(y)
-        .saturating_sub(bottom_row_count as u16);
-
+    // Upload graph (inverted)
+    let remaining_for_graph = (inner.y + inner.height).saturating_sub(y).saturating_sub(bottom_row_count as u16);
     if remaining_for_graph > 0 {
         let tx_area = Rect { x: inner.x, y, width: inner.width, height: remaining_for_graph };
-        let tx_data: Vec<f64> = if app.net_tx_history.is_empty() {
-            vec![0.0]
-        } else {
-            app.net_tx_history.clone()
-        };
-        let tx_graph = Graph::new(&tx_data).color(graph::NETWORK_TX).inverted(true);
-        f.render_widget(tx_graph, tx_area);
+        let tx_data: Vec<f64> = if app.net_tx_history.is_empty() { vec![0.0] } else { app.net_tx_history.clone() };
+        f.render_widget(Graph::new(&tx_data).color(graph::NETWORK_TX).inverted(true), tx_area);
         y += remaining_for_graph;
     }
 
-    // === Bottom Row 1: Session totals + Peak rates ===
+    // Bottom stats rows
+    y = net_draw_bottom_stats(f, app, &inner, y, bottom_row_count);
+
+    // Connection list (fills remaining space)
+    net_draw_connection_list(f, app, &inner, y);
+}
+
+/// Build the network panel title string.
+fn net_build_title(app: &App, iface: &str, rx_rate: f64, tx_rate: f64, is_exploded: bool) -> String {
+    let exploded_info = if is_exploded { " │ ▣ FULL" } else { "" };
+    let conn_info = if is_exploded && (app.net_established > 0 || app.net_listening > 0) {
+        format!(" │ Est:{} Lis:{}", app.net_established, app.net_listening)
+    } else {
+        String::new()
+    };
+    let error_info = if is_exploded && (app.net_errors > 0 || app.net_drops > 0) {
+        format!(" │ Err:{} Drop:{}", app.net_errors, app.net_drops)
+    } else {
+        String::new()
+    };
+    format!(
+        " Network ({}) │ ↓ {} │ ↑ {}{}{}{} ",
+        iface,
+        theme::format_bytes_rate(rx_rate),
+        theme::format_bytes_rate(tx_rate),
+        conn_info,
+        error_info,
+        exploded_info
+    )
+}
+
+/// Draw the multi-interface summary row showing activity indicators.
+fn net_draw_multi_iface(
+    f: &mut Frame,
+    app: &App,
+    inner: &Rect,
+    is_exploded: bool,
+    interfaces: &[&String],
+    all_rates: &std::collections::HashMap<String, trueno_viz::monitor::collectors::network::NetRates>,
+    y: u16,
+) {
+
+    let max_ifaces = if is_exploded { (inner.width as usize / 15).max(6).min(12) } else { 4 };
+    let name_len = if is_exploded { (inner.width as usize / 12).max(10).min(20) } else { 8 };
+
+    let mut spans = vec![Span::styled("Ifaces ", Style::default().fg(Color::DarkGray))];
+
+    for (i, iface_name) in interfaces.iter().take(max_ifaces).enumerate() {
+        if let Some(rates) = all_rates.get(*iface_name) {
+            let total_rate = rates.rx_bytes_per_sec + rates.tx_bytes_per_sec;
+            let activity = net_activity_indicator(total_rate);
+
+            let is_current = Some(iface_name.as_str()) == app.network.current_interface();
+            let name_color = if is_current { Color::Cyan } else { Color::White };
+
+            if i > 0 {
+                spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+            }
+
+            let short_name: String = iface_name.chars().take(name_len).collect();
+            spans.push(Span::styled(short_name, Style::default().fg(name_color)));
+            if is_exploded {
+                spans.push(Span::styled(
+                    format!(" {}", theme::format_bytes_rate(total_rate)),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+            spans.push(Span::styled(activity, Style::default().fg(graph::NETWORK_RX)));
+        }
+    }
+
+    f.render_widget(
+        Paragraph::new(Line::from(spans)),
+        Rect { x: inner.x, y, width: inner.width, height: 1 },
+    );
+}
+
+/// Map a network rate to a block-character activity indicator.
+fn net_activity_indicator(total_rate: f64) -> &'static str {
+    if total_rate > 100_000_000.0 {
+        "▇"
+    } else if total_rate > 10_000_000.0 {
+        "▅"
+    } else if total_rate > 1_000_000.0 {
+        "▃"
+    } else if total_rate > 100_000.0 {
+        "▂"
+    } else if total_rate > 1000.0 {
+        "▁"
+    } else {
+        "░"
+    }
+}
+
+/// Draw an RX or TX rate label with inline sparkline.
+fn net_draw_rate_line(f: &mut Frame, app: &App, inner: &Rect, y: u16, rate: f64, is_rx: bool) {
+
+    let label_width = 16u16.min(inner.width);
+    let sparkline_width = inner.width.saturating_sub(label_width);
+
+    let (arrow, direction, color, history) = if is_rx {
+        ("↓", "Download ", graph::NETWORK_RX, &app.net_rx_history)
+    } else {
+        ("↑", "Upload   ", graph::NETWORK_TX, &app.net_tx_history)
+    };
+
+    let label = Line::from(vec![
+        Span::styled(format!("{} {}", arrow, direction), Style::default().fg(color)),
+        Span::styled(
+            theme::format_bytes_rate(rate),
+            Style::default().fg(Color::White).add_modifier(Modifier::BOLD),
+        ),
+    ]);
+    if let Some(label_rect) = clamp_rect(*inner, inner.x, y, label_width, 1) {
+        f.render_widget(Paragraph::new(label), label_rect);
+    }
+
+    if sparkline_width > 2 && !history.is_empty() {
+        if let Some(spark_rect) = clamp_rect(*inner, inner.x + label_width, y, sparkline_width, 1) {
+            let sparkline = MonitorSparkline::new(history)
+                .color(color)
+                .show_trend(true);
+            f.render_widget(sparkline, spark_rect);
+        }
+    }
+}
+
+/// Draw the bottom stats rows (session totals, protocol stats, errors, top consumers).
+/// Returns the updated y position.
+fn net_draw_bottom_stats(f: &mut Frame, app: &App, inner: &Rect, mut y: u16, bottom_row_count: usize) -> u16 {
+    use std::time::Instant;
+
+    // Row 1: Session totals + Peak rates
     if bottom_row_count >= 1 && y < inner.y + inner.height {
-        // Format peak time as "Xm ago" or "Xs ago"
         let format_ago = |instant: Instant| -> String {
             let secs = instant.elapsed().as_secs();
-            if secs >= 60 {
-                format!("{}m", secs / 60)
-            } else {
-                format!("{}s", secs)
-            }
+            if secs >= 60 { format!("{}m", secs / 60) } else { format!("{}s", secs) }
         };
 
         let mut spans = vec![
             Span::styled("Session ", Style::default().fg(Color::DarkGray)),
             Span::styled("↓", Style::default().fg(graph::NETWORK_RX)),
-            Span::styled(
-                theme::format_bytes(app.net_rx_total),
-                Style::default().fg(Color::White),
-            ),
+            Span::styled(theme::format_bytes(app.net_rx_total), Style::default().fg(Color::White)),
             Span::styled(" ↑", Style::default().fg(graph::NETWORK_TX)),
-            Span::styled(
-                theme::format_bytes(app.net_tx_total),
-                Style::default().fg(Color::White),
-            ),
+            Span::styled(theme::format_bytes(app.net_tx_total), Style::default().fg(Color::White)),
         ];
 
-        // Add peak rates if we have them
         if app.net_rx_peak > 0.0 || app.net_tx_peak > 0.0 {
             spans.push(Span::styled(" │ Peak ", Style::default().fg(Color::DarkGray)));
             spans.push(Span::styled("↓", Style::default().fg(graph::NETWORK_RX)));
@@ -641,272 +626,283 @@ pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
         y += 1;
     }
 
-    // === Bottom Row 2: Protocol Stats (TCP/UDP/ICMP) with Errors/Latency ===
+    // Row 2: Protocol stats (platform-specific)
     #[cfg(target_os = "linux")]
     if bottom_row_count >= 2 && y < inner.y + inner.height {
-        let stats = &app.network_stats;
-        let proto = &stats.protocol_stats;
-
-        // Protocol counts
-        let mut spans = vec![
-            Span::styled("TCP ", Style::default().fg(Color::Cyan)),
-            Span::styled(format!("{}", proto.tcp_established), Style::default().fg(Color::Green)),
-            Span::styled("/", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", proto.tcp_listen), Style::default().fg(Color::Cyan)),
-        ];
-
-        // Show problematic states if any
-        let problem_states = proto.tcp_time_wait + proto.tcp_close_wait;
-        if problem_states > 0 {
-            spans.push(Span::styled(
-                format!(" ({}tw)", proto.tcp_time_wait + proto.tcp_close_wait),
-                Style::default().fg(Color::Yellow),
-            ));
-        }
-
-        spans.push(Span::styled(" UDP ", Style::default().fg(Color::Magenta)));
-        spans.push(Span::styled(format!("{}", proto.udp_sockets), Style::default().fg(Color::White)));
-
-        if proto.icmp_sockets > 0 {
-            spans.push(Span::styled(" ICMP ", Style::default().fg(Color::Blue)));
-            spans.push(Span::styled(format!("{}", proto.icmp_sockets), Style::default().fg(Color::White)));
-        }
-
-        // Latency gauge
-        spans.push(Span::styled(" │ RTT ", Style::default().fg(Color::DarkGray)));
-        let gauge = stats.latency_gauge();
-        let gauge_color = if stats.tcp_perf.rtt_ms < 25.0 { Color::Green } else if stats.tcp_perf.rtt_ms < 50.0 { Color::Yellow } else { Color::Red };
-        spans.push(Span::styled(gauge, Style::default().fg(gauge_color)));
-
-        // Retransmission rate if significant
-        if stats.tcp_perf.retrans_rate > 0.001 {
-            spans.push(Span::styled(
-                format!(" {:.1}%re", stats.tcp_perf.retrans_rate * 100.0),
-                Style::default().fg(Color::Yellow),
-            ));
-        }
-
-        f.render_widget(
-            Paragraph::new(Line::from(spans)),
-            Rect { x: inner.x, y, width: inner.width, height: 1 },
-        );
-        y += 1;
+        y = net_draw_protocol_stats_linux(f, app, inner, y);
     }
 
-    // Fallback for non-Linux: use connection analyzer
     #[cfg(not(target_os = "linux"))]
     if bottom_row_count >= 2 && y < inner.y + inner.height {
-        use crate::analyzers::ConnState;
-
-        let conns = app.connection_analyzer.connections();
-        let established = conns.iter().filter(|c| c.state == ConnState::Established).count();
-        let listen = conns.iter().filter(|c| c.state == ConnState::Listen).count();
-        let time_wait = conns.iter().filter(|c| c.state == ConnState::TimeWait).count();
-        let close_wait = conns.iter().filter(|c| c.state == ConnState::CloseWait).count();
-
-        let conn_line = Line::from(vec![
-            Span::styled("Conn ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", established), Style::default().fg(Color::Green)),
-            Span::styled(" estab ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", listen), Style::default().fg(Color::Cyan)),
-            Span::styled(" listen", Style::default().fg(Color::DarkGray)),
-            if time_wait > 0 || close_wait > 0 {
-                Span::styled(
-                    format!(" │ {} tw {} cw", time_wait, close_wait),
-                    Style::default().fg(Color::Yellow),
-                )
-            } else {
-                Span::raw("")
-            },
-        ]);
-
-        f.render_widget(
-            Paragraph::new(conn_line),
-            Rect { x: inner.x, y, width: inner.width, height: 1 },
-        );
-        y += 1;
+        y = net_draw_protocol_stats_fallback(f, app, inner, y);
     }
 
-    // === Bottom Row 3: Interface Errors (Linux) ===
+    // Row 3: Interface errors (Linux only)
     #[cfg(target_os = "linux")]
     if bottom_row_count >= 3 && y < inner.y + inner.height {
-        let stats = &app.network_stats;
-        let (rx_errs, tx_errs) = stats.total_errors();
-        let (rx_delta, tx_delta) = stats.total_error_deltas();
+        y = net_draw_error_stats(f, app, inner, y);
+    }
 
-        let mut spans = vec![
-            Span::styled("Errs ", Style::default().fg(Color::DarkGray)),
-        ];
+    // Row 4: Top network consumers
+    if bottom_row_count >= 4 && y < inner.y + inner.height {
+        y = net_draw_top_consumers(f, app, inner, y);
+    }
 
-        // RX errors with delta
-        let rx_color = if rx_delta > 0 { Color::Red } else if rx_errs > 0 { Color::Yellow } else { Color::Green };
-        spans.push(Span::styled("↓", Style::default().fg(graph::NETWORK_RX)));
-        spans.push(Span::styled(format!("{}", rx_errs), Style::default().fg(rx_color)));
-        if rx_delta > 0 {
-            spans.push(Span::styled(format!(" (+{})", rx_delta), Style::default().fg(Color::Red)));
-        }
+    y
+}
 
-        // TX errors with delta
-        spans.push(Span::styled(" ↑", Style::default().fg(graph::NETWORK_TX)));
-        let tx_color = if tx_delta > 0 { Color::Red } else if tx_errs > 0 { Color::Yellow } else { Color::Green };
-        spans.push(Span::styled(format!("{}", tx_errs), Style::default().fg(tx_color)));
-        if tx_delta > 0 {
-            spans.push(Span::styled(format!(" (+{})", tx_delta), Style::default().fg(Color::Red)));
-        }
+/// Draw Linux protocol stats row (TCP/UDP/ICMP with latency).
+#[cfg(target_os = "linux")]
+fn net_draw_protocol_stats_linux(f: &mut Frame, app: &App, inner: &Rect, y: u16) -> u16 {
 
-        // Queue stats if there's backlog
-        let queues = &stats.queue_stats;
-        if queues.total_rx_queue > 0 || queues.total_tx_queue > 0 {
-            spans.push(Span::styled(" │ Q ", Style::default().fg(Color::DarkGray)));
-            spans.push(Span::styled(
-                format!("rx:{} tx:{}",
-                    theme::format_bytes(queues.total_rx_queue),
-                    theme::format_bytes(queues.total_tx_queue)),
+    let stats = &app.network_stats;
+    let proto = &stats.protocol_stats;
+
+    let mut spans = vec![
+        Span::styled("TCP ", Style::default().fg(Color::Cyan)),
+        Span::styled(format!("{}", proto.tcp_established), Style::default().fg(Color::Green)),
+        Span::styled("/", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{}", proto.tcp_listen), Style::default().fg(Color::Cyan)),
+    ];
+
+    let problem_states = proto.tcp_time_wait + proto.tcp_close_wait;
+    if problem_states > 0 {
+        spans.push(Span::styled(
+            format!(" ({}tw)", proto.tcp_time_wait + proto.tcp_close_wait),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+
+    spans.push(Span::styled(" UDP ", Style::default().fg(Color::Magenta)));
+    spans.push(Span::styled(format!("{}", proto.udp_sockets), Style::default().fg(Color::White)));
+
+    if proto.icmp_sockets > 0 {
+        spans.push(Span::styled(" ICMP ", Style::default().fg(Color::Blue)));
+        spans.push(Span::styled(format!("{}", proto.icmp_sockets), Style::default().fg(Color::White)));
+    }
+
+    spans.push(Span::styled(" │ RTT ", Style::default().fg(Color::DarkGray)));
+    let gauge = stats.latency_gauge();
+    let gauge_color = if stats.tcp_perf.rtt_ms < 25.0 { Color::Green } else if stats.tcp_perf.rtt_ms < 50.0 { Color::Yellow } else { Color::Red };
+    spans.push(Span::styled(gauge, Style::default().fg(gauge_color)));
+
+    if stats.tcp_perf.retrans_rate > 0.001 {
+        spans.push(Span::styled(
+            format!(" {:.1}%re", stats.tcp_perf.retrans_rate * 100.0),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+
+    f.render_widget(
+        Paragraph::new(Line::from(spans)),
+        Rect { x: inner.x, y, width: inner.width, height: 1 },
+    );
+    y + 1
+}
+
+/// Draw non-Linux connection stats fallback row.
+#[cfg(not(target_os = "linux"))]
+fn net_draw_protocol_stats_fallback(f: &mut Frame, app: &App, inner: &Rect, y: u16) -> u16 {
+    use crate::analyzers::ConnState;
+
+    let conns = app.connection_analyzer.connections();
+    let established = conns.iter().filter(|c| c.state == ConnState::Established).count();
+    let listen = conns.iter().filter(|c| c.state == ConnState::Listen).count();
+    let time_wait = conns.iter().filter(|c| c.state == ConnState::TimeWait).count();
+    let close_wait = conns.iter().filter(|c| c.state == ConnState::CloseWait).count();
+
+    let conn_line = Line::from(vec![
+        Span::styled("Conn ", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{}", established), Style::default().fg(Color::Green)),
+        Span::styled(" estab ", Style::default().fg(Color::DarkGray)),
+        Span::styled(format!("{}", listen), Style::default().fg(Color::Cyan)),
+        Span::styled(" listen", Style::default().fg(Color::DarkGray)),
+        if time_wait > 0 || close_wait > 0 {
+            Span::styled(
+                format!(" │ {} tw {} cw", time_wait, close_wait),
                 Style::default().fg(Color::Yellow),
-            ));
-        }
+            )
+        } else {
+            Span::raw("")
+        },
+    ]);
 
-        // SYN backlog pressure warning
-        if queues.syn_backlog_pressure {
-            spans.push(Span::styled(" SYN!", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
-        }
+    f.render_widget(
+        Paragraph::new(conn_line),
+        Rect { x: inner.x, y, width: inner.width, height: 1 },
+    );
+    y + 1
+}
 
+/// Draw Linux interface error/queue stats row.
+#[cfg(target_os = "linux")]
+fn net_draw_error_stats(f: &mut Frame, app: &App, inner: &Rect, y: u16) -> u16 {
+
+    let stats = &app.network_stats;
+    let (rx_errs, tx_errs) = stats.total_errors();
+    let (rx_delta, tx_delta) = stats.total_error_deltas();
+
+    let mut spans = vec![Span::styled("Errs ", Style::default().fg(Color::DarkGray))];
+
+    let rx_color = if rx_delta > 0 { Color::Red } else if rx_errs > 0 { Color::Yellow } else { Color::Green };
+    spans.push(Span::styled("↓", Style::default().fg(graph::NETWORK_RX)));
+    spans.push(Span::styled(format!("{}", rx_errs), Style::default().fg(rx_color)));
+    if rx_delta > 0 {
+        spans.push(Span::styled(format!(" (+{})", rx_delta), Style::default().fg(Color::Red)));
+    }
+
+    spans.push(Span::styled(" ↑", Style::default().fg(graph::NETWORK_TX)));
+    let tx_color = if tx_delta > 0 { Color::Red } else if tx_errs > 0 { Color::Yellow } else { Color::Green };
+    spans.push(Span::styled(format!("{}", tx_errs), Style::default().fg(tx_color)));
+    if tx_delta > 0 {
+        spans.push(Span::styled(format!(" (+{})", tx_delta), Style::default().fg(Color::Red)));
+    }
+
+    let queues = &stats.queue_stats;
+    if queues.total_rx_queue > 0 || queues.total_tx_queue > 0 {
+        spans.push(Span::styled(" │ Q ", Style::default().fg(Color::DarkGray)));
+        spans.push(Span::styled(
+            format!("rx:{} tx:{}",
+                theme::format_bytes(queues.total_rx_queue),
+                theme::format_bytes(queues.total_tx_queue)),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+
+    if queues.syn_backlog_pressure {
+        spans.push(Span::styled(" SYN!", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+    }
+
+    f.render_widget(
+        Paragraph::new(Line::from(spans)),
+        Rect { x: inner.x, y, width: inner.width, height: 1 },
+    );
+    y + 1
+}
+
+/// Draw the top network consumers row.
+fn net_draw_top_consumers(f: &mut Frame, app: &App, inner: &Rect, y: u16) -> u16 {
+
+    let conns = app.connection_analyzer.connections();
+    let mut proc_conn_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+    for conn in conns.iter() {
+        if let Some((_, name)) = app.connection_analyzer.process_for_connection(conn) {
+            *proc_conn_counts.entry(name.to_string()).or_insert(0) += 1;
+        }
+    }
+
+    let mut sorted_procs: Vec<_> = proc_conn_counts.iter().collect();
+    sorted_procs.sort_by(|a, b| b.1.cmp(a.1));
+
+    let mut spans = vec![Span::styled("Top ", Style::default().fg(Color::DarkGray))];
+
+    for (i, (name, count)) in sorted_procs.iter().take(3).enumerate() {
+        if i > 0 {
+            spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
+        }
+        spans.push(Span::styled(format!("{}", count), Style::default().fg(Color::Yellow)));
+        spans.push(Span::styled(format!(" {}", truncate_str(name, 10)), Style::default().fg(Color::White)));
+    }
+
+    if !sorted_procs.is_empty() {
         f.render_widget(
             Paragraph::new(Line::from(spans)),
             Rect { x: inner.x, y, width: inner.width, height: 1 },
         );
-        y += 1;
+        return y + 1;
     }
+    y
+}
 
-    // === Bottom Row 4: Top Network Consumers ===
-    if bottom_row_count >= 4 && y < inner.y + inner.height {
-        // Get processes sorted by network activity (we'll use connections as proxy)
-        let conns = app.connection_analyzer.connections();
-        let mut proc_conn_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-
-        for conn in conns.iter() {
-            if let Some((_, name)) = app.connection_analyzer.process_for_connection(conn) {
-                *proc_conn_counts.entry(name.to_string()).or_insert(0) += 1;
-            }
-        }
-
-        let mut sorted_procs: Vec<_> = proc_conn_counts.iter().collect();
-        sorted_procs.sort_by(|a, b| b.1.cmp(a.1));
-
-        let mut spans = vec![Span::styled("Top ", Style::default().fg(Color::DarkGray))];
-
-        for (i, (name, count)) in sorted_procs.iter().take(3).enumerate() {
-            if i > 0 {
-                spans.push(Span::styled(" │ ", Style::default().fg(Color::DarkGray)));
-            }
-            spans.push(Span::styled(
-                format!("{}", count),
-                Style::default().fg(Color::Yellow),
-            ));
-            spans.push(Span::styled(
-                format!(" {}", truncate_str(name, 10)),
-                Style::default().fg(Color::White),
-            ));
-        }
-
-        if !sorted_procs.is_empty() {
-            f.render_widget(
-                Paragraph::new(Line::from(spans)),
-                Rect { x: inner.x, y, width: inner.width, height: 1 },
-            );
-            y += 1;
-        }
-    }
-
-    // === Expand to fill remaining height with connection list ===
+/// Draw the expandable active connections list.
+fn net_draw_connection_list(f: &mut Frame, app: &App, inner: &Rect, mut y: u16) {
     use crate::analyzers::connections::{ConnState, Protocol};
 
     let remaining_height = (inner.y + inner.height).saturating_sub(y) as usize;
-    if remaining_height > 1 {
-        let conns = app.connection_analyzer.connections();
+    if remaining_height <= 1 {
+        return;
+    }
+
+    let conns = app.connection_analyzer.connections();
+
+    f.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled("── Active Connections ", Style::default().fg(Color::DarkGray)),
+            Span::styled("─".repeat((inner.width as usize).saturating_sub(22)), Style::default().fg(Color::DarkGray)),
+        ])),
+        Rect { x: inner.x, y, width: inner.width, height: 1 },
+    );
+    y += 1;
+
+    let mut sorted_conns: Vec<_> = conns.iter().collect();
+    sorted_conns.sort_by(|a, b| {
+        let a_est = a.state == ConnState::Established;
+        let b_est = b.state == ConnState::Established;
+        match (b_est, a_est) {
+            (true, false) => std::cmp::Ordering::Greater,
+            (false, true) => std::cmp::Ordering::Less,
+            _ => a.remote_port.cmp(&b.remote_port),
+        }
+    });
+
+    let conns_to_show = (remaining_height - 1).min(sorted_conns.len());
+    for conn in sorted_conns.iter().take(conns_to_show) {
+        if y >= inner.y + inner.height {
+            break;
+        }
+
+        let state_color = match conn.state {
+            ConnState::Established => Color::Green,
+            ConnState::Listen => Color::Cyan,
+            ConnState::TimeWait | ConnState::CloseWait => Color::Yellow,
+            ConnState::SynSent | ConnState::SynRecv => Color::Magenta,
+            _ => Color::DarkGray,
+        };
+
+        let state_str = match conn.state {
+            ConnState::Established => "ESTABLISHED",
+            ConnState::Listen => "LISTEN",
+            ConnState::TimeWait => "TIME_WAIT",
+            ConnState::CloseWait => "CLOSE_WAIT",
+            ConnState::SynSent => "SYN_SENT",
+            ConnState::SynRecv => "SYN_RECV",
+            ConnState::FinWait1 => "FIN_WAIT1",
+            ConnState::FinWait2 => "FIN_WAIT2",
+            ConnState::Closing => "CLOSING",
+            ConnState::LastAck => "LAST_ACK",
+            ConnState::Close => "CLOSE",
+            ConnState::Unknown => "UNKNOWN",
+        };
+
+        let proto_str = match conn.protocol {
+            Protocol::Tcp => "TCP",
+            Protocol::Udp => "UDP",
+        };
+
+        let proc_info = app.connection_analyzer.process_for_connection(conn)
+            .map(|(pid, name)| format!("{} ({})", truncate_str(name, 12), pid))
+            .unwrap_or_else(|| "-".to_string());
+
+        let remote_addr = conn.remote_addr();
+        let remote_str = if remote_addr.is_empty() || remote_addr == "*" {
+            format!("*:{}", conn.local_port)
+        } else {
+            format!("{}:{}", truncate_str(&remote_addr, 15), conn.remote_port)
+        };
+
+        let line = Line::from(vec![
+            Span::styled(format!("{:>5} ", conn.local_port), Style::default().fg(Color::Cyan)),
+            Span::styled(format!("{:<4} ", proto_str), Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:<11} ", state_str), Style::default().fg(state_color)),
+            Span::styled(format!("{:<22} ", remote_str), Style::default().fg(Color::White)),
+            Span::styled(proc_info, Style::default().fg(Color::Magenta)),
+        ]);
 
         f.render_widget(
-            Paragraph::new(Line::from(vec![
-                Span::styled("── Active Connections ", Style::default().fg(Color::DarkGray)),
-                Span::styled("─".repeat((inner.width as usize).saturating_sub(22)), Style::default().fg(Color::DarkGray)),
-            ])),
+            Paragraph::new(line),
             Rect { x: inner.x, y, width: inner.width, height: 1 },
         );
         y += 1;
-
-        // Sort connections: ESTABLISHED first, then by remote port
-        let mut sorted_conns: Vec<_> = conns.iter().collect();
-        sorted_conns.sort_by(|a, b| {
-            // ESTABLISHED connections first
-            let a_est = a.state == ConnState::Established;
-            let b_est = b.state == ConnState::Established;
-            match (b_est, a_est) {
-                (true, false) => std::cmp::Ordering::Greater,
-                (false, true) => std::cmp::Ordering::Less,
-                _ => a.remote_port.cmp(&b.remote_port),
-            }
-        });
-
-        let conns_to_show = (remaining_height - 1).min(sorted_conns.len());
-        for conn in sorted_conns.iter().take(conns_to_show) {
-            if y >= inner.y + inner.height {
-                break;
-            }
-
-            let state_color = match conn.state {
-                ConnState::Established => Color::Green,
-                ConnState::Listen => Color::Cyan,
-                ConnState::TimeWait | ConnState::CloseWait => Color::Yellow,
-                ConnState::SynSent | ConnState::SynRecv => Color::Magenta,
-                _ => Color::DarkGray,
-            };
-
-            let state_str = match conn.state {
-                ConnState::Established => "ESTABLISHED",
-                ConnState::Listen => "LISTEN",
-                ConnState::TimeWait => "TIME_WAIT",
-                ConnState::CloseWait => "CLOSE_WAIT",
-                ConnState::SynSent => "SYN_SENT",
-                ConnState::SynRecv => "SYN_RECV",
-                ConnState::FinWait1 => "FIN_WAIT1",
-                ConnState::FinWait2 => "FIN_WAIT2",
-                ConnState::Closing => "CLOSING",
-                ConnState::LastAck => "LAST_ACK",
-                ConnState::Close => "CLOSE",
-                ConnState::Unknown => "UNKNOWN",
-            };
-
-            let proto_str = match conn.protocol {
-                Protocol::Tcp => "TCP",
-                Protocol::Udp => "UDP",
-            };
-
-            let proc_info = app.connection_analyzer.process_for_connection(conn)
-                .map(|(pid, name)| format!("{} ({})", truncate_str(name, 12), pid))
-                .unwrap_or_else(|| "-".to_string());
-
-            let remote_addr = conn.remote_addr();
-            let remote_str = if remote_addr.is_empty() || remote_addr == "*" {
-                format!("*:{}", conn.local_port)
-            } else {
-                format!("{}:{}", truncate_str(&remote_addr, 15), conn.remote_port)
-            };
-
-            let line = Line::from(vec![
-                Span::styled(format!("{:>5} ", conn.local_port), Style::default().fg(Color::Cyan)),
-                Span::styled(format!("{:<4} ", proto_str), Style::default().fg(Color::DarkGray)),
-                Span::styled(format!("{:<11} ", state_str), Style::default().fg(state_color)),
-                Span::styled(format!("{:<22} ", remote_str), Style::default().fg(Color::White)),
-                Span::styled(proc_info, Style::default().fg(Color::Magenta)),
-            ]);
-
-            f.render_widget(
-                Paragraph::new(line),
-                Rect { x: inner.x, y, width: inner.width, height: 1 },
-            );
-            y += 1;
-        }
     }
 }
-
-/// Draw GPU panel - enhanced with sparklines, thermal gauges, and process info
