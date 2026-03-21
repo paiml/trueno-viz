@@ -256,6 +256,10 @@ Contributions are welcome! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) gui
 
 Minimum Supported Rust Version: **1.75**
 
+## See Also
+
+- [Cookbook](https://github.com/paiml/sovereign-ai-cookbook)
+
 ## License
 
 MIT OR Apache-2.0
