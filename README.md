@@ -29,7 +29,7 @@
 
 ---
 
-## Highlights
+## Features
 
 - **5.6x SIMD Speedup** - Real platform intrinsics (SSE2/AVX2/NEON)
 - **8ms Frame Time** - 2X faster than btop's 16ms target
