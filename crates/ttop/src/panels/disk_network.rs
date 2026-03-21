@@ -10,28 +10,260 @@ use crate::theme::{self, borders, graph, percent_color};
 
 use super::cpu_memory::{btop_block, clamp_rect, truncate_str};
 
-pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
-    use crate::analyzers::PressureLevel;
+/// Draw the latency gauge bar at the top of the disk panel.
+/// Returns the next y position after rendering.
+fn disk_draw_usage_bars(f: &mut Frame, app: &App, inner: Rect, y: u16) -> u16 {
+    if let Some(device) = app.disk_io_analyzer.primary_device() {
+        let latency = app.disk_io_analyzer.estimated_latency_ms(&device);
 
+        let latency_color = if latency < 5.0 {
+            Color::Green
+        } else if latency < 20.0 {
+            Color::Yellow
+        } else {
+            Color::Red
+        };
+
+        let latency_pct = (latency / 100.0).min(1.0);
+        let bar_width = inner.width.saturating_sub(20) as usize;
+        let filled = (latency_pct * bar_width as f64) as usize;
+        let empty = bar_width.saturating_sub(filled);
+
+        let latency_line = Line::from(vec![
+            Span::styled("Latency ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:>5.1}ms ", latency), Style::default().fg(latency_color)),
+            Span::styled("█".repeat(filled), Style::default().fg(latency_color)),
+            Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
+        ]);
+
+        f.render_widget(
+            Paragraph::new(latency_line),
+            Rect { x: inner.x, y, width: inner.width, height: 1 },
+        );
+        return y + 1;
+    }
+    y
+}
+
+/// Draw the per-mount table with usage bars, I/O rates, and sparklines.
+/// Returns the next y position after rendering.
+#[allow(clippy::too_many_arguments)]
+fn disk_draw_mount_table(
+    f: &mut Frame,
+    app: &App,
+    inner: Rect,
+    y: u16,
+    is_exploded: bool,
+    reserved_bottom: u16,
+) -> u16 {
     let mounts = app.disk.mounts();
     let rates = app.disk.rates();
 
-    // Calculate total I/O rates
+    let remaining_height = (inner.y + inner.height).saturating_sub(y + reserved_bottom);
+    let max_mounts = remaining_height as usize;
+
+    let (name_col, size_col, io_col) = if is_exploded {
+        let name_w = (inner.width / 6).max(15).min(30);
+        let size_w = (inner.width / 12).max(8).min(14);
+        let io_w = (inner.width / 6).max(14).min(24);
+        (name_w, size_w, io_w)
+    } else {
+        (10u16, 6u16, 14u16)
+    };
+    let bar_width = inner.width.saturating_sub(name_col + size_col + io_col + 4).max(10);
+    let sparkline_width = inner.width.saturating_sub(name_col + size_col + bar_width + io_col + 4);
+
+    let mut cur_y = y;
+
+    for mount in mounts.iter().take(max_mounts) {
+        if mount.total_bytes == 0 || cur_y >= inner.y + inner.height - reserved_bottom {
+            continue;
+        }
+
+        let used_pct = mount.usage_percent();
+        let total_gb = mount.total_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+
+        let label: String = if mount.mount_point == "/" {
+            "/".to_string()
+        } else {
+            mount.mount_point.rsplit('/').next().unwrap_or(&mount.mount_point)
+                .chars().take(name_col as usize - 1).collect()
+        };
+
+        let device_name = mount.device.rsplit('/').next().unwrap_or("");
+        let base_device: String = if device_name.contains("nvme") {
+            device_name.split('p').next().unwrap_or(device_name).to_string()
+        } else if device_name.starts_with("disk") && device_name.contains('s') {
+            device_name.split('s').next().unwrap_or(device_name).to_string()
+        } else {
+            device_name.chars().take_while(|c| !c.is_ascii_digit()).collect()
+        };
+
+        let io_info = rates.get(device_name)
+            .or_else(|| rates.get(&base_device))
+            .or_else(|| {
+                if let Some(num_str) = base_device.strip_prefix("disk") {
+                    let disk_num: u32 = num_str.parse().unwrap_or(0);
+                    if disk_num > 0 {
+                        let physical = format!("disk{}", disk_num.saturating_sub(1));
+                        rates.get(&physical)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .or_else(|| rates.get("disk0"));
+
+        let color = percent_color(used_pct);
+        let size_str = if total_gb >= 1000.0 { format!("{:.1}T", total_gb / 1024.0) } else { format!("{:.0}G", total_gb) };
+
+        let io_str = if let Some(io) = io_info {
+            let total_rate = io.read_bytes_per_sec + io.write_bytes_per_sec;
+            if total_rate > 1000.0 { theme::format_bytes_rate(total_rate).to_string() } else { "\u{2014}".to_string() }
+        } else {
+            "\u{2014}".to_string()
+        };
+
+        let mut x = inner.x;
+        let max_x = inner.x + inner.width;
+
+        if x < max_x {
+            let w = name_col.min(max_x.saturating_sub(x));
+            f.render_widget(Paragraph::new(format!("{:<width$}", label, width = w as usize)).style(Style::default().fg(Color::White)), Rect { x, y: cur_y, width: w, height: 1 });
+            x += name_col;
+        }
+        if x < max_x {
+            let w = size_col.min(max_x.saturating_sub(x));
+            f.render_widget(Paragraph::new(format!("{:>width$}", size_str, width = w as usize)).style(Style::default().fg(Color::DarkGray)), Rect { x, y: cur_y, width: w, height: 1 });
+            x += size_col + 1;
+        }
+        if x < max_x {
+            let w = bar_width.min(max_x.saturating_sub(x));
+            let filled = ((used_pct / 100.0) * w as f64) as usize;
+            let empty = (w as usize).saturating_sub(filled);
+            f.render_widget(Paragraph::new(Line::from(vec![
+                Span::styled("█".repeat(filled), Style::default().fg(color)),
+                Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
+            ])), Rect { x, y: cur_y, width: w, height: 1 });
+            x += bar_width + 1;
+        }
+        if x < max_x {
+            let entropy_char = app.disk_entropy.get_mount_entropy(&mount.mount_point).map(|e| e.indicator()).unwrap_or('\u{00B7}');
+            let entropy_color = match entropy_char { '\u{25CF}' => Color::Green, '\u{25D0}' => Color::Yellow, '\u{25CB}' => Color::Red, _ => Color::DarkGray };
+            let w = 5u16.min(max_x.saturating_sub(x));
+            f.render_widget(Paragraph::new(Line::from(vec![
+                Span::styled(format!("{:>3.0}%", used_pct), Style::default().fg(color)),
+                Span::styled(format!("{}", entropy_char), Style::default().fg(entropy_color)),
+            ])), Rect { x, y: cur_y, width: w, height: 1 });
+            x += 6;
+        }
+        if x < max_x {
+            let w = 8u16.min(max_x.saturating_sub(x));
+            f.render_widget(Paragraph::new(format!("{:>8}", io_str)).style(Style::default().fg(Color::Cyan)), Rect { x, y: cur_y, width: w, height: 1 });
+            x += 9;
+        }
+        if x < max_x && sparkline_width > 3 {
+            let w = sparkline_width.min(max_x.saturating_sub(x));
+            if w > 3 {
+                let read_history = app.disk_io_analyzer.device_read_history(&base_device);
+                if let Some(ref rh) = read_history {
+                    if !rh.is_empty() {
+                        let sparkline = MonitorSparkline::new(rh).color(Color::Cyan).show_trend(false);
+                        f.render_widget(sparkline, Rect { x, y: cur_y, width: w, height: 1 });
+                    }
+                }
+            }
+        }
+
+        cur_y += 1;
+    }
+    cur_y
+}
+
+/// Draw the I/O PSI row and top active processes at the bottom of the disk panel.
+fn disk_draw_io_sparklines(f: &mut Frame, app: &App, inner: Rect, y: u16) {
+    use crate::analyzers::PressureLevel;
+
+    let mut cur_y = y;
+
+    if cur_y < inner.y + inner.height && app.psi_analyzer.is_available() {
+        let psi = &app.psi_analyzer;
+        let io_lvl = psi.io_level();
+
+        let level_color = |level: PressureLevel| -> Color {
+            match level {
+                PressureLevel::None => Color::DarkGray,
+                PressureLevel::Low => Color::Green,
+                PressureLevel::Medium => Color::Yellow,
+                PressureLevel::High => Color::LightRed,
+                PressureLevel::Critical => Color::Red,
+            }
+        };
+
+        let io_line = Line::from(vec![
+            Span::styled("I/O Pressure ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{}{:>5.1}%", io_lvl.symbol(), psi.io.some_avg10), Style::default().fg(level_color(io_lvl))),
+            Span::styled(" some  ", Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:>5.1}%", psi.io.full_avg10), Style::default().fg(if psi.io.full_avg10 > 5.0 { Color::Yellow } else { Color::DarkGray })),
+            Span::styled(" full", Style::default().fg(Color::DarkGray)),
+        ]);
+
+        f.render_widget(Paragraph::new(io_line), Rect { x: inner.x, y: cur_y, width: inner.width, height: 1 });
+        cur_y += 1;
+    }
+
+    let remaining_height = (inner.y + inner.height).saturating_sub(cur_y) as usize;
+    if remaining_height > 1 {
+        let mut procs: Vec<_> = app.process.processes().values().collect();
+        procs.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("── Top Active Processes ", Style::default().fg(Color::DarkGray)),
+                Span::styled("─".repeat((inner.width as usize).saturating_sub(24)), Style::default().fg(Color::DarkGray)),
+            ])),
+            Rect { x: inner.x, y: cur_y, width: inner.width, height: 1 },
+        );
+        cur_y += 1;
+
+        let procs_to_show = (remaining_height - 1).min(procs.len());
+        for proc in procs.iter().take(procs_to_show) {
+            if cur_y >= inner.y + inner.height {
+                break;
+            }
+            if proc.cpu_percent < 0.1 {
+                continue;
+            }
+
+            let name: String = proc.name.chars().take(20).collect();
+            let mem_mb = proc.mem_bytes as f64 / (1024.0 * 1024.0);
+            let line = Line::from(vec![
+                Span::styled(format!("{:>6} ", proc.pid), Style::default().fg(Color::DarkGray)),
+                Span::styled(format!("{:<20} ", name), Style::default().fg(Color::White)),
+                Span::styled(format!("CPU:{:>5.1}% ", proc.cpu_percent), Style::default().fg(percent_color(proc.cpu_percent))),
+                Span::styled(format!("MEM:{:>7.1}M ", mem_mb), Style::default().fg(Color::Magenta)),
+            ]);
+
+            f.render_widget(Paragraph::new(line), Rect { x: inner.x, y: cur_y, width: inner.width, height: 1 });
+            cur_y += 1;
+        }
+    }
+}
+
+pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
+    let rates = app.disk.rates();
+
     let total_read: f64 = rates.values().map(|r| r.read_bytes_per_sec).sum();
     let total_write: f64 = rates.values().map(|r| r.write_bytes_per_sec).sum();
     let total_iops = app.disk_io_analyzer.total_iops();
-
-    // Get workload type
     let workload = app.disk_io_analyzer.overall_workload();
-
-    // Get entropy gauge
     let entropy_gauge = app.disk_entropy.system_gauge();
 
-    // Detect exploded mode early for title (account for borders)
     let is_exploded = area.width > 82 || area.height > 22;
     let exploded_info = if is_exploded { " │ ▣ FULL" } else { "" };
 
-    // IOPS breakdown and queue depth for exploded mode
     let iops_detail = if is_exploded && (app.disk_read_iops > 0.0 || app.disk_write_iops > 0.0) {
         format!(" │ R:{:.0} W:{:.0}", app.disk_read_iops, app.disk_write_iops)
     } else {
@@ -44,7 +276,6 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
         String::new()
     };
 
-    // Disk health summary for exploded mode
     let health_info = if is_exploded && !app.disk_health.is_empty() {
         let worst_health = app.disk_health.iter()
             .map(|h| h.status)
@@ -65,16 +296,13 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
         theme::format_bytes_rate(total_read),
         theme::format_bytes_rate(total_write),
         total_iops,
-        iops_detail,
-        queue_info,
-        health_info,
+        iops_detail, queue_info, health_info,
         workload.description(),
         entropy_gauge,
         exploded_info
     );
 
     let block = btop_block(&title, borders::DISK);
-
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -82,316 +310,9 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
         return;
     }
 
-    let mut y = inner.y;
-
-    // === LINE 1: Latency gauge bar ===
-    if let Some(device) = app.disk_io_analyzer.primary_device() {
-        let latency = app.disk_io_analyzer.estimated_latency_ms(&device);
-
-        // Latency color: green <5ms, yellow 5-20ms, red >20ms
-        let latency_color = if latency < 5.0 {
-            Color::Green
-        } else if latency < 20.0 {
-            Color::Yellow
-        } else {
-            Color::Red
-        };
-
-        // Latency bar (max 100ms for scale)
-        let latency_pct = (latency / 100.0).min(1.0);
-        let bar_width = inner.width.saturating_sub(20) as usize;
-        let filled = (latency_pct * bar_width as f64) as usize;
-        let empty = bar_width.saturating_sub(filled);
-
-        let latency_line = Line::from(vec![
-            Span::styled("Latency ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{:>5.1}ms ", latency), Style::default().fg(latency_color)),
-            Span::styled("█".repeat(filled), Style::default().fg(latency_color)),
-            Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
-        ]);
-
-        f.render_widget(
-            Paragraph::new(latency_line),
-            Rect { x: inner.x, y, width: inner.width, height: 1 },
-        );
-        y += 1;
-    }
-
-    // Reserve 1 line for I/O PSI at bottom
-    let reserved_bottom = 1u16;
-    let remaining_height = (inner.y + inner.height).saturating_sub(y + reserved_bottom);
-    let max_mounts = remaining_height as usize;
-
-    // Column layout: Name | Size | Bar(variable) | I/O Rate | Sparkline(rest)
-    // In exploded mode: scale columns to fill available width
-    let (name_col, size_col, io_col) = if is_exploded {
-        // Scale columns with terminal width
-        let name_w = (inner.width / 6).max(15).min(30);
-        let size_w = (inner.width / 12).max(8).min(14);
-        let io_w = (inner.width / 6).max(14).min(24);
-        (name_w, size_w, io_w)
-    } else {
-        (10u16, 6u16, 14u16)
-    };
-    // Bar takes remaining space - will be larger in exploded mode
-    let bar_width = inner.width.saturating_sub(name_col + size_col + io_col + 4).max(10);
-    let sparkline_width = inner.width.saturating_sub(name_col + size_col + bar_width + io_col + 4);
-
-    for mount in mounts.iter().take(max_mounts) {
-        if mount.total_bytes == 0 || y >= inner.y + inner.height - reserved_bottom {
-            continue;
-        }
-
-        let used_pct = mount.usage_percent();
-        let total_gb = mount.total_bytes as f64 / (1024.0 * 1024.0 * 1024.0);
-
-        // Short mount point label (fixed width)
-        let label: String = if mount.mount_point == "/" {
-            "/".to_string()
-        } else {
-            mount
-                .mount_point
-                .rsplit('/')
-                .next()
-                .unwrap_or(&mount.mount_point)
-                .chars()
-                .take(name_col as usize - 1)
-                .collect()
-        };
-
-        // Find I/O rate for this device
-        // Mount device: /dev/disk3s1 (macOS) or /dev/sda1 (Linux) or /dev/nvme0n1p1
-        let device_name = mount.device.rsplit('/').next().unwrap_or("");
-        let base_device: String = if device_name.contains("nvme") {
-            // nvme0n1p1 -> nvme0n1 (strip partition)
-            device_name.split('p').next().unwrap_or(device_name).to_string()
-        } else if device_name.starts_with("disk") && device_name.contains('s') {
-            // macOS: disk3s1 -> disk3 (strip slice suffix)
-            device_name.split('s').next().unwrap_or(device_name).to_string()
-        } else {
-            // Linux: sda1 -> sda (strip partition number)
-            device_name.chars().take_while(|c| !c.is_ascii_digit()).collect()
-        };
-
-        // macOS APFS: synthesized disk1 backed by physical disk0, disk3 backed by disk2
-        // Try exact match, then base device, then physical backing disk
-        let io_info = rates.get(device_name)
-            .or_else(|| rates.get(&base_device))
-            .or_else(|| {
-                // macOS: disk1 -> disk0, disk3 -> disk2 (synthesized -> physical)
-                if let Some(num_str) = base_device.strip_prefix("disk") {
-                    let disk_num: u32 = num_str.parse().unwrap_or(0);
-                    if disk_num > 0 {
-                        // Synthesized containers (odd: 1,3,5) map to physical (even: 0,2,4)
-                        let physical = format!("disk{}", disk_num.saturating_sub(1));
-                        rates.get(&physical)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .or_else(|| rates.get("disk0")); // Final fallback to primary disk
-
-        let color = percent_color(used_pct);
-
-        // Size string
-        let size_str = if total_gb >= 1000.0 {
-            format!("{:.1}T", total_gb / 1024.0)
-        } else {
-            format!("{:.0}G", total_gb)
-        };
-
-        // I/O rate string
-        let io_str = if let Some(io) = io_info {
-            let total_rate = io.read_bytes_per_sec + io.write_bytes_per_sec;
-            if total_rate > 1000.0 {
-                theme::format_bytes_rate(total_rate).to_string()
-            } else {
-                "—".to_string()
-            }
-        } else {
-            "—".to_string()
-        };
-
-        // Build the row with proper columns (with bounds checking)
-        let mut x = inner.x;
-        let max_x = inner.x + inner.width;
-
-        // Col 1: Name
-        if x < max_x {
-            let w = name_col.min(max_x.saturating_sub(x));
-            f.render_widget(
-                Paragraph::new(format!("{:<width$}", label, width = w as usize))
-                    .style(Style::default().fg(Color::White)),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += name_col;
-        }
-
-        // Col 2: Size
-        if x < max_x {
-            let w = size_col.min(max_x.saturating_sub(x));
-            f.render_widget(
-                Paragraph::new(format!("{:>width$}", size_str, width = w as usize))
-                    .style(Style::default().fg(Color::DarkGray)),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += size_col + 1;
-        }
-
-        // Col 3: Usage bar
-        if x < max_x {
-            let w = bar_width.min(max_x.saturating_sub(x));
-            let filled = ((used_pct / 100.0) * w as f64) as usize;
-            let empty = (w as usize).saturating_sub(filled);
-            let bar_line = Line::from(vec![
-                Span::styled("█".repeat(filled), Style::default().fg(color)),
-                Span::styled("░".repeat(empty), Style::default().fg(Color::DarkGray)),
-            ]);
-            f.render_widget(
-                Paragraph::new(bar_line),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += bar_width + 1;
-        }
-
-        // Col 4: Percentage + Entropy indicator
-        if x < max_x {
-            let entropy_char = app.disk_entropy
-                .get_mount_entropy(&mount.mount_point)
-                .map(|e| e.indicator())
-                .unwrap_or('·');
-            let entropy_color = match entropy_char {
-                '●' => Color::Green,   // High entropy (unique)
-                '◐' => Color::Yellow,  // Medium entropy
-                '○' => Color::Red,     // Low entropy (dupes)
-                _ => Color::DarkGray,
-            };
-            let w = 5u16.min(max_x.saturating_sub(x));
-            f.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::styled(format!("{:>3.0}%", used_pct), Style::default().fg(color)),
-                    Span::styled(format!("{}", entropy_char), Style::default().fg(entropy_color)),
-                ])),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += 6;
-        }
-
-        // Col 5: I/O rate
-        if x < max_x {
-            let w = 8u16.min(max_x.saturating_sub(x));
-            f.render_widget(
-                Paragraph::new(format!("{:>8}", io_str))
-                    .style(Style::default().fg(Color::Cyan)),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += 9;
-        }
-
-        // Col 6: I/O sparkline (if space and history available)
-        if x < max_x && sparkline_width > 3 {
-            let w = sparkline_width.min(max_x.saturating_sub(x));
-            if w > 3 {
-                let read_history = app.disk_io_analyzer.device_read_history(&base_device);
-                if let Some(ref rh) = read_history {
-                    if !rh.is_empty() {
-                        let sparkline = MonitorSparkline::new(rh)
-                            .color(Color::Cyan)
-                            .show_trend(false);
-                        f.render_widget(
-                            sparkline,
-                            Rect { x, y, width: w, height: 1 },
-                        );
-                    }
-                }
-            }
-        }
-
-        y += 1;
-    }
-
-    // === I/O PSI Row at bottom ===
-    if y < inner.y + inner.height && app.psi_analyzer.is_available() {
-        let psi = &app.psi_analyzer;
-        let io_lvl = psi.io_level();
-
-        let level_color = |level: PressureLevel| -> Color {
-            match level {
-                PressureLevel::None => Color::DarkGray,
-                PressureLevel::Low => Color::Green,
-                PressureLevel::Medium => Color::Yellow,
-                PressureLevel::High => Color::LightRed,
-                PressureLevel::Critical => Color::Red,
-            }
-        };
-
-        // Show I/O pressure with both "some" and "full" stall percentages
-        let io_line = Line::from(vec![
-            Span::styled("I/O Pressure ", Style::default().fg(Color::DarkGray)),
-            Span::styled(
-                format!("{}{:>5.1}%", io_lvl.symbol(), psi.io.some_avg10),
-                Style::default().fg(level_color(io_lvl)),
-            ),
-            Span::styled(" some  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(
-                format!("{:>5.1}%", psi.io.full_avg10),
-                Style::default().fg(if psi.io.full_avg10 > 5.0 { Color::Yellow } else { Color::DarkGray }),
-            ),
-            Span::styled(" full", Style::default().fg(Color::DarkGray)),
-        ]);
-
-        f.render_widget(
-            Paragraph::new(io_line),
-            Rect { x: inner.x, y, width: inner.width, height: 1 },
-        );
-        y += 1;
-    }
-
-    // === Expand to fill remaining height with top active processes ===
-    let remaining_height = (inner.y + inner.height).saturating_sub(y) as usize;
-    if remaining_height > 1 {
-        // Show top CPU processes as proxy for I/O activity
-        let mut procs: Vec<_> = app.process.processes().values().collect();
-        procs.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
-
-        f.render_widget(
-            Paragraph::new(Line::from(vec![
-                Span::styled("── Top Active Processes ", Style::default().fg(Color::DarkGray)),
-                Span::styled("─".repeat((inner.width as usize).saturating_sub(24)), Style::default().fg(Color::DarkGray)),
-            ])),
-            Rect { x: inner.x, y, width: inner.width, height: 1 },
-        );
-        y += 1;
-
-        let procs_to_show = (remaining_height - 1).min(procs.len());
-        for proc in procs.iter().take(procs_to_show) {
-            if y >= inner.y + inner.height {
-                break;
-            }
-
-            if proc.cpu_percent < 0.1 {
-                continue; // Skip idle processes
-            }
-
-            let name: String = proc.name.chars().take(20).collect();
-            let mem_mb = proc.mem_bytes as f64 / (1024.0 * 1024.0);
-            let line = Line::from(vec![
-                Span::styled(format!("{:>6} ", proc.pid), Style::default().fg(Color::DarkGray)),
-                Span::styled(format!("{:<20} ", name), Style::default().fg(Color::White)),
-                Span::styled(format!("CPU:{:>5.1}% ", proc.cpu_percent), Style::default().fg(percent_color(proc.cpu_percent))),
-                Span::styled(format!("MEM:{:>7.1}M ", mem_mb), Style::default().fg(Color::Magenta)),
-            ]);
-
-            f.render_widget(
-                Paragraph::new(line),
-                Rect { x: inner.x, y, width: inner.width, height: 1 },
-            );
-            y += 1;
-        }
-    }
+    let y = disk_draw_usage_bars(f, app, inner, inner.y);
+    let y = disk_draw_mount_table(f, app, inner, y, is_exploded, 1);
+    disk_draw_io_sparklines(f, app, inner, y);
 }
 
 /// Draw Network panel - btop style with dual graphs, peaks, and connection stats

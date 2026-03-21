@@ -1,41 +1,331 @@
-pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
-    use trueno_viz::monitor::ratatui::style::Color;
-    use trueno_viz::monitor::ratatui::text::{Line, Span};
+use trueno_viz::monitor::ratatui::layout::Rect;
+use trueno_viz::monitor::ratatui::style::{Color, Style};
+use trueno_viz::monitor::ratatui::text::{Line, Span};
+use trueno_viz::monitor::ratatui::widgets::Paragraph;
+use trueno_viz::monitor::ratatui::Frame;
+use trueno_viz::monitor::widgets::MonitorSparkline;
 
-    // Collect GPU info into a unified structure
-    struct GpuDisplay {
-        name: String,
-        gpu_util: f64,
-        vram_used: u64,
-        vram_total: u64,
-        vram_pct: f64,
-        temp: f64,
-        power: u32,
-        power_limit: u32,
-        clock_mhz: u32,
-        history: Option<Vec<f64>>,
+use crate::app::App;
+use crate::theme::{borders, percent_color, temp_color};
+
+use super::cpu_memory::{btop_block, truncate_str};
+
+/// Unified GPU display data collected from various GPU backends.
+struct GpuDisplay {
+    name: String,
+    gpu_util: f64,
+    vram_used: u64,
+    vram_total: u64,
+    vram_pct: f64,
+    temp: f64,
+    power: u32,
+    power_limit: u32,
+    clock_mhz: u32,
+    history: Option<Vec<f64>>,
+}
+
+/// Draw a single GPU utilization row with bar and sparkline.
+/// Returns the next y position.
+#[allow(clippy::too_many_arguments)]
+fn gpu_draw_utilization(
+    f: &mut Frame,
+    gpu: &GpuDisplay,
+    inner: Rect,
+    y: u16,
+    label: &str,
+    label_col: u16,
+    bar_width: u16,
+    value_col: u16,
+    sparkline_col: u16,
+) -> u16 {
+    let gpu_color = percent_color(gpu.gpu_util);
+    let mut x = inner.x;
+    let max_x = inner.x + inner.width;
+
+    if x < max_x {
+        let w = label_col.min(max_x.saturating_sub(x));
+        f.render_widget(
+            Paragraph::new(format!("{:<width$}", label, width = w as usize))
+                .style(Style::default().fg(Color::White)),
+            Rect { x, y, width: w, height: 1 },
+        );
+        x += label_col;
     }
 
+    if x < max_x {
+        let w = bar_width.min(max_x.saturating_sub(x));
+        let util_filled = ((gpu.gpu_util / 100.0) * w as f64) as usize;
+        let util_empty = (w as usize).saturating_sub(util_filled);
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("\u{2588}".repeat(util_filled), Style::default().fg(gpu_color)),
+                Span::styled("\u{2591}".repeat(util_empty), Style::default().fg(Color::DarkGray)),
+            ])),
+            Rect { x, y, width: w, height: 1 },
+        );
+        x += bar_width + 1;
+    }
+
+    if x < max_x {
+        let w = value_col.min(max_x.saturating_sub(x));
+        f.render_widget(
+            Paragraph::new(format!("{:>5.1}%", gpu.gpu_util))
+                .style(Style::default().fg(gpu_color)),
+            Rect { x, y, width: w, height: 1 },
+        );
+        x += value_col;
+    }
+
+    if x < max_x {
+        if let Some(ref hist) = gpu.history {
+            let w = sparkline_col.min(max_x.saturating_sub(x));
+            if !hist.is_empty() && w > 3 {
+                let sparkline = MonitorSparkline::new(hist).color(gpu_color).show_trend(true);
+                f.render_widget(sparkline, Rect { x, y, width: w, height: 1 });
+            }
+        }
+    }
+    y + 1
+}
+
+/// Draw VRAM bar for a single GPU.
+/// Returns the next y position.
+fn gpu_draw_memory(
+    f: &mut Frame,
+    gpu: &GpuDisplay,
+    inner: Rect,
+    y: u16,
+    label_col: u16,
+    bar_width: u16,
+    value_col: u16,
+    sparkline_col: u16,
+) -> u16 {
+    if gpu.vram_total == 0 {
+        return y;
+    }
+
+    let vram_gb_used = gpu.vram_used as f64 / (1024.0 * 1024.0 * 1024.0);
+    let vram_gb_total = gpu.vram_total as f64 / (1024.0 * 1024.0 * 1024.0);
+    let vram_color = percent_color(gpu.vram_pct * 100.0);
+
+    let mut x = inner.x;
+    let max_x = inner.x + inner.width;
+
+    if x < max_x {
+        let w = label_col.min(max_x.saturating_sub(x));
+        f.render_widget(
+            Paragraph::new(format!("{:<width$}", "VRAM", width = w as usize))
+                .style(Style::default().fg(Color::DarkGray)),
+            Rect { x, y, width: w, height: 1 },
+        );
+        x += label_col;
+    }
+
+    if x < max_x {
+        let w = bar_width.min(max_x.saturating_sub(x));
+        let vram_filled = (gpu.vram_pct * w as f64) as usize;
+        let vram_empty = (w as usize).saturating_sub(vram_filled);
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("\u{2588}".repeat(vram_filled), Style::default().fg(vram_color)),
+                Span::styled("\u{2591}".repeat(vram_empty), Style::default().fg(Color::DarkGray)),
+            ])),
+            Rect { x, y, width: w, height: 1 },
+        );
+        x += bar_width + 1;
+    }
+
+    if x < max_x {
+        let w = (value_col + sparkline_col).min(max_x.saturating_sub(x));
+        f.render_widget(
+            Paragraph::new(format!("{:.1}/{:.0}G", vram_gb_used, vram_gb_total))
+                .style(Style::default().fg(Color::White)),
+            Rect { x, y, width: w, height: 1 },
+        );
+    }
+    y + 1
+}
+
+/// Draw the temperature and power row for a single GPU.
+/// Returns the next y position.
+fn gpu_draw_temperature(
+    f: &mut Frame,
+    gpu: &GpuDisplay,
+    inner: Rect,
+    y: u16,
+    label_col: u16,
+    bar_width: u16,
+    value_col: u16,
+    sparkline_col: u16,
+) -> u16 {
+    if gpu.temp <= 0.0 {
+        return y;
+    }
+
+    let t_color = temp_color(gpu.temp);
+    let temp_pct = (gpu.temp / 100.0).min(1.0);
+
+    let power_pct = if gpu.power_limit > 0 {
+        (gpu.power as f64 / gpu.power_limit as f64 * 100.0).min(100.0)
+    } else {
+        0.0
+    };
+    let power_color = if power_pct > 90.0 { Color::Red } else if power_pct > 70.0 { Color::Yellow } else { Color::Green };
+
+    let mut x = inner.x;
+    let max_x = inner.x + inner.width;
+
+    if x < max_x {
+        let w = label_col.min(max_x.saturating_sub(x));
+        f.render_widget(
+            Paragraph::new(format!("{:<width$}", "Temp", width = w as usize))
+                .style(Style::default().fg(Color::DarkGray)),
+            Rect { x, y, width: w, height: 1 },
+        );
+        x += label_col;
+    }
+
+    if x < max_x {
+        let w = bar_width.min(max_x.saturating_sub(x));
+        let half_bar = (w / 2) as usize;
+        let temp_filled = (temp_pct * half_bar as f64) as usize;
+        let temp_empty = half_bar.saturating_sub(temp_filled);
+        let power_filled = ((power_pct / 100.0) * half_bar as f64) as usize;
+        let power_empty = half_bar.saturating_sub(power_filled);
+
+        f.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled("\u{2588}".repeat(temp_filled), Style::default().fg(t_color)),
+                Span::styled("\u{2591}".repeat(temp_empty), Style::default().fg(Color::DarkGray)),
+                Span::styled("\u{2502}", Style::default().fg(Color::DarkGray)),
+                Span::styled("\u{2588}".repeat(power_filled), Style::default().fg(power_color)),
+                Span::styled("\u{2591}".repeat(power_empty), Style::default().fg(Color::DarkGray)),
+            ])),
+            Rect { x, y, width: w, height: 1 },
+        );
+        x += bar_width + 1;
+    }
+
+    if x < max_x {
+        let values = if gpu.clock_mhz > 0 && gpu.power_limit > 0 {
+            format!("{}°C {:>3}W/{:>3}W {:>4}MHz", gpu.temp as u32, gpu.power, gpu.power_limit, gpu.clock_mhz)
+        } else if gpu.power_limit > 0 {
+            format!("{}°C {:>3}W/{:>3}W", gpu.temp as u32, gpu.power, gpu.power_limit)
+        } else if gpu.clock_mhz > 0 {
+            format!("{}°C {:>3}W {:>4}MHz", gpu.temp as u32, gpu.power, gpu.clock_mhz)
+        } else {
+            format!("{}°C {:>3}W", gpu.temp as u32, gpu.power)
+        };
+        let w = (value_col + sparkline_col).min(max_x.saturating_sub(x));
+        f.render_widget(
+            Paragraph::new(values).style(Style::default().fg(t_color)),
+            Rect { x, y, width: w, height: 1 },
+        );
+    }
+    y + 1
+}
+
+/// Draw the GPU processes section at the bottom of the GPU panel.
+fn gpu_draw_processes(f: &mut Frame, app: &App, inner: Rect, y: u16, gpu_count: usize) {
+    if y >= inner.y + inner.height || !app.gpu_process_analyzer.is_available() {
+        return;
+    }
+
+    let procs = app.gpu_process_analyzer.top_processes(3);
+    if procs.is_empty() {
+        return;
+    }
+
+    let mut cur_y = y;
+
+    // Divider
+    if cur_y < inner.y + inner.height {
+        let divider = "\u{2500}".repeat(inner.width as usize);
+        f.render_widget(
+            Paragraph::new(divider).style(Style::default().fg(Color::DarkGray)),
+            Rect { x: inner.x, y: cur_y, width: inner.width, height: 1 },
+        );
+        cur_y += 1;
+    }
+
+    for proc in procs {
+        if cur_y >= inner.y + inner.height {
+            break;
+        }
+
+        let sm_color = if proc.sm_util >= 50 { Color::LightRed } else if proc.sm_util >= 20 { Color::Yellow } else { Color::Green };
+        let type_color = match proc.proc_type {
+            crate::analyzers::GpuProcType::Compute => Color::Cyan,
+            crate::analyzers::GpuProcType::Graphics => Color::Magenta,
+        };
+
+        let mem_bar_width = 6usize;
+        let mem_filled = ((proc.mem_util as f64 / 100.0) * mem_bar_width as f64) as usize;
+        let mem_empty = mem_bar_width.saturating_sub(mem_filled);
+        let mem_color = if proc.mem_util >= 80 { Color::Red } else if proc.mem_util >= 50 { Color::Yellow } else { Color::Green };
+
+        let enc_dec = if proc.enc_util > 0 && proc.dec_util > 0 {
+            format!("[E{}D{}]", proc.enc_util, proc.dec_util)
+        } else if proc.enc_util > 0 {
+            format!("[E{}]", proc.enc_util)
+        } else if proc.dec_util > 0 {
+            format!("[D{}]", proc.dec_util)
+        } else {
+            String::new()
+        };
+
+        let gpu_str = if gpu_count > 1 { format!("{}", proc.gpu_idx) } else { String::new() };
+
+        let mut spans = vec![
+            Span::styled(format!("\u{25FC}{}", proc.proc_type), Style::default().fg(type_color)),
+        ];
+
+        if !gpu_str.is_empty() {
+            spans.push(Span::styled(format!("{} ", gpu_str), Style::default().fg(Color::DarkGray)));
+        } else {
+            spans.push(Span::styled(" ", Style::default()));
+        }
+
+        spans.extend(vec![
+            Span::styled(format!("{:>5} ", proc.pid), Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:>2}%", proc.sm_util), Style::default().fg(sm_color)),
+            Span::styled(" ", Style::default()),
+            Span::styled("\u{2588}".repeat(mem_filled), Style::default().fg(mem_color)),
+            Span::styled("\u{2591}".repeat(mem_empty), Style::default().fg(Color::DarkGray)),
+            Span::styled(format!("{:>2}%", proc.mem_util), Style::default().fg(mem_color)),
+            Span::styled(" ", Style::default()),
+        ]);
+
+        if !enc_dec.is_empty() {
+            spans.push(Span::styled(format!("{} ", enc_dec), Style::default().fg(Color::Yellow)));
+        }
+
+        let gpu_width = if gpu_str.is_empty() { 0 } else { 2 };
+        let fixed_width = 3 + gpu_width + 6 + 3 + 1 + mem_bar_width + 3 + 1 + enc_dec.len() + if enc_dec.is_empty() { 0 } else { 1 };
+        let cmd_width = (inner.width as usize).saturating_sub(fixed_width);
+
+        spans.push(Span::styled(truncate_str(&proc.command, cmd_width), Style::default().fg(Color::White)));
+
+        f.render_widget(
+            Paragraph::new(Line::from(spans)),
+            Rect { x: inner.x, y: cur_y, width: inner.width, height: 1 },
+        );
+        cur_y += 1;
+    }
+}
+
+/// Collect GPU data from all available backends into a unified list.
+fn collect_gpu_data(app: &App) -> Vec<GpuDisplay> {
     let mut gpus: Vec<GpuDisplay> = Vec::new();
 
-    // Check for mock GPU data first (for testing)
     if !app.mock_gpus.is_empty() {
         for mock_gpu in &app.mock_gpus {
-            let vram_pct = if mock_gpu.vram_total > 0 {
-                mock_gpu.vram_used as f64 / mock_gpu.vram_total as f64
-            } else {
-                0.0
-            };
+            let vram_pct = if mock_gpu.vram_total > 0 { mock_gpu.vram_used as f64 / mock_gpu.vram_total as f64 } else { 0.0 };
             gpus.push(GpuDisplay {
-                name: mock_gpu.name.clone(),
-                gpu_util: mock_gpu.gpu_util,
-                vram_used: mock_gpu.vram_used,
-                vram_total: mock_gpu.vram_total,
-                vram_pct,
-                temp: mock_gpu.temperature,
-                power: mock_gpu.power_watts,
-                power_limit: mock_gpu.power_limit_watts,
-                clock_mhz: mock_gpu.clock_mhz,
+                name: mock_gpu.name.clone(), gpu_util: mock_gpu.gpu_util,
+                vram_used: mock_gpu.vram_used, vram_total: mock_gpu.vram_total, vram_pct,
+                temp: mock_gpu.temperature, power: mock_gpu.power_watts,
+                power_limit: mock_gpu.power_limit_watts, clock_mhz: mock_gpu.clock_mhz,
                 history: Some(mock_gpu.history.clone()),
             });
         }
@@ -44,11 +334,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
     #[cfg(feature = "nvidia")]
     if gpus.is_empty() && app.nvidia_gpu.is_available() {
         for (i, gpu) in app.nvidia_gpu.gpus().iter().enumerate() {
-            let vram_pct = if gpu.mem_total > 0 {
-                gpu.mem_used as f64 / gpu.mem_total as f64
-            } else {
-                0.0
-            };
+            let vram_pct = if gpu.mem_total > 0 { gpu.mem_used as f64 / gpu.mem_total as f64 } else { 0.0 };
             let history = app.nvidia_gpu.gpu_history(i).map(|h| {
                 let (a, b) = h.as_slices();
                 let mut v = a.to_vec();
@@ -56,15 +342,10 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 v
             });
             gpus.push(GpuDisplay {
-                name: gpu.name.clone(),
-                gpu_util: gpu.gpu_util,
-                vram_used: gpu.mem_used,
-                vram_total: gpu.mem_total,
-                vram_pct,
-                temp: gpu.temperature,
-                power: gpu.power_mw / 1000,
-                power_limit: gpu.power_limit_mw / 1000,
-                clock_mhz: gpu.gpu_clock_mhz,
+                name: gpu.name.clone(), gpu_util: gpu.gpu_util,
+                vram_used: gpu.mem_used, vram_total: gpu.mem_total, vram_pct,
+                temp: gpu.temperature, power: gpu.power_mw / 1000,
+                power_limit: gpu.power_limit_mw / 1000, clock_mhz: gpu.gpu_clock_mhz,
                 history,
             });
         }
@@ -73,11 +354,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
     #[cfg(target_os = "linux")]
     if gpus.is_empty() && app.amd_gpu.is_available() {
         for (i, gpu) in app.amd_gpu.gpus().iter().enumerate() {
-            let vram_pct = if gpu.vram_total > 0 {
-                gpu.vram_used as f64 / gpu.vram_total as f64
-            } else {
-                0.0
-            };
+            let vram_pct = if gpu.vram_total > 0 { gpu.vram_used as f64 / gpu.vram_total as f64 } else { 0.0 };
             let history = app.amd_gpu.gpu_history(i).map(|h| {
                 let (a, b) = h.as_slices();
                 let mut v = a.to_vec();
@@ -85,13 +362,9 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 v
             });
             gpus.push(GpuDisplay {
-                name: gpu.name.clone(),
-                gpu_util: gpu.gpu_util,
-                vram_used: gpu.vram_used,
-                vram_total: gpu.vram_total,
-                vram_pct,
-                temp: gpu.temperature,
-                power: gpu.power_watts as u32,
+                name: gpu.name.clone(), gpu_util: gpu.gpu_util,
+                vram_used: gpu.vram_used, vram_total: gpu.vram_total, vram_pct,
+                temp: gpu.temperature, power: gpu.power_watts as u32,
                 power_limit: if gpu.power_cap_watts > 0.0 { gpu.power_cap_watts as u32 } else { 300 },
                 clock_mhz: gpu.gpu_clock_mhz as u32,
                 history,
@@ -109,21 +382,14 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
                 v
             });
             gpus.push(GpuDisplay {
-                name: gpu.name.clone(),
-                gpu_util: gpu.gpu_util,
-                vram_used: 0,
-                vram_total: 0,
-                vram_pct: 0.0, // Apple uses unified memory
-                temp: 0.0,
-                power: 0,
-                power_limit: 0,
-                clock_mhz: 0, // Apple doesn't expose clock via IOKit
+                name: gpu.name.clone(), gpu_util: gpu.gpu_util,
+                vram_used: 0, vram_total: 0, vram_pct: 0.0,
+                temp: 0.0, power: 0, power_limit: 0, clock_mhz: 0,
                 history,
             });
         }
     }
 
-    // macOS fallback: detect AMD/Intel GPUs via system_profiler when Apple GPU collector fails
     #[cfg(target_os = "macos")]
     if gpus.is_empty() {
         if let Ok(output) = std::process::Command::new("system_profiler")
@@ -132,22 +398,15 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
         {
             if output.status.success() {
                 if let Ok(json) = String::from_utf8(output.stdout) {
-                    // Parse GPU names and VRAM from JSON output
                     for line in json.lines() {
                         let line = line.trim();
                         if line.contains("\"sppci_model\"") {
                             if let Some(name) = line.split(':').nth(1) {
                                 let name = name.trim().trim_matches('"').trim_matches(',');
                                 gpus.push(GpuDisplay {
-                                    name: name.to_string(),
-                                    gpu_util: 0.0,
-                                    vram_used: 0,
-                                    vram_total: 0,
-                                    vram_pct: 0.0,
-                                    temp: 0.0,
-                                    power: 0,
-                                    power_limit: 0,
-                                    clock_mhz: 0,
+                                    name: name.to_string(), gpu_util: 0.0,
+                                    vram_used: 0, vram_total: 0, vram_pct: 0.0,
+                                    temp: 0.0, power: 0, power_limit: 0, clock_mhz: 0,
                                     history: None,
                                 });
                             }
@@ -158,12 +417,17 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
         }
     }
 
-    // Build title showing GPU name and key stats
+    gpus
+}
+
+pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
+    let gpus = collect_gpu_data(app);
+
     let title = if gpus.len() > 1 {
         format!(" GPU ({} devices) ", gpus.len())
     } else if let Some(gpu) = gpus.first() {
         if gpu.temp > 0.0 {
-            format!(" {} │ {}°C │ {}W ", gpu.name, gpu.temp as u32, gpu.power)
+            format!(" {} \u{2502} {}°C \u{2502} {}W ", gpu.name, gpu.temp as u32, gpu.power)
         } else {
             format!(" {} ", gpu.name)
         }
@@ -181,11 +445,9 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
 
     let mut y = inner.y;
 
-    // Reserve space for GPU processes at bottom
     let reserved_bottom = if app.gpu_process_analyzer.is_available() { 3u16 } else { 0 };
     let gpu_area_height = inner.height.saturating_sub(reserved_bottom);
 
-    // Column layout: Label(5) | Bar(variable) | Value(10) | Sparkline(remaining)
     let label_col = 5u16;
     let value_col = 12u16;
     let sparkline_col = 20u16.min(inner.width / 4);
@@ -196,325 +458,24 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
             break;
         }
 
-        // === ROW 1: GPU utilization with sparkline ===
-        let label = if gpus.len() > 1 {
-            format!("GPU{}", i)
-        } else {
-            "GPU".to_string()
-        };
+        let label = if gpus.len() > 1 { format!("GPU{}", i) } else { "GPU".to_string() };
 
-        let gpu_color = percent_color(gpu.gpu_util);
-        let mut x = inner.x;
-        let max_x = inner.x + inner.width;
+        y = gpu_draw_utilization(f, gpu, inner, y, &label, label_col, bar_width, value_col, sparkline_col);
 
-        // Col 1: Label
-        if x < max_x {
-            let w = label_col.min(max_x.saturating_sub(x));
-            f.render_widget(
-                Paragraph::new(format!("{:<width$}", label, width = w as usize))
-                    .style(Style::default().fg(Color::White)),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += label_col;
+        if y < inner.y + gpu_area_height {
+            y = gpu_draw_memory(f, gpu, inner, y, label_col, bar_width, value_col, sparkline_col);
         }
 
-        // Col 2: Utilization bar
-        if x < max_x {
-            let w = bar_width.min(max_x.saturating_sub(x));
-            let util_filled = ((gpu.gpu_util / 100.0) * w as f64) as usize;
-            let util_empty = (w as usize).saturating_sub(util_filled);
-            let bar_line = Line::from(vec![
-                Span::styled("█".repeat(util_filled), Style::default().fg(gpu_color)),
-                Span::styled("░".repeat(util_empty), Style::default().fg(Color::DarkGray)),
-            ]);
-            f.render_widget(
-                Paragraph::new(bar_line),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += bar_width + 1;
+        if y < inner.y + gpu_area_height {
+            y = gpu_draw_temperature(f, gpu, inner, y, label_col, bar_width, value_col, sparkline_col);
         }
 
-        // Col 3: Percentage value
-        if x < max_x {
-            let w = value_col.min(max_x.saturating_sub(x));
-            f.render_widget(
-                Paragraph::new(format!("{:>5.1}%", gpu.gpu_util))
-                    .style(Style::default().fg(gpu_color)),
-                Rect { x, y, width: w, height: 1 },
-            );
-            x += value_col;
-        }
-
-        // Col 4: Sparkline (if history available)
-        if x < max_x {
-            if let Some(ref hist) = gpu.history {
-                let w = sparkline_col.min(max_x.saturating_sub(x));
-                if !hist.is_empty() && w > 3 {
-                    let sparkline = MonitorSparkline::new(hist)
-                        .color(gpu_color)
-                        .show_trend(true);
-                    f.render_widget(
-                        sparkline,
-                        Rect { x, y, width: w, height: 1 },
-                    );
-                }
-            }
-        }
-        y += 1;
-
-        // === ROW 2: VRAM bar (if available) ===
-        if y < inner.y + gpu_area_height && gpu.vram_total > 0 {
-            let vram_gb_used = gpu.vram_used as f64 / (1024.0 * 1024.0 * 1024.0);
-            let vram_gb_total = gpu.vram_total as f64 / (1024.0 * 1024.0 * 1024.0);
-            let vram_color = percent_color(gpu.vram_pct * 100.0);
-
-            x = inner.x;
-
-            // Col 1: Label
-            if x < max_x {
-                let w = label_col.min(max_x.saturating_sub(x));
-                f.render_widget(
-                    Paragraph::new(format!("{:<width$}", "VRAM", width = w as usize))
-                        .style(Style::default().fg(Color::DarkGray)),
-                    Rect { x, y, width: w, height: 1 },
-                );
-                x += label_col;
-            }
-
-            // Col 2: VRAM bar
-            if x < max_x {
-                let w = bar_width.min(max_x.saturating_sub(x));
-                let vram_filled = ((gpu.vram_pct) * w as f64) as usize;
-                let vram_empty = (w as usize).saturating_sub(vram_filled);
-                let vram_bar = Line::from(vec![
-                    Span::styled("█".repeat(vram_filled), Style::default().fg(vram_color)),
-                    Span::styled("░".repeat(vram_empty), Style::default().fg(Color::DarkGray)),
-                ]);
-                f.render_widget(
-                    Paragraph::new(vram_bar),
-                    Rect { x, y, width: w, height: 1 },
-                );
-                x += bar_width + 1;
-            }
-
-            // Col 3: VRAM value
-            if x < max_x {
-                let w = (value_col + sparkline_col).min(max_x.saturating_sub(x));
-                f.render_widget(
-                    Paragraph::new(format!("{:.1}/{:.0}G", vram_gb_used, vram_gb_total))
-                        .style(Style::default().fg(Color::White)),
-                    Rect { x, y, width: w, height: 1 },
-                );
-            }
-            y += 1;
-        }
-
-        // === ROW 3: Thermal + Power (if available) ===
-        if y < inner.y + gpu_area_height && gpu.temp > 0.0 {
-            let temp_color = temp_color(gpu.temp);
-            let temp_pct = (gpu.temp / 100.0).min(1.0);
-
-            // Power color
-            let power_pct = if gpu.power_limit > 0 {
-                (gpu.power as f64 / gpu.power_limit as f64 * 100.0).min(100.0)
-            } else {
-                0.0
-            };
-            let power_color = if power_pct > 90.0 {
-                Color::Red
-            } else if power_pct > 70.0 {
-                Color::Yellow
-            } else {
-                Color::Green
-            };
-
-            x = inner.x;
-
-            // Col 1: Label
-            if x < max_x {
-                let w = label_col.min(max_x.saturating_sub(x));
-                f.render_widget(
-                    Paragraph::new(format!("{:<width$}", "Temp", width = w as usize))
-                        .style(Style::default().fg(Color::DarkGray)),
-                    Rect { x, y, width: w, height: 1 },
-                );
-                x += label_col;
-            }
-
-            // Col 2: Temp bar (half width) + Power bar (half width)
-            if x < max_x {
-                let w = bar_width.min(max_x.saturating_sub(x));
-                let half_bar = (w / 2) as usize;
-                let temp_filled = (temp_pct * half_bar as f64) as usize;
-                let temp_empty = half_bar.saturating_sub(temp_filled);
-
-                let power_filled = ((power_pct / 100.0) * half_bar as f64) as usize;
-                let power_empty = half_bar.saturating_sub(power_filled);
-
-                let thermal_bar = Line::from(vec![
-                    Span::styled("█".repeat(temp_filled), Style::default().fg(temp_color)),
-                    Span::styled("░".repeat(temp_empty), Style::default().fg(Color::DarkGray)),
-                    Span::styled("│", Style::default().fg(Color::DarkGray)),
-                    Span::styled("█".repeat(power_filled), Style::default().fg(power_color)),
-                    Span::styled("░".repeat(power_empty), Style::default().fg(Color::DarkGray)),
-                ]);
-                f.render_widget(
-                    Paragraph::new(thermal_bar),
-                    Rect { x, y, width: w, height: 1 },
-                );
-                x += bar_width + 1;
-            }
-
-            // Col 3: Temp + Power + Clock values
-            if x < max_x {
-                let values = if gpu.clock_mhz > 0 && gpu.power_limit > 0 {
-                    format!(
-                        "{}°C {:>3}W/{:>3}W {:>4}MHz",
-                        gpu.temp as u32, gpu.power, gpu.power_limit, gpu.clock_mhz
-                    )
-                } else if gpu.power_limit > 0 {
-                    format!("{}°C {:>3}W/{:>3}W", gpu.temp as u32, gpu.power, gpu.power_limit)
-                } else if gpu.clock_mhz > 0 {
-                    format!("{}°C {:>3}W {:>4}MHz", gpu.temp as u32, gpu.power, gpu.clock_mhz)
-                } else {
-                    format!("{}°C {:>3}W", gpu.temp as u32, gpu.power)
-                };
-                let w = (value_col + sparkline_col).min(max_x.saturating_sub(x));
-                f.render_widget(
-                    Paragraph::new(values).style(Style::default().fg(temp_color)),
-                    Rect { x, y, width: w, height: 1 },
-                );
-            }
-            y += 1;
-        }
-
-        // Add spacing between GPUs if multiple
         if gpus.len() > 1 && i < gpus.len() - 1 && y < inner.y + gpu_area_height {
             y += 1;
         }
     }
 
-    // === GPU Processes Section (bottom) ===
-    if y < inner.y + inner.height && app.gpu_process_analyzer.is_available() {
-        let procs = app.gpu_process_analyzer.top_processes(3);
-        if !procs.is_empty() {
-            // Divider
-            if y < inner.y + inner.height {
-                let divider = "─".repeat(inner.width as usize);
-                f.render_widget(
-                    Paragraph::new(divider).style(Style::default().fg(Color::DarkGray)),
-                    Rect { x: inner.x, y, width: inner.width, height: 1 },
-                );
-                y += 1;
-            }
-
-            // Show top GPU processes with enhanced display
-            for proc in procs {
-                if y >= inner.y + inner.height {
-                    break;
-                }
-
-                // SM utilization color
-                let sm_color = if proc.sm_util >= 50 {
-                    Color::LightRed
-                } else if proc.sm_util >= 20 {
-                    Color::Yellow
-                } else {
-                    Color::Green
-                };
-
-                // Type badge color: Compute=Cyan, Graphics=Magenta
-                let type_color = match proc.proc_type {
-                    crate::analyzers::GpuProcType::Compute => Color::Cyan,
-                    crate::analyzers::GpuProcType::Graphics => Color::Magenta,
-                };
-
-                // Memory bar (6 chars based on mem_util)
-                let mem_bar_width = 6usize;
-                let mem_filled = ((proc.mem_util as f64 / 100.0) * mem_bar_width as f64) as usize;
-                let mem_empty = mem_bar_width.saturating_sub(mem_filled);
-                let mem_color = if proc.mem_util >= 80 {
-                    Color::Red
-                } else if proc.mem_util >= 50 {
-                    Color::Yellow
-                } else {
-                    Color::Green
-                };
-
-                // Encoder/Decoder indicators
-                let enc_dec = if proc.enc_util > 0 && proc.dec_util > 0 {
-                    format!("[E{}D{}]", proc.enc_util, proc.dec_util)
-                } else if proc.enc_util > 0 {
-                    format!("[E{}]", proc.enc_util)
-                } else if proc.dec_util > 0 {
-                    format!("[D{}]", proc.dec_util)
-                } else {
-                    String::new()
-                };
-
-                // GPU index for multi-GPU systems
-                let gpu_str = if gpus.len() > 1 {
-                    format!("{}", proc.gpu_idx)
-                } else {
-                    String::new()
-                };
-
-                // Build process line with columnar layout
-                let mut spans = vec![
-                    // Type badge (◼C or ◼G)
-                    Span::styled(format!("◼{}", proc.proc_type), Style::default().fg(type_color)),
-                ];
-
-                // GPU index for multi-GPU
-                if !gpu_str.is_empty() {
-                    spans.push(Span::styled(
-                        format!("{} ", gpu_str),
-                        Style::default().fg(Color::DarkGray),
-                    ));
-                } else {
-                    spans.push(Span::styled(" ", Style::default()));
-                }
-
-                spans.extend(vec![
-                    // PID
-                    Span::styled(format!("{:>5} ", proc.pid), Style::default().fg(Color::DarkGray)),
-                    // SM utilization
-                    Span::styled(format!("{:>2}%", proc.sm_util), Style::default().fg(sm_color)),
-                    Span::styled(" ", Style::default()),
-                    // Memory bar
-                    Span::styled("█".repeat(mem_filled), Style::default().fg(mem_color)),
-                    Span::styled("░".repeat(mem_empty), Style::default().fg(Color::DarkGray)),
-                    Span::styled(format!("{:>2}%", proc.mem_util), Style::default().fg(mem_color)),
-                    Span::styled(" ", Style::default()),
-                ]);
-
-                // Add encoder/decoder if present
-                if !enc_dec.is_empty() {
-                    spans.push(Span::styled(
-                        format!("{} ", enc_dec),
-                        Style::default().fg(Color::Yellow),
-                    ));
-                }
-
-                // Calculate remaining space for command
-                let gpu_width = if gpu_str.is_empty() { 0 } else { 2 };
-                let fixed_width = 3 + gpu_width + 6 + 3 + 1 + mem_bar_width + 3 + 1 + enc_dec.len() + if enc_dec.is_empty() { 0 } else { 1 };
-                let cmd_width = (inner.width as usize).saturating_sub(fixed_width);
-
-                // Command name
-                spans.push(Span::styled(
-                    truncate_str(&proc.command, cmd_width),
-                    Style::default().fg(Color::White),
-                ));
-
-                f.render_widget(
-                    Paragraph::new(Line::from(spans)),
-                    Rect { x: inner.x, y, width: inner.width, height: 1 },
-                );
-                y += 1;
-            }
-        }
-    }
+    gpu_draw_processes(f, app, inner, y, gpus.len());
 }
 
 /// Draw Battery panel
