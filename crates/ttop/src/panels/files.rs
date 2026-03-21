@@ -192,3 +192,11 @@ pub fn draw_files(f: &mut Frame, app: &App, area: Rect) {
 #[cfg(test)]
 #[path = "files_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "files_tests_b.rs"]
+mod tests_b;
+
+#[cfg(test)]
+#[path = "files_tests_extended.rs"]
+mod tests_extended;
