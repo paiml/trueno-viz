@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 members = ["."]
-exclude = ["crates/ttop"]
+exclude = ["tests/", "benches/", "docs/", ".github/", "book/", ".pmat/", "target/", ".profraw", ".profdata", ".vscode/", ".idea/", "proptest-regressions/"]
 
 [workspace.package]
 edition = "2021"
