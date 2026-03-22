@@ -1,4 +1,5 @@
-# CI — lint, test, coverage, security, and unified gate
+# CI — lint, test, coverage, security
+# Unified gate runs separately via org ruleset on PRs.
 name: CI
 
 on:
@@ -51,10 +52,3 @@ jobs:
           cargo install cargo-audit --locked || true
           cargo audit
         continue-on-error: true
-
-  unified:
-    uses: paiml/.github/.github/workflows/unified-gate.yml@main
-    with:
-      repo: ${{ github.event.repository.name }}
-      pr_sha: ${{ github.event.pull_request.head.sha || github.sha }}
-    secrets: inherit
