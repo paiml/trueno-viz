@@ -421,6 +421,7 @@ fn collect_gpu_data(app: &App) -> Vec<GpuDisplay> {
 }
 
 pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     let gpus = collect_gpu_data(app);
 
     let title = if gpus.len() > 1 {
@@ -480,6 +481,7 @@ pub fn draw_gpu(f: &mut Frame, app: &App, area: Rect) {
 
 /// Draw Battery panel
 pub fn draw_battery(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     // Check for mock battery data first (for testing)
     if let Some(mock_bat) = &app.mock_battery {
         let status = if mock_bat.charging { "Charging" } else { "Discharging" };
@@ -608,6 +610,7 @@ pub fn draw_battery(f: &mut Frame, app: &App, area: Rect) {
 
 /// Draw Sensors/Temperature panel with health analysis
 pub fn draw_sensors(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     use trueno_viz::monitor::ratatui::style::Color;
     use crate::analyzers::{SensorHealth, SensorType};
     use crate::app::MockSensorType;
@@ -772,6 +775,7 @@ pub fn draw_sensors(f: &mut Frame, app: &App, area: Rect) {
 
 /// Draw compact sensors panel (single line)
 pub fn draw_sensors_compact(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     use trueno_viz::monitor::ratatui::style::Color;
     use crate::analyzers::SensorType;
 

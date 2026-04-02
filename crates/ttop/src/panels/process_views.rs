@@ -1,4 +1,5 @@
 pub fn draw_process(f: &mut Frame, app: &mut App, area: Rect) {
+    contract_pre_draw!();
     let sorted = app.sorted_processes();
     let count = sorted.len();
 

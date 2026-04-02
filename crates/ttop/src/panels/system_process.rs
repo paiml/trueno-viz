@@ -1,4 +1,5 @@
 pub fn draw_psi(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     use trueno_viz::monitor::ratatui::style::Color;
     use crate::analyzers::PressureLevel;
 
@@ -83,6 +84,7 @@ pub fn draw_psi(f: &mut Frame, app: &App, area: Rect) {
 /// Draw combined System panel: Sensors + Containers stacked vertically
 /// (PSI is now shown in the Memory panel)
 pub fn draw_system(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     use trueno_viz::monitor::ratatui::layout::{Layout, Direction, Constraint};
 
     // Determine what components are available

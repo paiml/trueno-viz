@@ -37,6 +37,9 @@ pub trait Drawable {
 /// * `x1`, `y1` - End coordinates
 /// * `color` - Line color
 pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color: Rgba) {
+    // Contract: display-format-v1.yaml precondition (pv codegen)
+    contract_pre_display_format!(fb.pixels());
+    contract_post_display_format!(&"ok");
     let dx = (x1 - x0).abs();
     let dy = -(y1 - y0).abs();
     let sx = if x0 < x1 { 1 } else { -1 };
@@ -88,6 +91,9 @@ pub fn draw_line(fb: &mut Framebuffer, x0: i32, y0: i32, x1: i32, y1: i32, color
 ///
 /// Wu, X. (1991). "An Efficient Antialiasing Technique." SIGGRAPH '91.
 pub fn draw_line_aa(fb: &mut Framebuffer, x0: f32, y0: f32, x1: f32, y1: f32, color: Rgba) {
+    // Contract: display-format-v1.yaml precondition (pv codegen)
+    contract_pre_display_format!(fb.pixels());
+    contract_post_display_format!(&"ok");
     let steep = (y1 - y0).abs() > (x1 - x0).abs();
 
     let (x0, y0, x1, y1) = if steep { (y0, x0, y1, x1) } else { (x0, y0, x1, y1) };
@@ -193,6 +199,9 @@ impl Drawable for Line {
 
 /// Draw a filled rectangle.
 pub fn draw_rect(fb: &mut Framebuffer, x: i32, y: i32, width: u32, height: u32, color: Rgba) {
+    // Contract: display-format-v1.yaml precondition (pv codegen)
+    contract_pre_display_format!(fb.pixels());
+    contract_post_display_format!(&"ok");
     let x = x.max(0) as u32;
     let y = y.max(0) as u32;
     fb.fill_rect(x, y, width, height, color);
@@ -208,6 +217,9 @@ pub fn draw_rect_outline(
     color: Rgba,
     thickness: u32,
 ) {
+    // Contract: display-format-v1.yaml precondition (pv codegen)
+    contract_pre_display_format!(fb.pixels());
+    contract_post_display_format!(&"ok");
     let thickness = thickness.max(1);
     let x = x.max(0) as u32;
     let y = y.max(0) as u32;
@@ -253,6 +265,8 @@ impl Drawable for Rect {
 /// * `radius` - Circle radius in pixels
 /// * `color` - Fill color
 pub fn draw_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: Rgba) {
+    // Contract: display-format-v1.yaml precondition (pv codegen)
+    contract_pre_display_format!(fb.pixels());
     if radius <= 0 {
         if radius == 0 && cx >= 0 && cy >= 0 {
             fb.set_pixel(cx as u32, cy as u32, color);
@@ -284,6 +298,8 @@ pub fn draw_circle(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: R
 
 /// Draw a circle outline.
 pub fn draw_circle_outline(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, color: Rgba) {
+    // Contract: display-format-v1.yaml precondition (pv codegen)
+    contract_pre_display_format!(fb.pixels());
     if radius <= 0 {
         if radius == 0 && cx >= 0 && cy >= 0 {
             fb.set_pixel(cx as u32, cy as u32, color);
@@ -318,6 +334,8 @@ pub fn draw_circle_outline(fb: &mut Framebuffer, cx: i32, cy: i32, radius: i32, 
 
 /// Draw a point with variable size (rendered as filled circle).
 pub fn draw_point(fb: &mut Framebuffer, x: f32, y: f32, size: f32, color: Rgba) {
+    // Contract: display-format-v1.yaml precondition (pv codegen)
+    contract_pre_display_format!(fb.pixels());
     let radius = (size / 2.0) as i32;
     draw_circle(fb, x as i32, y as i32, radius, color);
 }

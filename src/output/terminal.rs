@@ -79,11 +79,14 @@ impl TerminalEncoder {
     /// Render a framebuffer to a string.
     #[must_use]
     pub fn render(&self, fb: &Framebuffer) -> String {
-        match self.mode {
+        contract_pre_configuration!(fb.pixels());
+        let result = match self.mode {
             TerminalMode::Ascii => self.render_ascii(fb),
             TerminalMode::UnicodeHalfBlock => self.render_unicode_half_block(fb),
             TerminalMode::AnsiTrueColor => self.render_ansi_true_color(fb),
-        }
+        };
+        contract_post_configuration!(&result);
+        result
     }
 
     /// Render using ASCII grayscale characters.

@@ -1,4 +1,5 @@
 pub fn draw_files(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     use trueno_viz::monitor::ratatui::style::Color;
     use crate::analyzers::IoActivity;
 

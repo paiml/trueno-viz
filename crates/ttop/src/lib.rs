@@ -23,6 +23,9 @@
 //! - Large file anomaly detection using Modified Z-Score (Iglewicz & Hoaglin, 1993)
 //! - ZRAM compression monitoring
 
+#[macro_use]
+mod generated_contracts;
+
 pub mod analyzers;
 pub mod app;
 pub mod display_rules;

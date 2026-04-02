@@ -1,4 +1,5 @@
 pub fn draw_connections(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     use crate::analyzers::{ConnState, Protocol, ConnectionAnalyzer, geoip};
 
     let conns = app.connection_analyzer.connections();

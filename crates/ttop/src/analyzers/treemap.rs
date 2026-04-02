@@ -167,6 +167,7 @@ impl TreemapAnalyzer {
 
     /// Get treemap layout for rendering
     pub fn layout(&self, width: f64, height: f64) -> Vec<(TreeRect, String)> {
+        contract_pre_layout!();
         let files = self.files.lock().expect("files lock poisoned");
         if files.is_empty() {
             return Vec::new();

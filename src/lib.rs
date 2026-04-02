@@ -48,7 +48,6 @@
 //! - Wu, X. (1991). "An Efficient Antialiasing Technique." SIGGRAPH '91.
 //! - Douglas, D. H., & Peucker, T. K. (1973). Line simplification algorithm.
 //! - Fruchterman, T. M. J., & Reingold, E. M. (1991). Force-directed graph layout.
-
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(missing_docs)]
 // Allow unwrap() in tests only - banned in production code (Cloudflare incident 2025-11-18)
@@ -61,82 +60,62 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::similar_names)]
 #![allow(clippy::doc_markdown)]
-
 // ============================================================================
 // Core Modules
 // ============================================================================
-
 /// Color types and color space conversions.
+#[macro_use]
+#[allow(unused_macros)]
+mod generated_contracts;
 pub mod color;
-
 /// Core framebuffer for pixel rendering.
 pub mod framebuffer;
-
 /// Geometric primitives (points, lines, rectangles).
 pub mod geometry;
-
 /// Scale functions for data-to-visual mappings.
 pub mod scale;
-
 // ============================================================================
 // Visualization Modules
 // ============================================================================
-
 /// Grammar of Graphics implementation.
 pub mod grammar;
-
 /// High-level plot types (scatter, heatmap, histogram, etc.).
 pub mod plots;
-
 // ============================================================================
 // Rendering Modules
 // ============================================================================
-
-/// Rendering backends and rasterization.
-pub mod render;
-
-/// Output encoders (PNG, SVG, terminal).
-pub mod output;
-
 /// SIMD/GPU acceleration layer.
 pub mod accel;
-
+/// Output encoders (PNG, SVG, terminal).
+pub mod output;
+/// Rendering backends and rasterization.
+pub mod render;
 // ============================================================================
 // Optional Integration Modules
 // ============================================================================
-
-/// Text prompt interface for declarative visualization DSL.
-pub mod prompt;
-
 /// Ecosystem integrations (trueno-db, trueno-graph, aprender).
 pub mod interop;
-
-/// Dashboard widgets for experiment tracking and visualization.
-pub mod widgets;
-
-/// WebAssembly bindings for browser usage.
-#[cfg(feature = "wasm")]
-#[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
-pub mod wasm;
-
 /// TUI monitoring system (btop-like).
 #[cfg(feature = "monitor")]
 #[cfg_attr(docsrs, doc(cfg(feature = "monitor")))]
 pub mod monitor;
-
+/// Text prompt interface for declarative visualization DSL.
+pub mod prompt;
+/// WebAssembly bindings for browser usage.
+#[cfg(feature = "wasm")]
+#[cfg_attr(docsrs, doc(cfg(feature = "wasm")))]
+pub mod wasm;
+/// Dashboard widgets for experiment tracking and visualization.
+pub mod widgets;
 // ============================================================================
 // Error Types
 // ============================================================================
-
 /// Error types for trueno-viz operations.
 pub mod error;
-
 pub use error::{Error, Result};
-
 // ============================================================================
 // Prelude
 // ============================================================================
-
 /// Commonly used types and traits for convenient imports.
 ///
 /// ```rust,ignore
@@ -155,18 +134,14 @@ pub mod prelude {
     pub use crate::widgets::{ResourceBar, RunRow, RunStatus, RunTable, Sparkline, TrendDirection};
     pub use batuta_common::display::WithDimensions;
 }
-
 // ============================================================================
 // Re-exports
 // ============================================================================
-
 /// Re-export trueno for direct access to SIMD operations.
 pub use trueno;
-
 // ============================================================================
 // Tests
 // ============================================================================
-
 #[cfg(test)]
 mod tests {
     #[test]

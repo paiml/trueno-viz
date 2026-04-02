@@ -253,6 +253,7 @@ fn disk_draw_io_sparklines(f: &mut Frame, app: &App, inner: Rect, y: u16) {
 }
 
 pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     let rates = app.disk.rates();
 
     let total_read: f64 = rates.values().map(|r| r.read_bytes_per_sec).sum();
@@ -317,6 +318,7 @@ pub fn draw_disk(f: &mut Frame, app: &App, area: Rect) {
 
 /// Draw Network panel - btop style with dual graphs, peaks, and connection stats
 pub fn draw_network(f: &mut Frame, app: &App, area: Rect) {
+    contract_pre_display_format!();
     let iface = app.network.current_interface().unwrap_or("none");
     let (rx_rate, tx_rate) = app
         .network
