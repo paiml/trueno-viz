@@ -37,13 +37,13 @@ base64 = "0.22"
 thiserror = "2.0"
 
 # Optional: ML integration
-aprender = { version = "0.26", optional = true }
+aprender = { version = "0.27.5", optional = true }
 
 # Optional: Graph integration
 trueno-graph = { version = "0.1.17", optional = true, default-features = false }
 
 # Optional: Database integration
-trueno-db = { version = "0.3.13", optional = true }
+trueno-db = { version = "0.3.16", optional = true }
 
 # Optional: Training integration and inference monitoring
 entrenar = { version = "0.6", optional = true }
