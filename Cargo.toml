@@ -22,7 +22,7 @@ categories = ["visualization", "graphics", "science", "wasm"]
 
 [dependencies]
 # Core SIMD/GPU acceleration
-trueno = { version = "0.16", default-features = false }
+trueno = { version = "0.17", default-features = false }
 
 # Shared Batuta stack utilities (display traits, formatting)
 batuta-common = "0.1"
