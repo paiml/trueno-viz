@@ -2,11 +2,11 @@
 
 [package]
 name = "ttop"
-version = "0.3.5"
+version = "2.0.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["PAIML Team"]
-description = "Terminal Top: 10X better than btop - Pure Rust system monitor with GPU support (NVIDIA/AMD/Apple), macOS native, deterministic rendering"
+description = "Terminal Top: 10X better than btop - Pure Rust system monitor with GPU support (NVIDIA/AMD/Apple), sovereign stack, zero-allocation rendering"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/paiml/trueno-viz"
 homepage = "https://github.com/paiml/trueno-viz/tree/main/crates/ttop"
@@ -14,23 +14,19 @@ documentation = "https://docs.rs/ttop"
 readme = "README.md"
 keywords = ["system-monitor", "tui", "terminal", "btop", "htop"]
 categories = ["command-line-utilities", "visualization"]
-exclude = ["tests/", "target/"]
+exclude = ["target/", ".pmat/", ".pmat-metrics/", "docs/"]
 
 [[bin]]
 name = "ttop"
 path = "src/main.rs"
 
 [dependencies]
-# Core monitoring library (re-exports ratatui for trait compatibility)
-trueno-viz = { version = "0.2.2", features = ["monitor"] }
+# Sovereign Stack: presentar-terminal replaces ratatui (version + path for clean-room)
+presentar-terminal = { version = "0.3.5", path = "../../../presentar/crates/presentar-terminal", features = ["ptop"] }
+presentar-core = { version = "0.3.4", path = "../../../presentar/crates/presentar-core" }
 
-# TUI framework - use crossterm directly, ratatui comes from trueno-viz
+# Terminal I/O (only non-PAIML terminal dep)
 crossterm = "0.28"
-
-# Configuration
-serde = { version = "1.0", features = ["derive"] }
-serde_yaml_ng = "0.10"
-dirs = "5.0"
 
 # CLI
 clap = { version = "4.5", features = ["derive"] }
@@ -42,28 +38,22 @@ batuta-common = "0.1"
 thiserror = "2.0"
 anyhow = "1.0"
 
-# Tracing (optional renacer integration)
-renacer = { version = "0.9", optional = true }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-libc = "0.2"
+[build-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml_ng = "0.10"
 
 [dev-dependencies]
-# Testing
+# Probar testing (Brick Architecture, version + path for clean-room)
+jugar-probar = { version = "1.0.4", path = "../../../probar/crates/probar", default-features = false, features = ["tui", "media"] }
 proptest = "1.4"
 tempfile = "3.10"
 
-# TUI testing (probar) - 100% pixel coverage + load testing
-jugar-probar = { version = "1.0.1", path = "../../../probar/crates/probar", default-features = false, features = ["tui", "media"] }
-ratatui = "0.29"
-
 [features]
 default = ["nvidia"]
-nvidia = ["trueno-viz/monitor-nvidia"]
-amd = []  # AMD GPU uses dynamic loading, always available on Linux
-apple-hardware = ["trueno-viz/apple-hardware"]  # Neural Engine, Afterburner, Metal, SE
-tracing = ["dep:renacer"]
-full = ["nvidia", "tracing", "apple-hardware"]
+nvidia = []
+amd = []
+apple-hardware = []
+full = ["nvidia"]
 
 [profile.release]
 opt-level = 3
@@ -77,7 +67,6 @@ unsafe_code = "warn"
 all = { level = "warn", priority = -1 }
 unwrap_used = "deny"
 expect_used = "allow"
-# Allow in tests
 assertions_on_constants = "allow"
 useless_vec = "allow"
 for_kv_map = "allow"

@@ -48,15 +48,15 @@ cargo install ttop
 
 ### Why ttop?
 
-| Feature | ttop | btop | htop |
-|---------|------|------|------|
-| Frame time | **8ms** | 16ms | 50ms |
-| Pure Rust | **Yes** | No (C++) | No (C) |
-| GPU monitoring | **NVIDIA + AMD + Apple** | NVIDIA only | No |
-| GPU processes | **Live pmon** | Static | No |
-| File analytics | **Treemap + duplicates** | No | No |
-| PSI pressure | **Yes** | No | No |
-| Docker stats | **Live** | No | No |
+| Feature | ttop v2 | btop | htop |
+|---------|---------|------|------|
+| Frame time | **< 1ms** | 16ms | 50ms |
+| Pure Rust | **Yes (sovereign stack)** | No (C++) | No (C) |
+| GPU monitoring | **NVIDIA + AMD** | NVIDIA only | No |
+| Zero-alloc rendering | **Yes (CellBuffer)** | No | No |
+| Contract enforcement | **provable-contracts** | No | No |
+| 14 panels | **Yes** | ~10 | ~5 |
+| Deterministic mode | **Yes** | No | No |
 | Deterministic mode | **Yes** | No | No |
 
 ### Panels
