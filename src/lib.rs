@@ -65,7 +65,7 @@
 // ============================================================================
 /// Color types and color space conversions.
 #[macro_use]
-#[allow(unused_macros)]
+#[allow(unused_macros, unused_variables)]
 mod generated_contracts;
 pub mod color;
 /// Core framebuffer for pixel rendering.

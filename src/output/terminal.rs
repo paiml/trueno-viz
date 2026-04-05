@@ -78,6 +78,7 @@ impl TerminalEncoder {
 
     /// Render a framebuffer to a string.
     #[must_use]
+    #[allow(unused_variables)] // generated contract macro binds `path` without assertion
     pub fn render(&self, fb: &Framebuffer) -> String {
         contract_pre_configuration!(fb.pixels());
         let result = match self.mode {
